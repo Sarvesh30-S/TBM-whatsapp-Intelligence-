@@ -10,6 +10,10 @@ spring:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5433/whatsapp_ops}
     username: ${DATABASE_USERNAME:whatsapp_ops}
     password: ${DATABASE_PASSWORD:local_dev_only}
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      connection-timeout: 20000
   jpa:
     hibernate:
       ddl-auto: validate
