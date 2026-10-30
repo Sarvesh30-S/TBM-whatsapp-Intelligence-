@@ -1,0 +1,54 @@
+server:
+  port: ${BACKEND_PORT:8081}
+
+spring:
+  config:
+    import: optional:file:../.env[.properties]
+  application:
+    name: whatsapp-intelligence-api
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5433/whatsapp_ops}
+    username: ${DATABASE_USERNAME:whatsapp_ops}
+    password: ${DATABASE_PASSWORD:local_dev_only}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+  threads:
+    virtual:
+      enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+meta:
+  graph-api-version: ${META_GRAPH_API_VERSION:v23.0}
+  access-token: ${META_ACCESS_TOKEN:}
+  phone-number-id: ${META_PHONE_NUMBER_ID:}
+  waba-id: ${META_WABA_ID:}
+  app-secret: ${META_APP_SECRET:}
+  webhook-verify-token: ${META_WEBHOOK_VERIFY_TOKEN:}
+
+app:
+  dashboard-admin-key: ${DASHBOARD_ADMIN_API_KEY:}
+  media:
+    storage-dir: ${WHATSAPP_MEDIA_DIR:./data/media}
+    max-bytes: ${WHATSAPP_MEDIA_MAX_BYTES:20971520}
+  ai:
+    openai-api-key: ${OPENAI_API_KEY:}
+    openai-model: ${OPENAI_MODEL:gpt-4o-mini}
+    sarvam-api-key: ${SARVAM_API_KEY:}
+    sarvam-stt-model: ${SARVAM_STT_MODEL:saaras:v4}
+    sarvam-stt-mode: ${SARVAM_STT_MODE:codemix}
+    confidence-threshold: ${AI_CONFIDENCE_THRESHOLD:0.75}
+    worker-delay-ms: ${AI_WORKER_DELAY_MS:5000}
+  operations:
+    silence-after-hours: ${OPS_SILENCE_AFTER_HOURS:24}
+  webhook:
+    normalization-delay-ms: ${WEBHOOK_NORMALIZATION_DELAY_MS:500}
+    normalization-max-attempts: ${WEBHOOK_NORMALIZATION_MAX_ATTEMPTS:5}
