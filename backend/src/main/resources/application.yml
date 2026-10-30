@@ -1,5 +1,5 @@
 server:
-  port: ${BACKEND_PORT:8081}
+  port: ${PORT:${BACKEND_PORT:8081}}
 
 spring:
   config:

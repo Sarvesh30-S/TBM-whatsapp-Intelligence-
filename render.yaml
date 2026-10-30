@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: tbm-whatsapp-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    region: frankfurt
+    healthCheckPath: /api/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: supabase
+      - key: DATABASE_URL
+        value: "jdbc:postgresql://aws-0-eu-north-1.pooler.supabase.com:5432/postgres?sslmode=require"
+      - key: DATABASE_USERNAME
+        value: "postgres.taiaqrtkldbasxvqxhlj"
+      - key: DATABASE_PASSWORD
+        sync: false
+      - key: META_ACCESS_TOKEN
+        sync: false
+      - key: META_PHONE_NUMBER_ID
+        value: "1310637042128885"
+      - key: META_WABA_ID
+        value: "1249970158206146"
+      - key: META_APP_SECRET
+        value: "719b4449fd0dff158fa1c2217207a4cf"
+      - key: META_WEBHOOK_VERIFY_TOKEN
+        value: "Sarvesh@30"
+      - key: DASHBOARD_ADMIN_API_KEY
+        value: "fNA3ZlwPK1YlRLSgcKrfNyjws4bJx9XoG445T0xbDD0"
