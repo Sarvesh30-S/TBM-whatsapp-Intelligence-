@@ -1,9 +1,11 @@
 spring:
   datasource:
-    url: jdbc:h2:file:./data/whatsapp_ops;MODE=PostgreSQL;AUTO_SERVER=TRUE
-    username: sa
-    password:
-    driver-class-name: org.h2.Driver
+    url: ${DATABASE_URL:jdbc:postgresql://aws-0-eu-north-1.pooler.supabase.com:5432/postgres?sslmode=require}
+    username: ${DATABASE_USERNAME:postgres.taiaqrtkldbasxvqxhlj}
+    password: ${DATABASE_PASSWORD:Sarvesh@2004}
+    driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: validate
+  flyway:
+    enabled: true

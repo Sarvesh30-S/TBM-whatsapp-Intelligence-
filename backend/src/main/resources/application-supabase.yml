@@ -1,0 +1,11 @@
+spring:
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://aws-0-eu-north-1.pooler.supabase.com:5432/postgres?sslmode=require}
+    username: ${DATABASE_USERNAME:postgres.taiaqrtkldbasxvqxhlj}
+    password: ${DATABASE_PASSWORD:Sarvesh@2004}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
