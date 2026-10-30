@@ -17,8 +17,8 @@ WORKDIR /app
 # Copy built artifact
 COPY --from=build /app/target/whatsapp-intelligence-api-*.jar app.jar
 
-# Dynamic port binding
-ENV PORT=8081
-EXPOSE ${PORT}
+# Dynamic port binding (Render defaults to 10000)
+ENV PORT=10000
+EXPOSE 10000
 
-ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-Xmx384m", "-Xms128m", "-XX:+TieredCompilation", "-XX:TieredStopAtLevel=1", "-Djava.security.egd=file:/dev/./urandom", "-jar", "app.jar"]
