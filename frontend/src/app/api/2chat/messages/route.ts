@@ -8,7 +8,7 @@ import {
   fetchTwoChatMessages,
   normalizePhone,
 } from '@/lib/twochat-api';
-import { TwoChatChannel, TwoChatGroup, TwoChatMessage } from '@/lib/types';
+import { TwoChatChannel, TwoChatConversation, TwoChatGroup, TwoChatMessage } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     const apiKey = queryKey || headerKey || envKey || '';
 
     const channelParam = searchParams.get('channel');
-    const remoteParam = searchParams.get('remote');
+    const chatId = searchParams.get('chatId');
 
     let channels: TwoChatChannel[] = [];
     let groups: TwoChatGroup[] = [];
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
           fetchTwoChatMessages(
             apiKey,
             activeChannel,
-            remoteParam || undefined,
+            undefined,
             contactDirectory,
             activeChannelName
           ),
@@ -67,9 +67,9 @@ export async function GET(req: NextRequest) {
         apiMessages = [...directMsgs];
         groups = fetchedGroups;
 
-        // Fetch recent messages for top groups (up to 8 active groups)
+        // Fetch recent messages for groups
         if (groups.length > 0) {
-          const groupMessagePromises = groups.slice(0, 8).map((grp) =>
+          const groupMessagePromises = groups.map((grp) =>
             fetchTwoChatGroupMessages(apiKey, grp, contactDirectory, activeChannelName)
           );
           const groupMessagesResults = await Promise.all(groupMessagePromises);
@@ -86,12 +86,10 @@ export async function GET(req: NextRequest) {
       const cleanRemote = normalizePhone(m.remoteNumber);
       const isOutbound = m.sentBy === 'agent';
 
-      // Check contact directory for sender name
       const savedSenderName = !isOutbound
         ? (contactDirectory[cleanSender] || contactDirectory[cleanRemote] || m.senderName || cleanSender)
         : activeChannelName;
 
-      // Check contact directory for chat name if not group
       let resolvedChatName = m.chatName;
       if (!m.isGroup) {
         resolvedChatName = contactDirectory[cleanRemote] || m.chatName || cleanRemote;
@@ -119,8 +117,78 @@ export async function GET(req: NextRequest) {
     }
 
     const allMessages = Array.from(messageMap.values()).sort(
-      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
+
+    // 4. Build unified conversation list
+    const conversationMap = new Map<string, TwoChatConversation>();
+
+    // Seed with all known groups
+    for (const grp of groups) {
+      const title = grp.wa_group_name || grp.name || 'WhatsApp Group';
+      conversationMap.set(grp.uuid, {
+        id: grp.uuid,
+        isGroup: true,
+        name: title,
+        phoneOrId: grp.wa_group_id || grp.uuid,
+        groupUuid: grp.uuid,
+        lastMessage: '',
+        lastTimestamp: new Date(0).toISOString(),
+        messageCount: 0,
+      });
+    }
+
+    // Populate and update from messages
+    for (const msg of allMessages) {
+      const convId = msg.isGroup
+        ? (msg.groupUuid || msg.groupName || 'unknown-group')
+        : normalizePhone(msg.remoteNumber);
+
+      if (!convId) continue;
+
+      let conv = conversationMap.get(convId);
+      if (!conv) {
+        const title = msg.isGroup
+          ? (msg.groupName || msg.chatName)
+          : (contactDirectory[convId] || msg.chatName || convId);
+
+        conv = {
+          id: convId,
+          isGroup: Boolean(msg.isGroup),
+          name: title,
+          phoneOrId: msg.isGroup ? (msg.groupUuid || '') : convId,
+          groupUuid: msg.groupUuid,
+          lastMessage: msg.text,
+          lastTimestamp: msg.timestamp,
+          messageCount: 1,
+        };
+        conversationMap.set(convId, conv);
+      } else {
+        conv.messageCount += 1;
+        if (new Date(msg.timestamp).getTime() >= new Date(conv.lastTimestamp).getTime()) {
+          conv.lastMessage = msg.text;
+          conv.lastTimestamp = msg.timestamp;
+          if (msg.groupName && conv.isGroup) {
+            conv.name = msg.groupName;
+          }
+        }
+      }
+    }
+
+    const conversations = Array.from(conversationMap.values()).sort(
+      (a, b) => new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime()
+    );
+
+    // Filter messages for a specific conversation if requested
+    let threadMessages = allMessages;
+    if (chatId) {
+      threadMessages = allMessages.filter((m) => {
+        if (m.isGroup) {
+          return m.groupUuid === chatId || m.groupName === chatId || m.remoteNumber === chatId;
+        }
+        return normalizePhone(m.remoteNumber) === normalizePhone(chatId);
+      });
+    }
 
     return NextResponse.json({
       success: true,
@@ -129,7 +197,9 @@ export async function GET(req: NextRequest) {
       activeChannel,
       groups,
       contacts: contactDirectory,
+      conversations,
       messages: allMessages,
+      threadMessages,
       webhookStoredCount: webhookMessages.length,
     });
   } catch (error: any) {

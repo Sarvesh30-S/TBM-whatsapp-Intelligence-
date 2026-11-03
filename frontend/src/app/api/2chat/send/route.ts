@@ -7,19 +7,24 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const apiKey = body.apiKey || process.env.TWOCHAT_API_KEY;
-    const { fromNumber, toNumber, text } = body;
+    const { fromNumber, toNumber, toGroupUuid, text, groupName } = body;
 
     if (!apiKey) {
       return NextResponse.json({ error: '2Chat API Key is required' }, { status: 400 });
     }
-    if (!fromNumber || !toNumber || !text) {
+    if (!fromNumber || (!toNumber && !toGroupUuid) || !text) {
       return NextResponse.json(
-        { error: 'fromNumber, toNumber, and text are required' },
+        { error: 'fromNumber, destination (toNumber or toGroupUuid), and text are required' },
         { status: 400 }
       );
     }
 
-    const result = await sendTwoChatMessage(apiKey, fromNumber, toNumber, text);
+    const result = await sendTwoChatMessage(
+      apiKey,
+      fromNumber,
+      { toNumber, toGroupUuid },
+      text
+    );
 
     if (!result.success) {
       return NextResponse.json(
@@ -28,18 +33,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Record sent message locally
+    const isGroup = Boolean(toGroupUuid);
+    const destinationId = toGroupUuid || toNumber;
+    const chatTitle = groupName || toNumber;
+
     const sentMsg: TwoChatMessage = {
       id: result.data?.id || `sent-${Date.now()}`,
       source: 'sent',
-      chatName: toNumber,
+      isGroup,
+      groupUuid: toGroupUuid,
+      groupName,
+      chatName: chatTitle,
       senderName: 'You',
       senderNumber: fromNumber,
-      receiverName: toNumber,
-      receiverNumber: toNumber,
+      receiverName: chatTitle,
+      receiverNumber: destinationId,
       fromNumber,
-      toNumber,
-      remoteNumber: toNumber,
+      toNumber: destinationId,
+      remoteNumber: destinationId,
       text,
       sentBy: 'agent',
       timestamp: new Date().toISOString(),

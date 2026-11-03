@@ -17,6 +17,19 @@ export interface TwoChatMessage {
   timestamp: string;
   event?: string;
   mediaUrl?: string;
+  quotedMessage?: string;
+}
+
+export interface TwoChatConversation {
+  id: string;
+  isGroup: boolean;
+  name: string;
+  phoneOrId: string;
+  groupUuid?: string;
+  lastMessage: string;
+  lastTimestamp: string;
+  messageCount: number;
+  unreadCount?: number;
 }
 
 export interface TwoChatGroup {

@@ -24,7 +24,6 @@ export function extractMessageText(raw: any): string {
 
   if (typeof raw.caption === 'string' && raw.caption.trim()) return raw.caption;
 
-  // Media attachments
   const mediaUrl = raw.url || raw.media_url || raw.message?.url;
   if (mediaUrl) {
     const type = raw.type || raw.message?.type || 'Media';
@@ -32,6 +31,24 @@ export function extractMessageText(raw: any): string {
   }
 
   return '';
+}
+
+export function extractQuotedMessage(raw: any): string | undefined {
+  if (!raw) return undefined;
+  if (raw.quoted_message) {
+    if (typeof raw.quoted_message === 'string') return raw.quoted_message;
+    if (raw.quoted_message.text) return raw.quoted_message.text;
+    if (raw.quoted_message.body) return raw.quoted_message.body;
+  }
+  if (raw.message?.quoted_message) {
+    if (typeof raw.message.quoted_message === 'string') return raw.message.quoted_message;
+    if (raw.message.quoted_message.text) return raw.message.quoted_message.text;
+  }
+  if (raw.context?.quoted_message) {
+    if (typeof raw.context.quoted_message === 'string') return raw.context.quoted_message;
+    if (raw.context.quoted_message.text) return raw.context.quoted_message.text;
+  }
+  return undefined;
 }
 
 export async function fetchTwoChatChannels(apiKey: string): Promise<TwoChatChannel[]> {
@@ -184,7 +201,6 @@ export async function fetchTwoChatGroupMessages(
         ''
       );
 
-      // Name resolution: Contact Directory -> sender pushname -> sender name -> senderNumber (if not saved)
       const senderSavedName =
         contactDirectory[senderNumber] ||
         raw.sender?.pushname ||
@@ -199,6 +215,7 @@ export async function fetchTwoChatGroupMessages(
         : (senderSavedName || senderNumber || 'Unknown');
 
       const text = extractMessageText(raw);
+      const quotedMessage = extractQuotedMessage(raw);
 
       return {
         id: raw.id || raw.uuid || `group-msg-${Date.now()}-${Math.random()}`,
@@ -212,9 +229,10 @@ export async function fetchTwoChatGroupMessages(
         receiverName: groupTitle,
         receiverNumber: group.wa_group_id || '',
         fromNumber: senderNumber,
-        toNumber: group.wa_group_id || '',
-        remoteNumber: senderNumber || groupTitle,
+        toNumber: group.wa_group_id || group.uuid,
+        remoteNumber: group.uuid,
         text,
+        quotedMessage,
         sentBy: isOutbound ? 'agent' : 'customer',
         timestamp: raw.created_at || raw.timestamp || new Date().toISOString(),
         mediaUrl: raw.url || raw.media_url || raw.message?.url,
@@ -275,7 +293,6 @@ export async function fetchTwoChatMessages(
       const cleanRemote = normalizePhone(remoteRaw);
       const cleanConnected = normalizePhone(raw.channel_phone_number || connectedNumber);
 
-      // Extract saved name: directory -> pushname -> contact -> phone number if not saved
       const extractedRemoteName =
         contactDirectory[cleanRemote] ||
         raw.pushname ||
@@ -300,6 +317,7 @@ export async function fetchTwoChatMessages(
 
       const chatTitle = extractedRemoteName || cleanRemote;
       const text = extractMessageText(raw);
+      const quotedMessage = extractQuotedMessage(raw);
 
       return {
         id: raw.id || raw.uuid || `api-${Date.now()}-${Math.random()}`,
@@ -314,6 +332,7 @@ export async function fetchTwoChatMessages(
         receiverName: receiverDisplayName,
         receiverNumber: isOutbound ? cleanRemote : cleanConnected,
         text,
+        quotedMessage,
         sentBy: isOutbound ? 'agent' : 'customer',
         timestamp: raw.created_at || raw.timestamp || new Date().toISOString(),
         event: raw.event,
@@ -329,21 +348,27 @@ export async function fetchTwoChatMessages(
 export async function sendTwoChatMessage(
   apiKey: string,
   fromNumber: string,
-  toNumber: string,
+  target: { toNumber?: string; toGroupUuid?: string },
   text: string
 ): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
+    const payload: any = {
+      from_number: normalizePhone(fromNumber),
+      text,
+    };
+    if (target.toGroupUuid) {
+      payload.to_group_uuid = target.toGroupUuid;
+    } else if (target.toNumber) {
+      payload.to_number = normalizePhone(target.toNumber);
+    }
+
     const res = await fetch(`${TWOCHAT_BASE_URL}/whatsapp/send-message`, {
       method: 'POST',
       headers: {
         'X-User-API-Key': apiKey,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        from_number: normalizePhone(fromNumber),
-        to_number: normalizePhone(toNumber),
-        text,
-      }),
+      body: JSON.stringify(payload),
     });
 
     const body = await res.json().catch(() => null);
