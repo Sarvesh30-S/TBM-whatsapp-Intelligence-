@@ -4,6 +4,8 @@ export interface TwoChatMessage {
   fromNumber: string;
   toNumber: string;
   remoteNumber: string;
+  senderName?: string;
+  receiverName?: string;
   text: string;
   sentBy: 'customer' | 'agent' | 'api' | 'user';
   timestamp: string;
@@ -19,6 +21,14 @@ export interface TwoChatChannel {
   connection_status?: string;
   enabled?: boolean;
   channel_type?: string;
+}
+
+export interface TwoChatContact {
+  uuid?: string;
+  first_name?: string;
+  last_name?: string;
+  name?: string;
+  phone_number?: string;
 }
 
 export interface TwoChatConversation {

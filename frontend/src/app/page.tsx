@@ -7,6 +7,7 @@ export default function DashboardPage() {
   const [apiKey, setApiKey] = useState<string>('');
   const [apiKeyInput, setApiKeyInput] = useState<string>('');
   const [messages, setMessages] = useState<TwoChatMessage[]>([]);
+  const [customNames, setCustomNames] = useState<Record<string, string>>({});
   const [filter, setFilter] = useState<'all' | 'received' | 'sent'>('all');
   const [loading, setLoading] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
@@ -16,8 +17,10 @@ export default function DashboardPage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const savedKey = localStorage.getItem('2chat_api_key') || '';
+      const savedNames = JSON.parse(localStorage.getItem('custom_contact_names') || '{}');
       setApiKey(savedKey);
       setApiKeyInput(savedKey);
+      setCustomNames(savedNames);
       setWebhookUrl(`${window.location.origin}/api/webhook/2chat`);
     }
   }, []);
@@ -67,6 +70,15 @@ export default function DashboardPage() {
       navigator.clipboard.writeText(webhookUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleEditContactName = (phone: string, currentName = '') => {
+    const newName = prompt(`Enter saved name for ${phone}:`, currentName);
+    if (newName !== null) {
+      const updated = { ...customNames, [phone]: newName.trim() };
+      setCustomNames(updated);
+      localStorage.setItem('custom_contact_names', JSON.stringify(updated));
     }
   };
 
@@ -189,18 +201,44 @@ export default function DashboardPage() {
               // fallback
             }
 
+            // Determine display names (checking custom local overrides first, then backend/2Chat contact directory)
+            const remoteSavedName =
+              customNames[msg.remoteNumber] ||
+              msg.contactName ||
+              '';
+
+            const senderDisplayName = isReceived
+              ? (remoteSavedName ? `${remoteSavedName} (${msg.fromNumber || msg.remoteNumber})` : (msg.senderName || msg.fromNumber || msg.remoteNumber))
+              : (msg.senderName || msg.fromNumber || 'My WhatsApp');
+
+            const receiverDisplayName = isReceived
+              ? (msg.receiverName || msg.toNumber || 'My WhatsApp')
+              : (remoteSavedName ? `${remoteSavedName} (${msg.toNumber || msg.remoteNumber})` : (msg.receiverName || msg.toNumber || msg.remoteNumber));
+
             return (
               <div key={msg.id} className="message-item">
                 <div className="message-header">
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                     <span className={`badge ${isReceived ? 'received' : 'sent'}`}>
                       {isReceived ? 'Received' : 'Sent'}
                     </span>
-                    <span className="phone-tag">
-                      {msg.contactName ? `${msg.contactName} (${msg.remoteNumber})` : msg.remoteNumber}
-                    </span>
+                    <div style={{ fontSize: 13, display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <span style={{ color: '#777777', fontSize: 12 }}>From:</span>
+                      <strong>{senderDisplayName}</strong>
+                      <span style={{ color: '#777777', fontSize: 12, margin: '0 4px' }}>➔</span>
+                      <span style={{ color: '#777777', fontSize: 12 }}>To:</span>
+                      <strong>{receiverDisplayName}</strong>
+                    </div>
                   </div>
                   <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                    <button
+                      className="secondary"
+                      style={{ padding: '2px 8px', fontSize: 11, border: '1px solid #ccc' }}
+                      onClick={() => handleEditContactName(msg.remoteNumber, remoteSavedName)}
+                      title="Set or edit saved name for this contact"
+                    >
+                      {remoteSavedName ? '✎ Edit Name' : '+ Save Name'}
+                    </button>
                     <span style={{ fontSize: 11, color: '#777777', textTransform: 'uppercase' }}>
                       {msg.source}
                     </span>

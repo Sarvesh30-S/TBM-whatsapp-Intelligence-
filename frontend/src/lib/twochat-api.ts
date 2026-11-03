@@ -2,6 +2,12 @@ import { TwoChatChannel, TwoChatMessage } from './types';
 
 const TWOCHAT_BASE_URL = 'https://api.p.2chat.io/open';
 
+export function normalizePhone(phone: string): string {
+  if (!phone) return '';
+  const digits = phone.replace(/[^0-9]/g, '');
+  return digits ? `+${digits}` : phone;
+}
+
 export async function fetchTwoChatChannels(apiKey: string): Promise<TwoChatChannel[]> {
   try {
     const res = await fetch(`${TWOCHAT_BASE_URL}/whatsapp/channels`, {
@@ -14,8 +20,6 @@ export async function fetchTwoChatChannels(apiKey: string): Promise<TwoChatChann
     });
 
     if (!res.ok) {
-      const errText = await res.text();
-      console.warn(`2Chat channels fetch returned status ${res.status}: ${errText}`);
       return [];
     }
 
@@ -33,16 +37,68 @@ export async function fetchTwoChatChannels(apiKey: string): Promise<TwoChatChann
   }
 }
 
+/**
+ * Fetch contacts saved in 2Chat directory to map phone numbers to real contact names
+ */
+export async function fetchTwoChatContacts(apiKey: string): Promise<Record<string, string>> {
+  const contactMap: Record<string, string> = {};
+  try {
+    const res = await fetch(`${TWOCHAT_BASE_URL}/contacts?results_per_page=100&page_number=1`, {
+      method: 'GET',
+      headers: {
+        'X-User-API-Key': apiKey,
+        'Content-Type': 'application/json',
+      },
+      next: { revalidate: 0 },
+    });
+
+    if (!res.ok) return contactMap;
+
+    const data = await res.json();
+    const contactsList = Array.isArray(data)
+      ? data
+      : data.contacts || data.data || [];
+
+    for (const c of contactsList) {
+      const fullName = (
+        c.name ||
+        `${c.first_name || ''} ${c.last_name || ''}`.trim() ||
+        c.first_name ||
+        ''
+      ).trim();
+
+      if (!fullName) continue;
+
+      if (c.phone_number) {
+        contactMap[normalizePhone(c.phone_number)] = fullName;
+      }
+
+      if (Array.isArray(c.contact_details)) {
+        for (const detail of c.contact_details) {
+          if (detail.value) {
+            contactMap[normalizePhone(detail.value)] = fullName;
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching 2Chat contacts directory:', err);
+  }
+  return contactMap;
+}
+
 export async function fetchTwoChatMessages(
   apiKey: string,
   connectedNumber: string,
-  remoteNumber?: string
+  remoteNumber?: string,
+  contactDirectory: Record<string, string> = {},
+  channelName?: string
 ): Promise<TwoChatMessage[]> {
   try {
-    const cleanNumber = connectedNumber.startsWith('+') ? connectedNumber : `+${connectedNumber}`;
+    const cleanNumber = normalizePhone(connectedNumber);
     let url = `${TWOCHAT_BASE_URL}/whatsapp/messages/${encodeURIComponent(cleanNumber)}`;
     if (remoteNumber) {
-      const cleanRemote = remoteNumber.startsWith('+') ? remoteNumber : `+${remoteNumber}`;
+      const cleanRemote = normalizePhone(remoteNumber);
       url += `/${encodeURIComponent(cleanRemote)}`;
     }
 
@@ -56,8 +112,6 @@ export async function fetchTwoChatMessages(
     });
 
     if (!res.ok) {
-      const errText = await res.text();
-      console.warn(`2Chat messages fetch returned status ${res.status}: ${errText}`);
       return [];
     }
 
@@ -72,18 +126,45 @@ export async function fetchTwoChatMessages(
         raw.sent_by === 'api' ||
         raw.sent_by === 'agent' ||
         raw.sent_by === 'user';
-      const remote =
+
+      const remoteRaw =
         raw.remote_phone_number ||
         raw.to_number ||
         raw.from_number ||
         'Unknown';
+      const cleanRemote = normalizePhone(remoteRaw);
+      const cleanConnected = normalizePhone(raw.channel_phone_number || connectedNumber);
+
+      // Extract best name for the remote party
+      const extractedRemoteName =
+        raw.pushname ||
+        raw.sender?.pushname ||
+        raw.sender?.name ||
+        raw.contact?.name ||
+        raw.contact?.first_name ||
+        (raw.contact?.last_name
+          ? `${raw.contact?.first_name || ''} ${raw.contact?.last_name}`.trim()
+          : undefined) ||
+        contactDirectory[cleanRemote];
+
+      const myDisplayName = channelName || 'My WhatsApp';
+
+      const senderName = isOutbound
+        ? myDisplayName
+        : (extractedRemoteName || cleanRemote);
+
+      const receiverName = isOutbound
+        ? (extractedRemoteName || cleanRemote)
+        : myDisplayName;
 
       return {
         id: raw.id || raw.uuid || `api-${Date.now()}-${Math.random()}`,
         source: 'api',
-        fromNumber: raw.channel_phone_number || connectedNumber,
-        toNumber: raw.to_number || (isOutbound ? remote : connectedNumber),
-        remoteNumber: remote,
+        fromNumber: cleanConnected,
+        toNumber: isOutbound ? cleanRemote : cleanConnected,
+        remoteNumber: cleanRemote,
+        senderName,
+        receiverName,
         text:
           typeof raw.message === 'string'
             ? raw.message
@@ -91,12 +172,7 @@ export async function fetchTwoChatMessages(
         sentBy: isOutbound ? 'agent' : 'customer',
         timestamp: raw.created_at || raw.timestamp || new Date().toISOString(),
         event: raw.event,
-        contactName:
-          raw.contact?.first_name ||
-          raw.contact?.name ||
-          (raw.contact?.last_name
-            ? `${raw.contact?.first_name || ''} ${raw.contact?.last_name}`.trim()
-            : undefined),
+        contactName: extractedRemoteName,
         mediaUrl: raw.url || raw.media_url || raw.message?.url,
       } as TwoChatMessage;
     });
@@ -120,8 +196,8 @@ export async function sendTwoChatMessage(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from_number: fromNumber.startsWith('+') ? fromNumber : `+${fromNumber}`,
-        to_number: toNumber.startsWith('+') ? toNumber : `+${toNumber}`,
+        from_number: normalizePhone(fromNumber),
+        to_number: normalizePhone(toNumber),
         text,
       }),
     });
