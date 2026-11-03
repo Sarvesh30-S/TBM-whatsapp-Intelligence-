@@ -9,12 +9,14 @@ export default function DashboardPage() {
   const [channels, setChannels] = useState<any[]>([]);
   const [activeChannel, setActiveChannel] = useState<string>('');
   const [conversations, setConversations] = useState<TwoChatConversation[]>([]);
-  const [selectedChatId, setSelectedChatId] = useState<string>('');
+  const [selectedChat, setSelectedChat] = useState<TwoChatConversation | null>(null);
+  const [threadMessages, setThreadMessages] = useState<TwoChatMessage[]>([]);
   const [allMessages, setAllMessages] = useState<TwoChatMessage[]>([]);
   const [chatFilter, setChatFilter] = useState<'all' | 'groups' | 'direct'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [replyText, setReplyText] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
+  const [threadLoading, setThreadLoading] = useState<boolean>(false);
   const [sending, setSending] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
   const [webhookUrl, setWebhookUrl] = useState<string>('http://localhost:3000/api/webhook/2chat');
@@ -30,7 +32,8 @@ export default function DashboardPage() {
     }
   }, []);
 
-  const loadData = async (key = apiKey) => {
+  // Fetch conversations directory and overall count
+  const loadConversations = async (key = apiKey) => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -44,35 +47,65 @@ export default function DashboardPage() {
         if (data.activeChannel) setActiveChannel(data.activeChannel);
         setConversations(data.conversations || []);
         setAllMessages(data.messages || []);
-
-        // Auto-select first chat if none selected yet
-        if (!selectedChatId && data.conversations && data.conversations.length > 0) {
-          setSelectedChatId(data.conversations[0].id);
-        }
       }
     } catch (err: any) {
-      console.error('Error fetching messages:', err);
+      console.error('Error fetching conversations:', err);
     } finally {
       setLoading(false);
     }
   };
 
+  // Fetch messages specifically for the selected chat
+  const loadThread = async (chat: TwoChatConversation, key = apiKey) => {
+    try {
+      setThreadLoading(true);
+      const params = new URLSearchParams();
+      if (key) params.set('apiKey', key);
+      params.set('chatId', chat.id);
+      if (chat.isGroup) {
+        params.set('isGroup', 'true');
+        if (chat.groupUuid) params.set('groupUuid', chat.groupUuid);
+      }
+
+      const res = await fetch(`/api/2chat/messages?${params.toString()}`);
+      const data = await res.json();
+
+      if (data.success) {
+        setThreadMessages(data.threadMessages || []);
+        if (data.messages) setAllMessages(data.messages);
+      }
+    } catch (err: any) {
+      console.error('Error fetching thread:', err);
+    } finally {
+      setThreadLoading(false);
+    }
+  };
+
+  // Click on a chat
+  const handleChatClick = (chat: TwoChatConversation) => {
+    setSelectedChat(chat);
+    loadThread(chat, apiKey);
+  };
+
   useEffect(() => {
-    loadData(apiKey);
+    loadConversations(apiKey);
   }, [apiKey]);
 
-  // Auto-refresh every 5 seconds
+  // Periodic polling
   useEffect(() => {
     const interval = setInterval(() => {
-      loadData(apiKey);
+      loadConversations(apiKey);
+      if (selectedChat) {
+        loadThread(selectedChat, apiKey);
+      }
     }, 5000);
     return () => clearInterval(interval);
-  }, [apiKey, selectedChatId]);
+  }, [apiKey, selectedChat]);
 
-  // Auto-scroll chat to bottom
+  // Auto-scroll when new messages arrive in active thread
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [selectedChatId, allMessages]);
+  }, [threadMessages]);
 
   const handleSaveKey = () => {
     const trimmed = apiKeyInput.trim();
@@ -80,7 +113,7 @@ export default function DashboardPage() {
     localStorage.setItem('2chat_api_key', trimmed);
     setStatusText('Key saved');
     setTimeout(() => setStatusText(''), 2500);
-    loadData(trimmed);
+    loadConversations(trimmed);
   };
 
   const handleCopyWebhook = () => {
@@ -95,7 +128,7 @@ export default function DashboardPage() {
   const sentCount = allMessages.filter((m) => m.sentBy === 'agent').length;
   const receivedCount = allMessages.filter((m) => m.sentBy === 'customer').length;
 
-  // Filter conversations in left sidebar
+  // Filter conversations
   const filteredConversations = conversations
     .filter((c) => {
       if (chatFilter === 'groups') return c.isGroup;
@@ -112,31 +145,10 @@ export default function DashboardPage() {
       );
     });
 
-  // Current active conversation
-  const activeConversation = conversations.find((c) => c.id === selectedChatId) ||
-    conversations[0] ||
-    null;
-
-  // Messages in the active conversation thread
-  const threadMessages = allMessages.filter((m) => {
-    if (!activeConversation) return false;
-    if (activeConversation.isGroup) {
-      return (
-        m.groupUuid === activeConversation.id ||
-        m.groupName === activeConversation.name ||
-        m.chatName === activeConversation.name ||
-        m.remoteNumber === activeConversation.id
-      );
-    }
-    const cleanId = activeConversation.id.replace(/[^0-9]/g, '');
-    const cleanRemote = m.remoteNumber.replace(/[^0-9]/g, '');
-    return cleanRemote.includes(cleanId) || cleanId.includes(cleanRemote);
-  });
-
   // Send message or group reply
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!replyText.trim() || !activeConversation) return;
+    if (!replyText.trim() || !selectedChat) return;
 
     if (!apiKey) {
       alert('Please enter and save your 2Chat API Key first.');
@@ -157,11 +169,11 @@ export default function DashboardPage() {
         text: replyText.trim(),
       };
 
-      if (activeConversation.isGroup) {
-        payload.toGroupUuid = activeConversation.groupUuid || activeConversation.id;
-        payload.groupName = activeConversation.name;
+      if (selectedChat.isGroup) {
+        payload.toGroupUuid = selectedChat.groupUuid || selectedChat.id;
+        payload.groupName = selectedChat.name;
       } else {
-        payload.toNumber = activeConversation.phoneOrId || activeConversation.id;
+        payload.toNumber = selectedChat.phoneOrId || selectedChat.id;
       }
 
       const res = await fetch('/api/2chat/send', {
@@ -175,7 +187,8 @@ export default function DashboardPage() {
         alert(`Failed to send message: ${data.error || 'Unknown error'}`);
       } else {
         setReplyText('');
-        loadData(apiKey);
+        loadThread(selectedChat, apiKey);
+        loadConversations(apiKey);
       }
     } catch (err: any) {
       alert(`Send error: ${err.message}`);
@@ -196,14 +209,15 @@ export default function DashboardPage() {
               onClick={async () => {
                 if (confirm('Clear all stored messages?')) {
                   await fetch('/api/2chat/clear', { method: 'POST' });
-                  loadData(apiKey);
+                  setThreadMessages([]);
+                  loadConversations(apiKey);
                 }
               }}
             >
               Clear Messages
             </button>
           )}
-          <button className="secondary" onClick={() => loadData(apiKey)} disabled={loading}>
+          <button className="secondary" onClick={() => loadConversations(apiKey)} disabled={loading}>
             {loading ? 'Refreshing...' : 'Refresh'}
           </button>
         </div>
@@ -211,7 +225,6 @@ export default function DashboardPage() {
 
       {/* Configuration Box */}
       <div className="config-section">
-        {/* Webhook URL */}
         <div className="config-row">
           <span className="config-label">Webhook URL</span>
           <span className="config-code">{webhookUrl}</span>
@@ -220,7 +233,6 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* API Key */}
         <div className="config-row">
           <span className="config-label">2Chat API Key</span>
           <input
@@ -298,7 +310,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               filteredConversations.map((conv) => {
-                const isSelected = activeConversation?.id === conv.id;
+                const isSelected = selectedChat?.id === conv.id;
                 let formattedTime = '';
                 try {
                   if (conv.lastTimestamp && new Date(conv.lastTimestamp).getTime() > 0) {
@@ -319,7 +331,7 @@ export default function DashboardPage() {
                   <div
                     key={conv.id}
                     className={`chat-item ${isSelected ? 'active' : ''}`}
-                    onClick={() => setSelectedChatId(conv.id)}
+                    onClick={() => handleChatClick(conv)}
                   >
                     <div className="chat-avatar">{initial}</div>
                     <div className="chat-info">
@@ -340,18 +352,18 @@ export default function DashboardPage() {
 
         {/* Center Pane: Active Chat Conversation Thread */}
         <main className="livechat-thread">
-          {activeConversation ? (
+          {selectedChat ? (
             <>
               {/* Thread Header */}
               <div className="thread-header">
                 <div>
                   <div className="thread-header-title">
-                    {activeConversation.isGroup ? `👥 ${activeConversation.name}` : activeConversation.name}
+                    {selectedChat.isGroup ? `👥 ${selectedChat.name}` : selectedChat.name}
                   </div>
                   <div className="thread-header-subtitle">
-                    {activeConversation.isGroup
+                    {selectedChat.isGroup
                       ? `WhatsApp Group • ${threadMessages.length} message${threadMessages.length === 1 ? '' : 's'}`
-                      : `${activeConversation.phoneOrId} • ${threadMessages.length} message${threadMessages.length === 1 ? '' : 's'}`}
+                      : `${selectedChat.phoneOrId} • ${threadMessages.length} message${threadMessages.length === 1 ? '' : 's'}`}
                   </div>
                 </div>
 
@@ -359,16 +371,21 @@ export default function DashboardPage() {
                   <button
                     className="secondary"
                     style={{ padding: '4px 10px', fontSize: 11 }}
-                    onClick={() => loadData(apiKey)}
+                    onClick={() => loadThread(selectedChat, apiKey)}
+                    disabled={threadLoading}
                   >
-                    ↻ Sync Thread
+                    {threadLoading ? 'Syncing...' : '↻ Sync Thread'}
                   </button>
                 </div>
               </div>
 
               {/* Messages Stream */}
               <div className="thread-messages-scroll">
-                {threadMessages.length === 0 ? (
+                {threadLoading ? (
+                  <div className="empty-chat-state">
+                    <p style={{ fontWeight: 600 }}>Loading conversation...</p>
+                  </div>
+                ) : threadMessages.length === 0 ? (
                   <div className="empty-chat-state">
                     <p style={{ fontWeight: 600, marginBottom: 4 }}>No messages in this chat yet.</p>
                     <p style={{ fontSize: 12 }}>Send a message below or wait for live updates.</p>
@@ -386,7 +403,6 @@ export default function DashboardPage() {
                       formattedTime = '';
                     }
 
-                    // Sender title for group messages
                     const senderTitle = isOutbound
                       ? 'You'
                       : (msg.senderName || msg.senderNumber || 'Unknown');
@@ -396,7 +412,6 @@ export default function DashboardPage() {
                         key={msg.id}
                         className={`message-bubble-wrapper ${isOutbound ? 'outbound' : 'inbound'}`}
                       >
-                        {/* Show sender name for group chats if incoming */}
                         {!isOutbound && (
                           <div className="sender-label">
                             {senderTitle}
@@ -404,7 +419,6 @@ export default function DashboardPage() {
                         )}
 
                         <div className={`bubble-content ${isOutbound ? 'outbound' : 'inbound'}`}>
-                          {/* If quoted message is present */}
                           {msg.quotedMessage && (
                             <div className="quote-box">
                               {msg.quotedMessage}
@@ -431,7 +445,7 @@ export default function DashboardPage() {
                 <input
                   type="text"
                   className="composer-input"
-                  placeholder={`Write a reply to ${activeConversation.name}...`}
+                  placeholder={`Write a reply to ${selectedChat.name}...`}
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
                   disabled={sending}
@@ -447,9 +461,10 @@ export default function DashboardPage() {
             </>
           ) : (
             <div className="empty-chat-state">
+              <div style={{ fontSize: 36, marginBottom: 12 }}>💬</div>
               <p style={{ fontWeight: 700, fontSize: 16 }}>Select a chat or group</p>
               <p style={{ fontSize: 13, marginTop: 4 }}>
-                Choose a conversation from the left to view the full chat history.
+                Click on any conversation from the list on the left to open and view the conversation thread.
               </p>
             </div>
           )}
@@ -457,23 +472,23 @@ export default function DashboardPage() {
 
         {/* Right Details Panel */}
         <aside className="livechat-info">
-          {activeConversation ? (
+          {selectedChat ? (
             <>
               <div className="info-header">
                 <div className="info-avatar">
-                  {activeConversation.isGroup ? '👥' : '👤'}
+                  {selectedChat.isGroup ? '👥' : '👤'}
                 </div>
-                <div className="info-name">{activeConversation.name}</div>
+                <div className="info-name">{selectedChat.name}</div>
                 <div className="info-type">
-                  {activeConversation.isGroup ? 'WhatsApp Group' : 'Direct Contact'}
+                  {selectedChat.isGroup ? 'WhatsApp Group' : 'Direct Contact'}
                 </div>
               </div>
 
               <div className="info-section">
                 <span className="info-label">
-                  {activeConversation.isGroup ? 'Group ID / UUID' : 'Phone Number'}
+                  {selectedChat.isGroup ? 'Group ID / UUID' : 'Phone Number'}
                 </span>
-                <span className="info-value">{activeConversation.phoneOrId}</span>
+                <span className="info-value">{selectedChat.phoneOrId}</span>
               </div>
 
               <div className="info-section">
@@ -481,11 +496,11 @@ export default function DashboardPage() {
                 <span className="info-value">{threadMessages.length}</span>
               </div>
 
-              {activeConversation.lastTimestamp && new Date(activeConversation.lastTimestamp).getTime() > 0 && (
+              {selectedChat.lastTimestamp && new Date(selectedChat.lastTimestamp).getTime() > 0 && (
                 <div className="info-section">
                   <span className="info-label">Last Active</span>
                   <span className="info-value" style={{ fontSize: 11 }}>
-                    {new Date(activeConversation.lastTimestamp).toLocaleString()}
+                    {new Date(selectedChat.lastTimestamp).toLocaleString()}
                   </span>
                 </div>
               )}

@@ -22,6 +22,8 @@ export async function GET(req: NextRequest) {
 
     const channelParam = searchParams.get('channel');
     const chatId = searchParams.get('chatId');
+    const isGroupParam = searchParams.get('isGroup') === 'true';
+    const groupUuid = searchParams.get('groupUuid') || (isGroupParam ? chatId : undefined);
 
     let channels: TwoChatChannel[] = [];
     let groups: TwoChatGroup[] = [];
@@ -30,7 +32,7 @@ export async function GET(req: NextRequest) {
     let activeChannel = channelParam || '';
     let activeChannelName = 'My WhatsApp';
 
-    // 1. If we have an API Key, fetch channels, contacts directory, and groups
+    // 1. Fetch channel metadata, contacts directory, and groups list
     if (apiKey) {
       const [fetchedChannels, fetchedContacts] = await Promise.all([
         fetchTwoChatChannels(apiKey),
@@ -52,7 +54,7 @@ export async function GET(req: NextRequest) {
       }
 
       if (activeChannel) {
-        // Fetch direct messages and groups in parallel
+        // Fetch groups list and general direct messages list
         const [directMsgs, fetchedGroups] = await Promise.all([
           fetchTwoChatMessages(
             apiKey,
@@ -67,14 +69,39 @@ export async function GET(req: NextRequest) {
         apiMessages = [...directMsgs];
         groups = fetchedGroups;
 
-        // Fetch recent messages for groups
-        if (groups.length > 0) {
-          const groupMessagePromises = groups.map((grp) =>
-            fetchTwoChatGroupMessages(apiKey, grp, contactDirectory, activeChannelName)
+        // If a specific group is requested, fetch that group's messages immediately
+        if (groupUuid) {
+          const targetGroup = groups.find((g) => g.uuid === groupUuid) || {
+            uuid: groupUuid,
+            wa_group_name: 'WhatsApp Group',
+          };
+          const specificGroupMsgs = await fetchTwoChatGroupMessages(
+            apiKey,
+            targetGroup,
+            contactDirectory,
+            activeChannelName
           );
-          const groupMessagesResults = await Promise.all(groupMessagePromises);
-          for (const gMsgs of groupMessagesResults) {
-            apiMessages.push(...gMsgs);
+          apiMessages.push(...specificGroupMsgs);
+        } else if (chatId && !isGroupParam) {
+          // If a specific direct customer is requested, fetch full conversation with that customer
+          const specificDirectMsgs = await fetchTwoChatMessages(
+            apiKey,
+            activeChannel,
+            chatId,
+            contactDirectory,
+            activeChannelName
+          );
+          apiMessages.push(...specificDirectMsgs);
+        } else {
+          // Otherwise fetch recent messages for top 5 active groups
+          const topGroups = groups.slice(0, 5);
+          const groupMsgsArrays = await Promise.all(
+            topGroups.map((g) =>
+              fetchTwoChatGroupMessages(apiKey, g, contactDirectory, activeChannelName)
+            )
+          );
+          for (const arr of groupMsgsArrays) {
+            apiMessages.push(...arr);
           }
         }
       }
@@ -106,7 +133,7 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    // 3. Merge & Deduplicate
+    // 3. Merge & Deduplicate all messages
     const messageMap = new Map<string, TwoChatMessage>();
 
     for (const msg of [...webhookMessages, ...apiMessages]) {
@@ -120,10 +147,10 @@ export async function GET(req: NextRequest) {
       (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
 
-    // 4. Build unified conversation list
+    // 4. Build unified conversation directory
     const conversationMap = new Map<string, TwoChatConversation>();
 
-    // Seed with all known groups
+    // Add all groups first
     for (const grp of groups) {
       const title = grp.wa_group_name || grp.name || 'WhatsApp Group';
       conversationMap.set(grp.uuid, {
@@ -179,14 +206,17 @@ export async function GET(req: NextRequest) {
       (a, b) => new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime()
     );
 
-    // Filter messages for a specific conversation if requested
-    let threadMessages = allMessages;
+    // 5. If chatId is specified, filter messages specifically for this conversation
+    let threadMessages: TwoChatMessage[] = [];
     if (chatId) {
       threadMessages = allMessages.filter((m) => {
-        if (m.isGroup) {
-          return m.groupUuid === chatId || m.groupName === chatId || m.remoteNumber === chatId;
+        if (isGroupParam || groupUuid) {
+          const target = groupUuid || chatId;
+          return m.groupUuid === target || m.remoteNumber === target || m.groupName === chatId;
         }
-        return normalizePhone(m.remoteNumber) === normalizePhone(chatId);
+        const cleanId = normalizePhone(chatId);
+        const cleanRemote = normalizePhone(m.remoteNumber);
+        return cleanRemote === cleanId;
       });
     }
 
