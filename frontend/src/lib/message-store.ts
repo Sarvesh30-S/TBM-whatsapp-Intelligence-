@@ -5,52 +5,35 @@ import { TwoChatMessage } from './types';
 const DATA_DIR = path.resolve(process.cwd(), 'data');
 const FILE_PATH = path.join(DATA_DIR, '2chat_messages.json');
 
-// In-memory cache
-let cachedMessages: TwoChatMessage[] | null = null;
-
 function ensureDataFile() {
-  if (!fs.existsSync(DATA_DIR)) {
-    try {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
-    } catch {
-      // ignore
     }
-  }
-  if (!fs.existsSync(FILE_PATH)) {
-    try {
+    if (!fs.existsSync(FILE_PATH)) {
       fs.writeFileSync(FILE_PATH, JSON.stringify([], null, 2), 'utf-8');
-    } catch {
-      // ignore
     }
+  } catch (err) {
+    console.error('Failed to ensure data file:', err);
   }
 }
 
 export function loadStoredMessages(): TwoChatMessage[] {
-  if (cachedMessages !== null) {
-    return cachedMessages;
-  }
   ensureDataFile();
   try {
     if (fs.existsSync(FILE_PATH)) {
       const content = fs.readFileSync(FILE_PATH, 'utf-8');
-      cachedMessages = JSON.parse(content);
-      return cachedMessages || [];
+      if (content && content.trim()) {
+        const parsed = JSON.parse(content);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      }
     }
   } catch (err) {
     console.error('Failed to read messages file:', err);
   }
-  cachedMessages = [];
-  return cachedMessages;
-}
-
-function persistMessages() {
-  if (!cachedMessages) return;
-  ensureDataFile();
-  try {
-    fs.writeFileSync(FILE_PATH, JSON.stringify(cachedMessages, null, 2), 'utf-8');
-  } catch (err) {
-    console.error('Failed to write messages file:', err);
-  }
+  return [];
 }
 
 function getMessageKey(m: TwoChatMessage): string {
@@ -66,31 +49,40 @@ export function addStoredMessage(msg: TwoChatMessage): void {
 
 export function addStoredMessages(newMessages: TwoChatMessage[]): void {
   if (!newMessages || newMessages.length === 0) return;
-  const list = loadStoredMessages();
-  const existingKeys = new Set(list.map(getMessageKey));
+  ensureDataFile();
 
-  let added = false;
-  for (const msg of newMessages) {
-    const key = getMessageKey(msg);
-    if (!existingKeys.has(key)) {
-      existingKeys.add(key);
-      list.push(msg);
-      added = true;
-    }
-  }
+  try {
+    const list = loadStoredMessages();
+    const existingKeys = new Set(list.map(getMessageKey));
 
-  if (added) {
-    // Sort chronologically ascending
-    list.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-    // Keep max 2000 messages
-    if (list.length > 2000) {
-      list.splice(0, list.length - 2000);
+    let added = false;
+    for (const msg of newMessages) {
+      if (!msg) continue;
+      const key = getMessageKey(msg);
+      if (!existingKeys.has(key)) {
+        existingKeys.add(key);
+        list.push(msg);
+        added = true;
+      }
     }
-    persistMessages();
+
+    if (added) {
+      list.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      if (list.length > 3000) {
+        list.splice(0, list.length - 3000);
+      }
+      fs.writeFileSync(FILE_PATH, JSON.stringify(list, null, 2), 'utf-8');
+    }
+  } catch (err) {
+    console.error('Failed to add stored messages:', err);
   }
 }
 
 export function clearStoredMessages(): void {
-  cachedMessages = [];
-  persistMessages();
+  ensureDataFile();
+  try {
+    fs.writeFileSync(FILE_PATH, JSON.stringify([], null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Failed to clear messages file:', err);
+  }
 }

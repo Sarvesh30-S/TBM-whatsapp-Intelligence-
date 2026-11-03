@@ -15,34 +15,60 @@ export default function DashboardPage() {
   const [activeChannel, setActiveChannel] = useState<string>('');
   const [conversations, setConversations] = useState<TwoChatConversation[]>([]);
   const [selectedChat, setSelectedChat] = useState<TwoChatConversation | null>(null);
-  const [threadMessages, setThreadMessages] = useState<TwoChatMessage[]>([]);
   const [allMessages, setAllMessages] = useState<TwoChatMessage[]>([]);
   const [chatFilter, setChatFilter] = useState<'all' | 'groups' | 'direct'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [replyText, setReplyText] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
-  const [threadLoading, setThreadLoading] = useState<boolean>(false);
   const [sending, setSending] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
   const [webhookUrl, setWebhookUrl] = useState<string>('http://localhost:3000/api/webhook/2chat');
   const [statusText, setStatusText] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Load saved state from browser localStorage on startup
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const savedKey = localStorage.getItem('2chat_api_key') || '';
+      const cachedMsgs = localStorage.getItem('cached_2chat_messages');
+      const cachedConvs = localStorage.getItem('cached_2chat_conversations');
+
       setApiKey(savedKey);
       setApiKeyInput(savedKey);
       setWebhookUrl(`${window.location.origin}/api/webhook/2chat`);
+
+      if (cachedMsgs) {
+        try {
+          const parsed = JSON.parse(cachedMsgs);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setAllMessages(parsed);
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      if (cachedConvs) {
+        try {
+          const parsed = JSON.parse(cachedConvs);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setConversations(parsed);
+            setSelectedChat(parsed[0]);
+          }
+        } catch {
+          // ignore
+        }
+      }
     }
   }, []);
 
-  // Fetch conversations directory and all cumulative messages
-  const loadConversations = async (key = apiKey) => {
+  // Manual fetch function (NO auto refresh timer)
+  const loadData = async (key = apiKey, targetChatId?: string) => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
       if (key) params.set('apiKey', key);
+      if (targetChatId) params.set('chatId', targetChatId);
 
       const res = await fetch(`/api/2chat/messages?${params.toString()}`);
       const data = await res.json();
@@ -50,80 +76,60 @@ export default function DashboardPage() {
       if (data.success) {
         if (data.channels && data.channels.length > 0) setChannels(data.channels);
         if (data.activeChannel) setActiveChannel(data.activeChannel);
-        if (data.conversations && data.conversations.length > 0) setConversations(data.conversations);
-        if (data.messages && data.messages.length > 0) {
-          setAllMessages(data.messages);
+
+        // Update messages cumulative store
+        if (data.messages && Array.isArray(data.messages) && data.messages.length > 0) {
+          setAllMessages((prev) => {
+            const existingIds = new Set(prev.map((m) => m.id));
+            const merged = [...prev];
+            for (const m of data.messages) {
+              if (!existingIds.has(m.id)) {
+                existingIds.add(m.id);
+                merged.push(m);
+              }
+            }
+            merged.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('cached_2chat_messages', JSON.stringify(merged));
+            }
+            return merged;
+          });
+        }
+
+        // Update conversations list
+        if (data.conversations && Array.isArray(data.conversations) && data.conversations.length > 0) {
+          setConversations(data.conversations);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('cached_2chat_conversations', JSON.stringify(data.conversations));
+          }
+          if (!selectedChat) {
+            setSelectedChat(data.conversations[0]);
+          }
         }
       }
     } catch (err: any) {
-      console.error('Error fetching conversations:', err);
+      console.error('Error fetching data:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch messages specifically for the selected chat (silent by default on polling)
-  const loadThread = async (chat: TwoChatConversation, key = apiKey, isInitialClick = false) => {
-    try {
-      if (isInitialClick) {
-        setThreadLoading(true);
-      }
-      const params = new URLSearchParams();
-      if (key) params.set('apiKey', key);
-      params.set('chatId', chat.id);
-      if (chat.isGroup) {
-        params.set('isGroup', 'true');
-        if (chat.groupUuid) params.set('groupUuid', chat.groupUuid);
-      }
-
-      const res = await fetch(`/api/2chat/messages?${params.toString()}`);
-      const data = await res.json();
-
-      if (data.success) {
-        if (data.threadMessages && data.threadMessages.length > 0) {
-          setThreadMessages(data.threadMessages);
-        }
-        if (data.messages && data.messages.length > 0) {
-          setAllMessages(data.messages);
-        }
-        if (data.conversations && data.conversations.length > 0) {
-          setConversations(data.conversations);
-        }
-      }
-    } catch (err: any) {
-      console.error('Error fetching thread:', err);
-    } finally {
-      if (isInitialClick) {
-        setThreadLoading(false);
-      }
-    }
-  };
-
-  // Click on a chat
-  const handleChatClick = (chat: TwoChatConversation) => {
-    setSelectedChat(chat);
-    loadThread(chat, apiKey, true);
-  };
-
+  // Initial load on mount or when API key is saved
   useEffect(() => {
-    loadConversations(apiKey);
+    if (apiKey) {
+      loadData(apiKey);
+    }
   }, [apiKey]);
 
-  // Periodic polling every 5 seconds (runs silently without blinking/wiping messages)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      loadConversations(apiKey);
-      if (selectedChat) {
-        loadThread(selectedChat, apiKey, false);
-      }
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [apiKey, selectedChat]);
+  // Click on a chat: instantly switches view without delay
+  const handleChatClick = (chat: TwoChatConversation) => {
+    setSelectedChat(chat);
+  };
 
-  // Auto-scroll to bottom of thread
+  // Auto-scroll to bottom of conversation
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [threadMessages]);
+  }, [selectedChat, allMessages]);
 
   const handleSaveKey = () => {
     const trimmed = apiKeyInput.trim();
@@ -131,7 +137,7 @@ export default function DashboardPage() {
     localStorage.setItem('2chat_api_key', trimmed);
     setStatusText('Key saved');
     setTimeout(() => setStatusText(''), 2500);
-    loadConversations(trimmed);
+    loadData(trimmed);
   };
 
   const handleCopyWebhook = () => {
@@ -163,15 +169,14 @@ export default function DashboardPage() {
       );
     });
 
-  // Fallback client-side resolution of thread messages to prevent any disappearing
-  const displayedMessages = React.useMemo(() => {
+  // Messages in the active conversation thread (persistent, never disappears)
+  const currentChatMessages = React.useMemo(() => {
     if (!selectedChat) return [];
 
-    // Filter from allMessages
     const chatDigits = cleanDigits(selectedChat.id);
     const chatNameLower = selectedChat.name.toLowerCase();
 
-    const matched = allMessages.filter((m) => {
+    return allMessages.filter((m) => {
       if (selectedChat.isGroup || m.isGroup) {
         if (selectedChat.groupUuid && m.groupUuid === selectedChat.groupUuid) return true;
         if (m.groupUuid === selectedChat.id || m.remoteNumber === selectedChat.id) return true;
@@ -187,10 +192,7 @@ export default function DashboardPage() {
       }
       return m.remoteNumber === selectedChat.id || m.chatName === selectedChat.name;
     });
-
-    if (matched.length > 0) return matched;
-    return threadMessages;
-  }, [selectedChat, allMessages, threadMessages]);
+  }, [selectedChat, allMessages]);
 
   // Send message or group reply
   const handleSendMessage = async (e?: React.FormEvent) => {
@@ -234,8 +236,7 @@ export default function DashboardPage() {
         alert(`Failed to send message: ${data.error || 'Unknown error'}`);
       } else {
         setReplyText('');
-        loadThread(selectedChat, apiKey, false);
-        loadConversations(apiKey);
+        loadData(apiKey, selectedChat.id);
       }
     } catch (err: any) {
       alert(`Send error: ${err.message}`);
@@ -256,17 +257,20 @@ export default function DashboardPage() {
               onClick={async () => {
                 if (confirm('Clear all stored messages?')) {
                   await fetch('/api/2chat/clear', { method: 'POST' });
-                  setThreadMessages([]);
                   setAllMessages([]);
-                  loadConversations(apiKey);
+                  if (typeof window !== 'undefined') {
+                    localStorage.removeItem('cached_2chat_messages');
+                    localStorage.removeItem('cached_2chat_conversations');
+                  }
+                  loadData(apiKey);
                 }
               }}
             >
               Clear Messages
             </button>
           )}
-          <button className="secondary" onClick={() => loadConversations(apiKey)} disabled={loading}>
-            {loading ? 'Refreshing...' : 'Refresh'}
+          <button className="secondary" onClick={() => loadData(apiKey)} disabled={loading}>
+            {loading ? 'Refreshing...' : '↻ Manual Refresh'}
           </button>
         </div>
       </div>
@@ -354,7 +358,7 @@ export default function DashboardPage() {
           <div className="chat-items-scroll">
             {filteredConversations.length === 0 ? (
               <div style={{ padding: '30px 16px', textAlign: 'center', color: '#888888', fontSize: 13 }}>
-                No chats found.
+                {loading ? 'Loading chats...' : 'No chats found. Click "Manual Refresh" above.'}
               </div>
             ) : (
               filteredConversations.map((conv) => {
@@ -410,8 +414,8 @@ export default function DashboardPage() {
                   </div>
                   <div className="thread-header-subtitle">
                     {selectedChat.isGroup
-                      ? `WhatsApp Group • ${displayedMessages.length} message${displayedMessages.length === 1 ? '' : 's'}`
-                      : `${selectedChat.phoneOrId} • ${displayedMessages.length} message${displayedMessages.length === 1 ? '' : 's'}`}
+                      ? `WhatsApp Group • ${currentChatMessages.length} message${currentChatMessages.length === 1 ? '' : 's'}`
+                      : `${selectedChat.phoneOrId} • ${currentChatMessages.length} message${currentChatMessages.length === 1 ? '' : 's'}`}
                   </div>
                 </div>
 
@@ -419,27 +423,23 @@ export default function DashboardPage() {
                   <button
                     className="secondary"
                     style={{ padding: '4px 10px', fontSize: 11 }}
-                    onClick={() => loadThread(selectedChat, apiKey, true)}
-                    disabled={threadLoading}
+                    onClick={() => loadData(apiKey, selectedChat.id)}
+                    disabled={loading}
                   >
-                    {threadLoading ? 'Syncing...' : '↻ Sync Thread'}
+                    ↻ Sync Chat
                   </button>
                 </div>
               </div>
 
               {/* Messages Stream */}
               <div className="thread-messages-scroll">
-                {threadLoading && displayedMessages.length === 0 ? (
-                  <div className="empty-chat-state">
-                    <p style={{ fontWeight: 600 }}>Loading conversation...</p>
-                  </div>
-                ) : displayedMessages.length === 0 ? (
+                {currentChatMessages.length === 0 ? (
                   <div className="empty-chat-state">
                     <p style={{ fontWeight: 600, marginBottom: 4 }}>No messages in this chat yet.</p>
-                    <p style={{ fontSize: 12 }}>Send a message below or wait for live updates.</p>
+                    <p style={{ fontSize: 12 }}>Send a message below or click "Manual Refresh" above.</p>
                   </div>
                 ) : (
-                  displayedMessages.map((msg) => {
+                  currentChatMessages.map((msg) => {
                     const isOutbound = msg.sentBy === 'agent';
                     let formattedTime = '';
                     try {
@@ -541,7 +541,7 @@ export default function DashboardPage() {
 
               <div className="info-section">
                 <span className="info-label">Total Messages</span>
-                <span className="info-value">{displayedMessages.length}</span>
+                <span className="info-value">{currentChatMessages.length}</span>
               </div>
 
               {selectedChat.lastTimestamp && new Date(selectedChat.lastTimestamp).getTime() > 0 && (
