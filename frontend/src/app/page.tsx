@@ -3,6 +3,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TwoChatConversation, TwoChatMessage } from '@/lib/types';
 
+function cleanDigits(val: string): string {
+  if (!val) return '';
+  return val.replace(/[^0-9]/g, '');
+}
+
 export default function DashboardPage() {
   const [apiKey, setApiKey] = useState<string>('');
   const [apiKeyInput, setApiKeyInput] = useState<string>('');
@@ -32,7 +37,7 @@ export default function DashboardPage() {
     }
   }, []);
 
-  // Fetch conversations directory and overall count
+  // Fetch conversations directory and all cumulative messages
   const loadConversations = async (key = apiKey) => {
     try {
       setLoading(true);
@@ -43,10 +48,12 @@ export default function DashboardPage() {
       const data = await res.json();
 
       if (data.success) {
-        setChannels(data.channels || []);
+        if (data.channels && data.channels.length > 0) setChannels(data.channels);
         if (data.activeChannel) setActiveChannel(data.activeChannel);
-        setConversations(data.conversations || []);
-        setAllMessages(data.messages || []);
+        if (data.conversations && data.conversations.length > 0) setConversations(data.conversations);
+        if (data.messages && data.messages.length > 0) {
+          setAllMessages(data.messages);
+        }
       }
     } catch (err: any) {
       console.error('Error fetching conversations:', err);
@@ -55,10 +62,12 @@ export default function DashboardPage() {
     }
   };
 
-  // Fetch messages specifically for the selected chat
-  const loadThread = async (chat: TwoChatConversation, key = apiKey) => {
+  // Fetch messages specifically for the selected chat (silent by default on polling)
+  const loadThread = async (chat: TwoChatConversation, key = apiKey, isInitialClick = false) => {
     try {
-      setThreadLoading(true);
+      if (isInitialClick) {
+        setThreadLoading(true);
+      }
       const params = new URLSearchParams();
       if (key) params.set('apiKey', key);
       params.set('chatId', chat.id);
@@ -71,38 +80,47 @@ export default function DashboardPage() {
       const data = await res.json();
 
       if (data.success) {
-        setThreadMessages(data.threadMessages || []);
-        if (data.messages) setAllMessages(data.messages);
+        if (data.threadMessages && data.threadMessages.length > 0) {
+          setThreadMessages(data.threadMessages);
+        }
+        if (data.messages && data.messages.length > 0) {
+          setAllMessages(data.messages);
+        }
+        if (data.conversations && data.conversations.length > 0) {
+          setConversations(data.conversations);
+        }
       }
     } catch (err: any) {
       console.error('Error fetching thread:', err);
     } finally {
-      setThreadLoading(false);
+      if (isInitialClick) {
+        setThreadLoading(false);
+      }
     }
   };
 
   // Click on a chat
   const handleChatClick = (chat: TwoChatConversation) => {
     setSelectedChat(chat);
-    loadThread(chat, apiKey);
+    loadThread(chat, apiKey, true);
   };
 
   useEffect(() => {
     loadConversations(apiKey);
   }, [apiKey]);
 
-  // Periodic polling
+  // Periodic polling every 5 seconds (runs silently without blinking/wiping messages)
   useEffect(() => {
     const interval = setInterval(() => {
       loadConversations(apiKey);
       if (selectedChat) {
-        loadThread(selectedChat, apiKey);
+        loadThread(selectedChat, apiKey, false);
       }
     }, 5000);
     return () => clearInterval(interval);
   }, [apiKey, selectedChat]);
 
-  // Auto-scroll when new messages arrive in active thread
+  // Auto-scroll to bottom of thread
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [threadMessages]);
@@ -128,7 +146,7 @@ export default function DashboardPage() {
   const sentCount = allMessages.filter((m) => m.sentBy === 'agent').length;
   const receivedCount = allMessages.filter((m) => m.sentBy === 'customer').length;
 
-  // Filter conversations
+  // Filter conversations in left list
   const filteredConversations = conversations
     .filter((c) => {
       if (chatFilter === 'groups') return c.isGroup;
@@ -144,6 +162,35 @@ export default function DashboardPage() {
         (c.phoneOrId && c.phoneOrId.toLowerCase().includes(q))
       );
     });
+
+  // Fallback client-side resolution of thread messages to prevent any disappearing
+  const displayedMessages = React.useMemo(() => {
+    if (!selectedChat) return [];
+
+    // Filter from allMessages
+    const chatDigits = cleanDigits(selectedChat.id);
+    const chatNameLower = selectedChat.name.toLowerCase();
+
+    const matched = allMessages.filter((m) => {
+      if (selectedChat.isGroup || m.isGroup) {
+        if (selectedChat.groupUuid && m.groupUuid === selectedChat.groupUuid) return true;
+        if (m.groupUuid === selectedChat.id || m.remoteNumber === selectedChat.id) return true;
+        if (m.groupName && m.groupName.toLowerCase() === chatNameLower) return true;
+        if (m.chatName && m.chatName.toLowerCase() === chatNameLower) return true;
+        return false;
+      }
+
+      // Direct chat
+      const msgDigits = cleanDigits(m.remoteNumber);
+      if (chatDigits && msgDigits) {
+        return chatDigits === msgDigits || msgDigits.endsWith(chatDigits) || chatDigits.endsWith(msgDigits);
+      }
+      return m.remoteNumber === selectedChat.id || m.chatName === selectedChat.name;
+    });
+
+    if (matched.length > 0) return matched;
+    return threadMessages;
+  }, [selectedChat, allMessages, threadMessages]);
 
   // Send message or group reply
   const handleSendMessage = async (e?: React.FormEvent) => {
@@ -187,7 +234,7 @@ export default function DashboardPage() {
         alert(`Failed to send message: ${data.error || 'Unknown error'}`);
       } else {
         setReplyText('');
-        loadThread(selectedChat, apiKey);
+        loadThread(selectedChat, apiKey, false);
         loadConversations(apiKey);
       }
     } catch (err: any) {
@@ -210,6 +257,7 @@ export default function DashboardPage() {
                 if (confirm('Clear all stored messages?')) {
                   await fetch('/api/2chat/clear', { method: 'POST' });
                   setThreadMessages([]);
+                  setAllMessages([]);
                   loadConversations(apiKey);
                 }
               }}
@@ -362,8 +410,8 @@ export default function DashboardPage() {
                   </div>
                   <div className="thread-header-subtitle">
                     {selectedChat.isGroup
-                      ? `WhatsApp Group • ${threadMessages.length} message${threadMessages.length === 1 ? '' : 's'}`
-                      : `${selectedChat.phoneOrId} • ${threadMessages.length} message${threadMessages.length === 1 ? '' : 's'}`}
+                      ? `WhatsApp Group • ${displayedMessages.length} message${displayedMessages.length === 1 ? '' : 's'}`
+                      : `${selectedChat.phoneOrId} • ${displayedMessages.length} message${displayedMessages.length === 1 ? '' : 's'}`}
                   </div>
                 </div>
 
@@ -371,7 +419,7 @@ export default function DashboardPage() {
                   <button
                     className="secondary"
                     style={{ padding: '4px 10px', fontSize: 11 }}
-                    onClick={() => loadThread(selectedChat, apiKey)}
+                    onClick={() => loadThread(selectedChat, apiKey, true)}
                     disabled={threadLoading}
                   >
                     {threadLoading ? 'Syncing...' : '↻ Sync Thread'}
@@ -381,17 +429,17 @@ export default function DashboardPage() {
 
               {/* Messages Stream */}
               <div className="thread-messages-scroll">
-                {threadLoading ? (
+                {threadLoading && displayedMessages.length === 0 ? (
                   <div className="empty-chat-state">
                     <p style={{ fontWeight: 600 }}>Loading conversation...</p>
                   </div>
-                ) : threadMessages.length === 0 ? (
+                ) : displayedMessages.length === 0 ? (
                   <div className="empty-chat-state">
                     <p style={{ fontWeight: 600, marginBottom: 4 }}>No messages in this chat yet.</p>
                     <p style={{ fontSize: 12 }}>Send a message below or wait for live updates.</p>
                   </div>
                 ) : (
-                  threadMessages.map((msg) => {
+                  displayedMessages.map((msg) => {
                     const isOutbound = msg.sentBy === 'agent';
                     let formattedTime = '';
                     try {
@@ -493,7 +541,7 @@ export default function DashboardPage() {
 
               <div className="info-section">
                 <span className="info-label">Total Messages</span>
-                <span className="info-value">{threadMessages.length}</span>
+                <span className="info-value">{displayedMessages.length}</span>
               </div>
 
               {selectedChat.lastTimestamp && new Date(selectedChat.lastTimestamp).getTime() > 0 && (

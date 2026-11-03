@@ -13,14 +13,14 @@ function ensureDataFile() {
     try {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     } catch {
-      // ignore if already exists
+      // ignore
     }
   }
   if (!fs.existsSync(FILE_PATH)) {
     try {
       fs.writeFileSync(FILE_PATH, JSON.stringify([], null, 2), 'utf-8');
     } catch {
-      // fallback to memory
+      // ignore
     }
   }
 }
@@ -53,22 +53,38 @@ function persistMessages() {
   }
 }
 
-export function addStoredMessage(msg: TwoChatMessage): void {
-  const list = loadStoredMessages();
-  // Check duplicates by ID or timestamp + text + remoteNumber
-  const exists = list.some(
-    (m) =>
-      m.id === msg.id ||
-      (m.remoteNumber === msg.remoteNumber &&
-        m.timestamp === msg.timestamp &&
-        m.text === msg.text)
-  );
+function getMessageKey(m: TwoChatMessage): string {
+  if (m.id && !m.id.startsWith('api-') && !m.id.startsWith('webhook-') && !m.id.startsWith('group-msg-')) {
+    return m.id;
+  }
+  return `${m.isGroup ? 'grp' : 'dir'}_${m.chatName}_${m.senderNumber}_${m.timestamp}_${m.text}`;
+}
 
-  if (!exists) {
-    list.unshift(msg);
-    // Keep max 1000 messages
-    if (list.length > 1000) {
-      list.pop();
+export function addStoredMessage(msg: TwoChatMessage): void {
+  addStoredMessages([msg]);
+}
+
+export function addStoredMessages(newMessages: TwoChatMessage[]): void {
+  if (!newMessages || newMessages.length === 0) return;
+  const list = loadStoredMessages();
+  const existingKeys = new Set(list.map(getMessageKey));
+
+  let added = false;
+  for (const msg of newMessages) {
+    const key = getMessageKey(msg);
+    if (!existingKeys.has(key)) {
+      existingKeys.add(key);
+      list.push(msg);
+      added = true;
+    }
+  }
+
+  if (added) {
+    // Sort chronologically ascending
+    list.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    // Keep max 2000 messages
+    if (list.length > 2000) {
+      list.splice(0, list.length - 2000);
     }
     persistMessages();
   }
