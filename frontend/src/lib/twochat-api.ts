@@ -261,6 +261,27 @@ export async function fetchTwoChatGroups(
   }
 }
 
+export function extractJidFromSessionKey(sessionKey: string): string {
+  if (!sessionKey) return '';
+  // Pattern: WW-WPN<uuid>-<jid> or <prefix>-<channel_uuid>-<jid>
+  const match = sessionKey.match(
+    /^[A-Za-z0-9]+-[A-Za-z0-9]+-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}-(.+)$/
+  );
+  if (match) return match[1];
+
+  // Fallback: match everything after the 5th hyphen in UUID
+  const atIdx = sessionKey.indexOf('@');
+  if (atIdx !== -1) {
+    const end = sessionKey.slice(atIdx);
+    const before = sessionKey.slice(0, atIdx);
+    const parts = before.split('-');
+    if (parts.length >= 6) {
+      return parts.slice(6).join('-') + end;
+    }
+  }
+  return sessionKey;
+}
+
 /**
  * Fetch messages for a specific group
  */
@@ -271,23 +292,31 @@ export async function fetchTwoChatGroupMessages(
   channelName = 'My WhatsApp'
 ): Promise<TwoChatMessage[]> {
   try {
-    const res = await fetch(`${TWOCHAT_BASE_URL}/whatsapp/groups/messages/${group.uuid}?page_number=0`, {
-      method: 'GET',
-      headers: {
-        'X-User-API-Key': apiKey,
-        'Content-Type': 'application/json',
-      },
-      next: { revalidate: 0 },
+    // Fetch pages 0, 1, 2 to load comprehensive group history
+    const pagePromises = [0, 1, 2].map(async (page) => {
+      try {
+        const res = await fetch(`${TWOCHAT_BASE_URL}/whatsapp/groups/messages/${group.uuid}?page_number=${page}`, {
+          method: 'GET',
+          headers: {
+            'X-User-API-Key': apiKey,
+            'Content-Type': 'application/json',
+          },
+          next: { revalidate: 0 },
+        });
+        if (!res.ok) return [];
+        const data = await res.json();
+        return Array.isArray(data) ? data : data.messages || data.data || [];
+      } catch {
+        return [];
+      }
     });
 
-    if (!res.ok) return [];
+    const pageResults = await Promise.all(pagePromises);
+    const rawList = pageResults.flat();
 
-    const data = await res.json();
-    const rawList = Array.isArray(data)
-      ? data
-      : data.messages || data.data || [];
-
-    const groupTitle = group.wa_group_name || group.name || 'WhatsApp Group';
+    const groupKnownTitle =
+      (group.wa_group_name && group.wa_group_name !== 'WhatsApp Group' ? group.wa_group_name : '') ||
+      (group.name && group.name !== 'WhatsApp Group' ? group.name : '');
 
     return (rawList as any[])
       .map((raw) => {
@@ -325,6 +354,12 @@ export async function fetchTwoChatGroupMessages(
         const senderDisplayName = isOutbound
           ? (channelName || 'You')
           : (senderSavedName || senderNumber || 'Unknown');
+
+        const groupTitle =
+          groupKnownTitle ||
+          raw.contact?.friendly_name ||
+          raw.contact?.name ||
+          'WhatsApp Group';
 
         return {
           id: raw.id || raw.uuid || `group-msg-${Date.now()}-${Math.random()}`,
@@ -369,61 +404,34 @@ export async function fetchTwoChatMessages(
     const plusNumber = normalizePhone(connectedNumber);
     const rawDigits = cleanDigits(connectedNumber);
 
-    let url = `${TWOCHAT_BASE_URL}/whatsapp/messages/${plusNumber}`;
+    let baseUrl = `${TWOCHAT_BASE_URL}/whatsapp/messages/${plusNumber}`;
     if (remoteNumber) {
-      url += `/${normalizePhone(remoteNumber)}`;
+      baseUrl += `/${normalizePhone(remoteNumber)}`;
     }
 
-    let res = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'X-User-API-Key': apiKey,
-        'Content-Type': 'application/json',
-      },
-      next: { revalidate: 0 },
+    // Fetch pages 0 to 3 (up to 200 recent messages across all channels)
+    const pagesToFetch = remoteNumber ? [0, 1] : [0, 1, 2, 3];
+    const pagePromises = pagesToFetch.map(async (page) => {
+      try {
+        const pageUrl = `${baseUrl}?page_number=${page}`;
+        const res = await fetch(pageUrl, {
+          method: 'GET',
+          headers: {
+            'X-User-API-Key': apiKey,
+            'Content-Type': 'application/json',
+          },
+          next: { revalidate: 0 },
+        });
+        if (!res.ok) return [];
+        const data = await res.json();
+        return Array.isArray(data) ? data : data.messages || data.data || [];
+      } catch {
+        return [];
+      }
     });
 
-    // Fallback without + in path
-    if (!res.ok && rawDigits) {
-      let fallbackUrl = `${TWOCHAT_BASE_URL}/whatsapp/messages/${rawDigits}`;
-      if (remoteNumber) {
-        fallbackUrl += `/${cleanDigits(remoteNumber)}`;
-      }
-      res = await fetch(fallbackUrl, {
-        method: 'GET',
-        headers: {
-          'X-User-API-Key': apiKey,
-          'Content-Type': 'application/json',
-        },
-        next: { revalidate: 0 },
-      });
-    }
-
-    // Fallback using query parameter
-    if (!res.ok) {
-      let queryUrl = `${TWOCHAT_BASE_URL}/whatsapp/messages?from_number=${encodeURIComponent(plusNumber)}`;
-      if (remoteNumber) {
-        queryUrl += `&remote_phone_number=${encodeURIComponent(normalizePhone(remoteNumber))}`;
-      }
-      res = await fetch(queryUrl, {
-        method: 'GET',
-        headers: {
-          'X-User-API-Key': apiKey,
-          'Content-Type': 'application/json',
-        },
-        next: { revalidate: 0 },
-      });
-    }
-
-    if (!res.ok) {
-      const errText = await res.text();
-      return { messages: [], error: `Messages HTTP ${res.status}: ${errText}` };
-    }
-
-    const data = await res.json();
-    const rawList = Array.isArray(data)
-      ? data
-      : data.messages || data.data || [];
+    const pageResults = await Promise.all(pagePromises);
+    const rawList = pageResults.flat();
 
     const groupJidMap = new Map<string, TwoChatGroup>();
     for (const g of groups) {
@@ -446,12 +454,18 @@ export async function fetchTwoChatMessages(
           raw.from_me === true;
 
         const sessionKey = raw.session_key || '';
-        const jid = sessionKey ? sessionKey.slice(sessionKey.lastIndexOf('-') + 1) : '';
+        const jid = extractJidFromSessionKey(sessionKey);
         const isGroupMsg = jid.endsWith('@g.us') || Boolean(groupJidMap.get(jid));
         const matchedGroup = isGroupMsg ? groupJidMap.get(jid) : undefined;
 
         if (isGroupMsg) {
-          const groupTitle = matchedGroup?.wa_group_name || matchedGroup?.name || 'WhatsApp Group';
+          const groupTitle =
+            matchedGroup?.wa_group_name ||
+            matchedGroup?.name ||
+            raw.contact?.friendly_name ||
+            raw.contact?.name ||
+            'WhatsApp Group';
+
           const groupUuid = matchedGroup?.uuid || jid;
           const senderNumber = normalizePhone(
             raw.participant?.phone_number ||

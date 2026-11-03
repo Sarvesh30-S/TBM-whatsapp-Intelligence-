@@ -84,9 +84,11 @@ export async function GET(req: NextRequest) {
 
         // If a specific group is requested, fetch that group's messages
         if (groupUuid) {
-          const targetGroup = groups.find((g) => g.uuid === groupUuid) || {
+          const targetGroup = groups.find(
+            (g) => g.uuid === groupUuid || g.wa_group_id === groupUuid
+          ) || {
             uuid: groupUuid,
-            wa_group_name: 'WhatsApp Group',
+            wa_group_name: '',
           };
           const specificGroupMsgs = await fetchTwoChatGroupMessages(
             apiKey,
@@ -156,56 +158,80 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    // 4. Build unified conversation directory
+    // 4. Build unified conversation directory (only active conversations with messages, strictly deduplicated)
     const conversationMap = new Map<string, TwoChatConversation>();
 
-    // Seed known groups from 2Chat API
-    for (const grp of groups) {
-      const title = grp.wa_group_name || grp.name || 'WhatsApp Group';
-      conversationMap.set(grp.uuid, {
-        id: grp.uuid,
-        isGroup: true,
-        name: title,
-        phoneOrId: grp.wa_group_id || grp.uuid,
-        groupUuid: grp.uuid,
-        lastMessage: '',
-        lastTimestamp: new Date(0).toISOString(),
-        messageCount: 0,
-      });
+    const groupByUuid = new Map<string, TwoChatGroup>();
+    const groupByJid = new Map<string, TwoChatGroup>();
+    const groupByName = new Map<string, TwoChatGroup>();
+    for (const g of groups) {
+      if (g.uuid) groupByUuid.set(g.uuid, g);
+      if (g.wa_group_id) groupByJid.set(g.wa_group_id, g);
+      if (g.wa_group_name && g.wa_group_name !== 'WhatsApp Group') {
+        groupByName.set(g.wa_group_name.toLowerCase().trim(), g);
+      }
     }
 
     // Populate and update from all stored messages
     for (const msg of allMessages) {
-      const convId = msg.isGroup
-        ? (msg.groupUuid || msg.groupName || 'unknown-group')
-        : normalizePhone(msg.remoteNumber);
+      if (!msg.text && !msg.mediaUrl && !msg.quotedMessage) continue;
 
-      if (!convId) continue;
+      let convId = '';
+      const isGroup = Boolean(msg.isGroup);
+      let canonicalTitle = '';
+      let canonicalGroupUuid = '';
+      let canonicalPhoneOrId = '';
+
+      if (isGroup) {
+        // Resolve canonical group
+        const matched =
+          (msg.groupUuid ? groupByUuid.get(msg.groupUuid) || groupByJid.get(msg.groupUuid) : undefined) ||
+          (msg.remoteNumber ? groupByJid.get(msg.remoteNumber) || groupByUuid.get(msg.remoteNumber) : undefined) ||
+          (msg.groupName && msg.groupName !== 'WhatsApp Group' ? groupByName.get(msg.groupName.toLowerCase().trim()) : undefined) ||
+          (msg.chatName && msg.chatName !== 'WhatsApp Group' ? groupByName.get(msg.chatName.toLowerCase().trim()) : undefined);
+
+        canonicalGroupUuid = matched?.uuid || msg.groupUuid || 'group-unknown';
+        canonicalTitle =
+          matched?.wa_group_name ||
+          (msg.groupName && msg.groupName !== 'WhatsApp Group' ? msg.groupName : undefined) ||
+          (msg.chatName && msg.chatName !== 'WhatsApp Group' ? msg.chatName : undefined) ||
+          'WhatsApp Group';
+
+        canonicalPhoneOrId = matched?.wa_group_id || canonicalGroupUuid;
+        // Group conversation key is strictly the canonical group UUID so each group appears ONLY ONCE
+        convId = canonicalGroupUuid;
+      } else {
+        const cleanRemote = normalizePhone(msg.remoteNumber);
+        if (!cleanRemote) continue;
+        convId = cleanRemote;
+        canonicalTitle = contactDirectory[cleanRemote] || msg.chatName || cleanRemote;
+        canonicalPhoneOrId = cleanRemote;
+      }
 
       let conv = conversationMap.get(convId);
       if (!conv) {
-        const title = msg.isGroup
-          ? (msg.groupName || msg.chatName)
-          : (contactDirectory[convId] || msg.chatName || convId);
-
         conv = {
           id: convId,
-          isGroup: Boolean(msg.isGroup),
-          name: title,
-          phoneOrId: msg.isGroup ? (msg.groupUuid || '') : convId,
-          groupUuid: msg.groupUuid,
-          lastMessage: msg.text,
+          isGroup,
+          name: canonicalTitle,
+          phoneOrId: canonicalPhoneOrId,
+          groupUuid: isGroup ? canonicalGroupUuid : undefined,
+          lastMessage: msg.text || (msg.mediaUrl ? '[Media]' : ''),
           lastTimestamp: msg.timestamp,
           messageCount: 1,
         };
         conversationMap.set(convId, conv);
       } else {
         conv.messageCount += 1;
+        // Never overwrite a good name with generic "WhatsApp Group"
+        if (conv.name === 'WhatsApp Group' && canonicalTitle !== 'WhatsApp Group') {
+          conv.name = canonicalTitle;
+        }
         if (new Date(msg.timestamp).getTime() >= new Date(conv.lastTimestamp).getTime()) {
-          conv.lastMessage = msg.text;
+          conv.lastMessage = msg.text || (msg.mediaUrl ? '[Media]' : '');
           conv.lastTimestamp = msg.timestamp;
-          if (msg.groupName && conv.isGroup) {
-            conv.name = msg.groupName;
+          if (canonicalTitle && canonicalTitle !== 'WhatsApp Group') {
+            conv.name = canonicalTitle;
           }
         }
       }
@@ -221,12 +247,24 @@ export async function GET(req: NextRequest) {
       const targetDigits = cleanDigits(chatId);
       const isTargetGroup = isGroupParam || Boolean(groupUuid);
 
+      const targetGroup =
+        groupByUuid.get(chatId) ||
+        groupByJid.get(chatId) ||
+        (groupUuid ? groupByUuid.get(groupUuid) || groupByJid.get(groupUuid) : undefined) ||
+        groupByName.get(chatId.toLowerCase().trim());
+
+      const targetGroupUuid = targetGroup?.uuid || groupUuid || chatId;
+      const targetGroupJid = targetGroup?.wa_group_id;
+      const targetGroupName = targetGroup?.wa_group_name;
+
       threadMessages = allMessages.filter((m) => {
         if (isTargetGroup || m.isGroup) {
-          const matchUuid = groupUuid && m.groupUuid === groupUuid;
-          const matchId = m.groupUuid === chatId || m.remoteNumber === chatId;
-          const matchName = m.groupName && m.groupName.toLowerCase() === chatId.toLowerCase();
-          return matchUuid || matchId || matchName;
+          if (targetGroupUuid && (m.groupUuid === targetGroupUuid || m.remoteNumber === targetGroupUuid)) return true;
+          if (targetGroupJid && (m.groupUuid === targetGroupJid || m.remoteNumber === targetGroupJid)) return true;
+          if (m.groupUuid === chatId || m.remoteNumber === chatId) return true;
+          if (targetGroupName && m.groupName && m.groupName.toLowerCase() === targetGroupName.toLowerCase()) return true;
+          if (targetGroupName && m.chatName && m.chatName.toLowerCase() === targetGroupName.toLowerCase()) return true;
+          return false;
         }
 
         // Direct chat match

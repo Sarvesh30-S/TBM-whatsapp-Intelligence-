@@ -223,10 +223,13 @@ export default function DashboardPage() {
 
     return allMessages.filter((m) => {
       if (selectedChat.isGroup || m.isGroup) {
-        if (selectedChat.groupUuid && m.groupUuid === selectedChat.groupUuid) return true;
-        if (m.groupUuid === selectedChat.id || m.remoteNumber === selectedChat.id) return true;
-        if (m.groupName && m.groupName.toLowerCase() === chatNameLower) return true;
-        if (m.chatName && m.chatName.toLowerCase() === chatNameLower) return true;
+        if (selectedChat.groupUuid && (m.groupUuid === selectedChat.groupUuid || m.remoteNumber === selectedChat.groupUuid)) return true;
+        if (selectedChat.id && (m.groupUuid === selectedChat.id || m.remoteNumber === selectedChat.id)) return true;
+        if (selectedChat.phoneOrId && (m.remoteNumber === selectedChat.phoneOrId || m.groupUuid === selectedChat.phoneOrId)) return true;
+        if (selectedChat.name && selectedChat.name !== 'WhatsApp Group') {
+          if (m.groupName && m.groupName.toLowerCase() === chatNameLower) return true;
+          if (m.chatName && m.chatName.toLowerCase() === chatNameLower) return true;
+        }
         return false;
       }
 
