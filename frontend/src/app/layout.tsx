@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "TBM WhatsApp Intelligence",
-  description: "Campaign operations dashboard",
+  title: "Messages Dashboard",
+  description: "Messages Sent and Received",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
