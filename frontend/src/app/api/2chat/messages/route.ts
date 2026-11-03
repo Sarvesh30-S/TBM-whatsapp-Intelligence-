@@ -63,25 +63,24 @@ export async function GET(req: NextRequest) {
       }
 
       if (activeChannel) {
-        // Fetch groups list and general direct messages
-        const [directResult, groupResult] = await Promise.all([
-          fetchTwoChatMessages(
-            apiKey,
-            activeChannel,
-            undefined,
-            contactDirectory,
-            activeChannelName
-          ),
-          fetchTwoChatGroups(apiKey, activeChannel, activeChanObj?.uuid),
-        ]);
-
-        if (directResult.error) apiErrors.push(`Messages error: ${directResult.error}`);
+        // Fetch groups list first
+        const groupResult = await fetchTwoChatGroups(apiKey, activeChannel, activeChanObj?.uuid);
         if (groupResult.error) apiErrors.push(`Groups error: ${groupResult.error}`);
+        groups = groupResult.groups;
 
+        // Fetch recent messages feed with groups context so group messages in the feed are identified
+        const directResult = await fetchTwoChatMessages(
+          apiKey,
+          activeChannel,
+          undefined,
+          contactDirectory,
+          activeChannelName,
+          groups
+        );
+        if (directResult.error) apiErrors.push(`Messages error: ${directResult.error}`);
         if (directResult.messages.length > 0) {
           newlyFetchedApiMessages.push(...directResult.messages);
         }
-        groups = groupResult.groups;
 
         // If a specific group is requested, fetch that group's messages
         if (groupUuid) {
@@ -103,15 +102,16 @@ export async function GET(req: NextRequest) {
             activeChannel,
             chatId,
             contactDirectory,
-            activeChannelName
+            activeChannelName,
+            groups
           );
           if (specificDirectResult.messages.length > 0) {
             newlyFetchedApiMessages.push(...specificDirectResult.messages);
           }
         } else if (groups.length > 0) {
-          // Fetch messages for all groups (up to 15 groups)
+          // Fetch messages for top active groups (up to 10)
           const groupMsgsArrays = await Promise.all(
-            groups.slice(0, 15).map((g) =>
+            groups.slice(0, 10).map((g) =>
               fetchTwoChatGroupMessages(apiKey, g, contactDirectory, activeChannelName)
             )
           );
@@ -241,6 +241,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       apiKeyConfigured: Boolean(apiKey),
+      apiKey: apiKey || undefined,
       channels,
       activeChannel,
       groups,

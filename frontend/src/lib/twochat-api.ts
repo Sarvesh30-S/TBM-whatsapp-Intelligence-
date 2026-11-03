@@ -13,45 +13,71 @@ export function cleanDigits(phone: string): string {
   return phone.replace(/[^0-9]/g, '');
 }
 
+export function decodeHtmlEntities(str: string): string {
+  if (!str) return '';
+  return str
+    .replace(/&#x27;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+
 export function extractMessageText(raw: any): string {
-  if (typeof raw === 'string') return raw;
+  if (typeof raw === 'string') return decodeHtmlEntities(raw);
   if (!raw) return '';
 
-  if (typeof raw.text === 'string' && raw.text.trim()) return raw.text;
-  if (typeof raw.body === 'string' && raw.body.trim()) return raw.body;
-
-  if (raw.message) {
-    if (typeof raw.message === 'string') return raw.message;
-    if (typeof raw.message.text === 'string' && raw.message.text.trim()) return raw.message.text;
-    if (typeof raw.message.body === 'string' && raw.message.body.trim()) return raw.message.body;
-    if (typeof raw.message.caption === 'string' && raw.message.caption.trim()) return raw.message.caption;
+  let text = '';
+  if (typeof raw.text === 'string' && raw.text.trim()) text = raw.text;
+  else if (typeof raw.body === 'string' && raw.body.trim()) text = raw.body;
+  else if (raw.message) {
+    if (typeof raw.message === 'string') text = raw.message;
+    else if (typeof raw.message.text === 'string' && raw.message.text.trim()) text = raw.message.text;
+    else if (typeof raw.message.body === 'string' && raw.message.body.trim()) text = raw.message.body;
+    else if (typeof raw.message.caption === 'string' && raw.message.caption.trim()) text = raw.message.caption;
+  }
+  else if (typeof raw.caption === 'string' && raw.caption.trim()) text = raw.caption;
+  else {
+    const mediaUrl = raw.url || raw.media_url || raw.message?.url;
+    if (mediaUrl) {
+      const type = raw.type || raw.message?.type || 'Media';
+      return `[${type}: ${mediaUrl}]`;
+    }
   }
 
-  if (typeof raw.caption === 'string' && raw.caption.trim()) return raw.caption;
-
-  const mediaUrl = raw.url || raw.media_url || raw.message?.url;
-  if (mediaUrl) {
-    const type = raw.type || raw.message?.type || 'Media';
-    return `[${type}: ${mediaUrl}]`;
-  }
-
-  return '';
+  return decodeHtmlEntities(text);
 }
 
 export function extractQuotedMessage(raw: any): string | undefined {
   if (!raw) return undefined;
+  if (raw.message?.quoted_msg) {
+    const q = raw.message.quoted_msg;
+    if (typeof q === 'string') return decodeHtmlEntities(q);
+    if (typeof q.message === 'string') return decodeHtmlEntities(q.message);
+    if (typeof q.text === 'string') return decodeHtmlEntities(q.text);
+    if (typeof q.body === 'string') return decodeHtmlEntities(q.body);
+  }
+  if (raw.quoted_msg) {
+    const q = raw.quoted_msg;
+    if (typeof q === 'string') return decodeHtmlEntities(q);
+    if (typeof q.message === 'string') return decodeHtmlEntities(q.message);
+    if (typeof q.text === 'string') return decodeHtmlEntities(q.text);
+  }
   if (raw.quoted_message) {
-    if (typeof raw.quoted_message === 'string') return raw.quoted_message;
-    if (raw.quoted_message.text) return raw.quoted_message.text;
-    if (raw.quoted_message.body) return raw.quoted_message.body;
+    if (typeof raw.quoted_message === 'string') return decodeHtmlEntities(raw.quoted_message);
+    if (raw.quoted_message.text) return decodeHtmlEntities(raw.quoted_message.text);
+    if (raw.quoted_message.body) return decodeHtmlEntities(raw.quoted_message.body);
+    if (raw.quoted_message.message) return decodeHtmlEntities(raw.quoted_message.message);
   }
   if (raw.message?.quoted_message) {
-    if (typeof raw.message.quoted_message === 'string') return raw.message.quoted_message;
-    if (raw.message.quoted_message.text) return raw.message.quoted_message.text;
+    if (typeof raw.message.quoted_message === 'string') return decodeHtmlEntities(raw.message.quoted_message);
+    if (raw.message.quoted_message.text) return decodeHtmlEntities(raw.message.quoted_message.text);
+    if (raw.message.quoted_message.message) return decodeHtmlEntities(raw.message.quoted_message.message);
   }
   if (raw.context?.quoted_message) {
-    if (typeof raw.context.quoted_message === 'string') return raw.context.quoted_message;
-    if (raw.context.quoted_message.text) return raw.context.quoted_message.text;
+    if (typeof raw.context.quoted_message === 'string') return decodeHtmlEntities(raw.context.quoted_message);
+    if (raw.context.quoted_message.text) return decodeHtmlEntities(raw.context.quoted_message.text);
   }
   return undefined;
 }
@@ -61,7 +87,7 @@ export function extractQuotedMessage(raw: any): string | undefined {
  */
 export async function fetchTwoChatChannels(apiKey: string): Promise<{ channels: TwoChatChannel[]; error?: string }> {
   try {
-    const res = await fetch(`${TWOCHAT_BASE_URL}/whatsapp/channels`, {
+    let res = await fetch(`${TWOCHAT_BASE_URL}/whatsapp/get-numbers?page_number=0`, {
       method: 'GET',
       headers: {
         'X-User-API-Key': apiKey,
@@ -69,6 +95,17 @@ export async function fetchTwoChatChannels(apiKey: string): Promise<{ channels: 
       },
       next: { revalidate: 0 },
     });
+
+    if (!res.ok) {
+      res = await fetch(`${TWOCHAT_BASE_URL}/whatsapp/channels`, {
+        method: 'GET',
+        headers: {
+          'X-User-API-Key': apiKey,
+          'Content-Type': 'application/json',
+        },
+        next: { revalidate: 0 },
+      });
+    }
 
     if (!res.ok) {
       const errText = await res.text();
@@ -252,57 +289,65 @@ export async function fetchTwoChatGroupMessages(
 
     const groupTitle = group.wa_group_name || group.name || 'WhatsApp Group';
 
-    return (rawList as any[]).map((raw) => {
-      const isOutbound =
-        raw.sent_by === 'api' ||
-        raw.sent_by === 'agent' ||
-        raw.sent_by === 'user' ||
-        raw.direction === 'outbound';
+    return (rawList as any[])
+      .map((raw) => {
+        const text = extractMessageText(raw);
+        const quotedMessage = extractQuotedMessage(raw);
+        if (!text && !quotedMessage && !raw.url && !raw.media_url) {
+          return null;
+        }
 
-      const senderNumber = normalizePhone(
-        raw.sender?.phone_number ||
-        raw.remote_phone_number ||
-        raw.from_number ||
-        ''
-      );
+        const isOutbound =
+          raw.sent_by === 'api' ||
+          raw.sent_by === 'agent' ||
+          raw.direction === 'outbound' ||
+          raw.from_me === true;
 
-      const senderSavedName =
-        contactDirectory[senderNumber] ||
-        raw.sender?.pushname ||
-        raw.sender?.name ||
-        raw.pushname ||
-        raw.contact?.name ||
-        raw.contact?.first_name ||
-        '';
+        const senderNumber = normalizePhone(
+          raw.participant?.phone_number ||
+          raw.sender?.phone_number ||
+          raw.remote_phone_number ||
+          raw.from_number ||
+          ''
+        );
 
-      const senderDisplayName = isOutbound
-        ? (channelName || 'You')
-        : (senderSavedName || senderNumber || 'Unknown');
+        const senderSavedName =
+          contactDirectory[senderNumber] ||
+          raw.participant?.pushname ||
+          raw.participant?.name ||
+          raw.sender?.pushname ||
+          raw.sender?.name ||
+          raw.pushname ||
+          raw.contact?.name ||
+          raw.contact?.first_name ||
+          '';
 
-      const text = extractMessageText(raw);
-      const quotedMessage = extractQuotedMessage(raw);
+        const senderDisplayName = isOutbound
+          ? (channelName || 'You')
+          : (senderSavedName || senderNumber || 'Unknown');
 
-      return {
-        id: raw.id || raw.uuid || `group-msg-${Date.now()}-${Math.random()}`,
-        source: 'api',
-        isGroup: true,
-        groupUuid: group.uuid,
-        groupName: groupTitle,
-        chatName: groupTitle,
-        senderName: senderDisplayName,
-        senderNumber: senderNumber,
-        receiverName: groupTitle,
-        receiverNumber: group.wa_group_id || '',
-        fromNumber: senderNumber,
-        toNumber: group.wa_group_id || group.uuid,
-        remoteNumber: group.uuid,
-        text,
-        quotedMessage,
-        sentBy: isOutbound ? 'agent' : 'customer',
-        timestamp: raw.created_at || raw.timestamp || new Date().toISOString(),
-        mediaUrl: raw.url || raw.media_url || raw.message?.url,
-      } as TwoChatMessage;
-    });
+        return {
+          id: raw.id || raw.uuid || `group-msg-${Date.now()}-${Math.random()}`,
+          source: 'api',
+          isGroup: true,
+          groupUuid: group.uuid,
+          groupName: groupTitle,
+          chatName: groupTitle,
+          senderName: senderDisplayName,
+          senderNumber: senderNumber,
+          receiverName: groupTitle,
+          receiverNumber: group.wa_group_id || '',
+          fromNumber: senderNumber,
+          toNumber: group.wa_group_id || group.uuid,
+          remoteNumber: group.uuid,
+          text,
+          quotedMessage,
+          sentBy: isOutbound ? 'agent' : 'customer',
+          timestamp: raw.created_at || raw.timestamp || new Date().toISOString(),
+          mediaUrl: raw.url || raw.media_url || raw.message?.url,
+        } as TwoChatMessage;
+      })
+      .filter((m): m is TwoChatMessage => m !== null);
   } catch (err) {
     console.error(`Error fetching group ${group.uuid} messages:`, err);
     return [];
@@ -310,14 +355,15 @@ export async function fetchTwoChatGroupMessages(
 }
 
 /**
- * Fetch direct 1-on-1 messages
+ * Fetch direct 1-on-1 messages or feed (resolving both group and direct messages)
  */
 export async function fetchTwoChatMessages(
   apiKey: string,
   connectedNumber: string,
   remoteNumber?: string,
   contactDirectory: Record<string, string> = {},
-  channelName?: string
+  channelName?: string,
+  groups: TwoChatGroup[] = []
 ): Promise<{ messages: TwoChatMessage[]; error?: string }> {
   try {
     const plusNumber = normalizePhone(connectedNumber);
@@ -379,67 +425,131 @@ export async function fetchTwoChatMessages(
       ? data
       : data.messages || data.data || [];
 
-    const messages = (rawList as any[]).map((raw) => {
-      const isOutbound =
-        raw.direction === 'outbound' ||
-        raw.sent_by === 'api' ||
-        raw.sent_by === 'agent' ||
-        raw.sent_by === 'user';
+    const groupJidMap = new Map<string, TwoChatGroup>();
+    for (const g of groups) {
+      if (g.wa_group_id) groupJidMap.set(g.wa_group_id, g);
+      if (g.uuid) groupJidMap.set(g.uuid, g);
+    }
 
-      const remoteRaw =
-        raw.remote_phone_number ||
-        raw.to_number ||
-        raw.from_number ||
-        'Unknown';
-      const cleanRemote = normalizePhone(remoteRaw);
-      const cleanConnected = normalizePhone(raw.channel_phone_number || connectedNumber);
+    const messages = (rawList as any[])
+      .map((raw) => {
+        const text = extractMessageText(raw);
+        const quotedMessage = extractQuotedMessage(raw);
+        if (!text && !quotedMessage && !raw.url && !raw.media_url) {
+          return null;
+        }
 
-      const extractedRemoteName =
-        contactDirectory[cleanRemote] ||
-        raw.pushname ||
-        raw.sender?.pushname ||
-        raw.sender?.name ||
-        raw.contact?.name ||
-        raw.contact?.first_name ||
-        (raw.contact?.last_name
-          ? `${raw.contact?.first_name || ''} ${raw.contact?.last_name}`.trim()
-          : undefined) ||
-        '';
+        const isOutbound =
+          raw.sent_by === 'agent' ||
+          raw.sent_by === 'api' ||
+          raw.direction === 'outbound' ||
+          raw.from_me === true;
 
-      const myDisplayName = channelName || 'My WhatsApp';
+        const sessionKey = raw.session_key || '';
+        const jid = sessionKey ? sessionKey.slice(sessionKey.lastIndexOf('-') + 1) : '';
+        const isGroupMsg = jid.endsWith('@g.us') || Boolean(groupJidMap.get(jid));
+        const matchedGroup = isGroupMsg ? groupJidMap.get(jid) : undefined;
 
-      const senderDisplayName = isOutbound
-        ? myDisplayName
-        : (extractedRemoteName || cleanRemote);
+        if (isGroupMsg) {
+          const groupTitle = matchedGroup?.wa_group_name || matchedGroup?.name || 'WhatsApp Group';
+          const groupUuid = matchedGroup?.uuid || jid;
+          const senderNumber = normalizePhone(
+            raw.participant?.phone_number ||
+            raw.sender?.phone_number ||
+            raw.remote_phone_number ||
+            raw.from_number ||
+            ''
+          );
+          const senderSavedName =
+            contactDirectory[senderNumber] ||
+            raw.participant?.pushname ||
+            raw.participant?.name ||
+            raw.sender?.pushname ||
+            raw.pushname ||
+            '';
 
-      const receiverDisplayName = isOutbound
-        ? (extractedRemoteName || cleanRemote)
-        : myDisplayName;
+          const senderDisplayName = isOutbound
+            ? (channelName || 'You')
+            : (senderSavedName || senderNumber || 'Unknown');
 
-      const chatTitle = extractedRemoteName || cleanRemote;
-      const text = extractMessageText(raw);
-      const quotedMessage = extractQuotedMessage(raw);
+          return {
+            id: raw.id || raw.uuid || `group-msg-${Date.now()}-${Math.random()}`,
+            source: 'api',
+            isGroup: true,
+            groupUuid,
+            groupName: groupTitle,
+            chatName: groupTitle,
+            senderName: senderDisplayName,
+            senderNumber,
+            receiverName: groupTitle,
+            receiverNumber: matchedGroup?.wa_group_id || jid,
+            fromNumber: senderNumber,
+            toNumber: matchedGroup?.wa_group_id || groupUuid,
+            remoteNumber: groupUuid,
+            text,
+            quotedMessage,
+            sentBy: isOutbound ? 'agent' : 'customer',
+            timestamp: raw.created_at || raw.timestamp || new Date().toISOString(),
+            mediaUrl: raw.url || raw.media_url || raw.message?.url,
+          } as TwoChatMessage;
+        }
 
-      return {
-        id: raw.id || raw.uuid || `api-${Date.now()}-${Math.random()}`,
-        source: 'api',
-        isGroup: false,
-        chatName: chatTitle,
-        fromNumber: cleanConnected,
-        toNumber: isOutbound ? cleanRemote : cleanConnected,
-        remoteNumber: cleanRemote,
-        senderName: senderDisplayName,
-        senderNumber: isOutbound ? cleanConnected : cleanRemote,
-        receiverName: receiverDisplayName,
-        receiverNumber: isOutbound ? cleanRemote : cleanConnected,
-        text,
-        quotedMessage,
-        sentBy: isOutbound ? 'agent' : 'customer',
-        timestamp: raw.created_at || raw.timestamp || new Date().toISOString(),
-        event: raw.event,
-        mediaUrl: raw.url || raw.media_url || raw.message?.url,
-      } as TwoChatMessage;
-    });
+        const directNumberFromJid = jid.endsWith('@c.us')
+          ? normalizePhone(jid.replace('@c.us', ''))
+          : '';
+
+        const remoteRaw =
+          directNumberFromJid ||
+          raw.remote_phone_number ||
+          raw.to_number ||
+          raw.from_number ||
+          'Unknown';
+        const cleanRemote = normalizePhone(remoteRaw);
+        const cleanConnected = normalizePhone(raw.channel_phone_number || connectedNumber);
+
+        const extractedRemoteName =
+          contactDirectory[cleanRemote] ||
+          raw.participant?.pushname ||
+          raw.pushname ||
+          raw.sender?.pushname ||
+          raw.sender?.name ||
+          raw.contact?.friendly_name ||
+          raw.contact?.name ||
+          raw.contact?.first_name ||
+          '';
+
+        const myDisplayName = channelName || 'My WhatsApp';
+
+        const senderDisplayName = isOutbound
+          ? myDisplayName
+          : (extractedRemoteName || cleanRemote);
+
+        const receiverDisplayName = isOutbound
+          ? (extractedRemoteName || cleanRemote)
+          : myDisplayName;
+
+        const chatTitle = extractedRemoteName || cleanRemote;
+
+        return {
+          id: raw.id || raw.uuid || `api-${Date.now()}-${Math.random()}`,
+          source: 'api',
+          isGroup: false,
+          chatName: chatTitle,
+          fromNumber: cleanConnected,
+          toNumber: isOutbound ? cleanRemote : cleanConnected,
+          remoteNumber: cleanRemote,
+          senderName: senderDisplayName,
+          senderNumber: isOutbound ? cleanConnected : cleanRemote,
+          receiverName: receiverDisplayName,
+          receiverNumber: isOutbound ? cleanRemote : cleanConnected,
+          text,
+          quotedMessage,
+          sentBy: isOutbound ? 'agent' : 'customer',
+          timestamp: raw.created_at || raw.timestamp || new Date().toISOString(),
+          mediaUrl: raw.url || raw.media_url || raw.message?.url,
+        } as TwoChatMessage;
+      })
+      .filter((m): m is TwoChatMessage => m !== null);
 
     return { messages };
   } catch (err: any) {

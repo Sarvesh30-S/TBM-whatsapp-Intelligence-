@@ -68,18 +68,32 @@ export default function DashboardPage() {
   }, []);
 
   // Manual fetch function (NO auto refresh timer)
-  const loadData = async (key = apiKey, targetChatId?: string) => {
+  const loadData = async (
+    key = apiKey,
+    targetChatId?: string,
+    isGroup?: boolean,
+    groupUuid?: string
+  ) => {
     try {
       setLoading(true);
       setApiErrors([]);
       const params = new URLSearchParams();
       if (key) params.set('apiKey', key);
       if (targetChatId) params.set('chatId', targetChatId);
+      if (isGroup !== undefined) params.set('isGroup', String(isGroup));
+      if (groupUuid) params.set('groupUuid', groupUuid);
 
       const res = await fetch(`/api/2chat/messages?${params.toString()}`);
       const data = await res.json();
 
       if (data.success) {
+        if (data.apiKeyConfigured && !apiKey) {
+          setApiKey(data.apiKey || 'configured');
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('2chat_api_key', data.apiKey || 'configured');
+          }
+        }
+
         if (data.apiErrors && data.apiErrors.length > 0) {
           setApiErrors(data.apiErrors);
         }
@@ -134,9 +148,10 @@ export default function DashboardPage() {
     }
   }, [apiKey]);
 
-  // Click on a chat: instantly switches view without delay
+  // Click on a chat: instantly switches view and loads any additional history for this chat
   const handleChatClick = (chat: TwoChatConversation) => {
     setSelectedChat(chat);
+    loadData(apiKey, chat.id, chat.isGroup, chat.groupUuid);
   };
 
   // Auto-scroll to bottom of conversation
