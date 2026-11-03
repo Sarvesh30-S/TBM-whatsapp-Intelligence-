@@ -24,15 +24,18 @@ export default function DashboardPage() {
   const [copied, setCopied] = useState<boolean>(false);
   const [webhookUrl, setWebhookUrl] = useState<string>('http://localhost:3000/api/webhook/2chat');
   const [statusText, setStatusText] = useState<string>('');
+  const [apiErrors, setApiErrors] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Load saved state from browser localStorage on startup
+  // Load saved state from browser localStorage on startup & fetch from DB/API
   useEffect(() => {
+    let keyToUse = '';
     if (typeof window !== 'undefined') {
       const savedKey = localStorage.getItem('2chat_api_key') || '';
       const cachedMsgs = localStorage.getItem('cached_2chat_messages');
       const cachedConvs = localStorage.getItem('cached_2chat_conversations');
 
+      keyToUse = savedKey;
       setApiKey(savedKey);
       setApiKeyInput(savedKey);
       setWebhookUrl(`${window.location.origin}/api/webhook/2chat`);
@@ -60,12 +63,15 @@ export default function DashboardPage() {
         }
       }
     }
+    // Always trigger initial fetch on mount (loads messages from Supabase Postgres / 2Chat)
+    loadData(keyToUse);
   }, []);
 
   // Manual fetch function (NO auto refresh timer)
   const loadData = async (key = apiKey, targetChatId?: string) => {
     try {
       setLoading(true);
+      setApiErrors([]);
       const params = new URLSearchParams();
       if (key) params.set('apiKey', key);
       if (targetChatId) params.set('chatId', targetChatId);
@@ -74,6 +80,10 @@ export default function DashboardPage() {
       const data = await res.json();
 
       if (data.success) {
+        if (data.apiErrors && data.apiErrors.length > 0) {
+          setApiErrors(data.apiErrors);
+        }
+
         if (data.channels && data.channels.length > 0) setChannels(data.channels);
         if (data.activeChannel) setActiveChannel(data.activeChannel);
 
@@ -106,9 +116,12 @@ export default function DashboardPage() {
             setSelectedChat(data.conversations[0]);
           }
         }
+      } else if (data.error) {
+        setApiErrors([data.error]);
       }
     } catch (err: any) {
       console.error('Error fetching data:', err);
+      setApiErrors([err.message || 'Failed to connect to backend']);
     } finally {
       setLoading(false);
     }
@@ -131,11 +144,28 @@ export default function DashboardPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [selectedChat, allMessages]);
 
-  const handleSaveKey = () => {
+  const handleSaveKey = async () => {
     const trimmed = apiKeyInput.trim();
+    if (!trimmed) {
+      alert('Please paste a valid 2Chat API key.');
+      return;
+    }
     setApiKey(trimmed);
     localStorage.setItem('2chat_api_key', trimmed);
-    setStatusText('Key saved');
+    setStatusText('Saving...');
+
+    // Save to server config
+    try {
+      await fetch('/api/2chat/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: trimmed }),
+      });
+    } catch {
+      // ignore
+    }
+
+    setStatusText('Key saved!');
     setTimeout(() => setStatusText(''), 2500);
     loadData(trimmed);
   };
@@ -169,7 +199,7 @@ export default function DashboardPage() {
       );
     });
 
-  // Messages in the active conversation thread (persistent, never disappears)
+  // Messages in the active conversation thread
   const currentChatMessages = React.useMemo(() => {
     if (!selectedChat) return [];
 
@@ -270,7 +300,7 @@ export default function DashboardPage() {
             </button>
           )}
           <button className="secondary" onClick={() => loadData(apiKey)} disabled={loading}>
-            {loading ? 'Refreshing...' : '↻ Manual Refresh'}
+            {loading ? 'Fetching 2Chat...' : '↻ Fetch 2Chat Messages'}
           </button>
         </div>
       </div>
@@ -290,7 +320,7 @@ export default function DashboardPage() {
           <input
             type="password"
             className="config-input"
-            placeholder="Paste 2Chat API Key here..."
+            placeholder="Paste your 2Chat API Key (X-User-API-Key) here..."
             value={apiKeyInput}
             onChange={(e) => setApiKeyInput(e.target.value)}
           />
@@ -299,6 +329,57 @@ export default function DashboardPage() {
           </button>
         </div>
       </div>
+
+      {/* API Key Missing Warning Banner */}
+      {!apiKey && (
+        <div
+          style={{
+            border: '2px solid #000000',
+            backgroundColor: '#ffffff',
+            padding: '16px 20px',
+            marginBottom: '20px',
+            borderRadius: '4px',
+            fontSize: '13px',
+            lineHeight: '1.6',
+          }}
+        >
+          <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '6px' }}>
+            ⚠️ 2Chat API Key Required to Fetch Live Chat Messages
+          </div>
+          <div>
+            The dashboard needs your 2Chat API Key (<code>X-User-API-Key</code>) to pull your groups (e.g. <em>Tcs 2025 Rehire Jl Update</em>) and conversations.
+          </div>
+          <div style={{ marginTop: '8px' }}>
+            <strong>How to get it from 2Chat:</strong>
+            <ol style={{ margin: '4px 0 0 18px', padding: 0 }}>
+              <li>Open your 2Chat tab (<a href="https://app.2chat.io" target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>app.2chat.io</a>).</li>
+              <li>In the left sidebar menu, scroll to the bottom and click <strong>Developers &lt; &gt;</strong> → <strong>API Keys</strong>.</li>
+              <li>Copy your API Key, paste it into the <strong>2Chat API Key</strong> box above, and click <strong>"Save Key"</strong>.</li>
+            </ol>
+          </div>
+        </div>
+      )}
+
+      {/* API Errors Banner if 2Chat returns an error */}
+      {apiErrors.length > 0 && (
+        <div
+          style={{
+            border: '1px solid #000000',
+            backgroundColor: '#f9f9f9',
+            padding: '12px 18px',
+            marginBottom: '20px',
+            borderRadius: '4px',
+            fontSize: '13px',
+          }}
+        >
+          <strong>2Chat Connection Diagnostics:</strong>
+          <ul style={{ marginTop: 6, paddingLeft: 18 }}>
+            {apiErrors.map((err, i) => (
+              <li key={i}>{err}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* 2 Main KPI Cards */}
       <div className="cards-grid">
@@ -358,7 +439,7 @@ export default function DashboardPage() {
           <div className="chat-items-scroll">
             {filteredConversations.length === 0 ? (
               <div style={{ padding: '30px 16px', textAlign: 'center', color: '#888888', fontSize: 13 }}>
-                {loading ? 'Loading chats...' : 'No chats found. Click "Manual Refresh" above.'}
+                {loading ? 'Fetching from 2Chat...' : 'No chats found. Paste your 2Chat API Key and click "Fetch 2Chat Messages".'}
               </div>
             ) : (
               filteredConversations.map((conv) => {
@@ -436,7 +517,7 @@ export default function DashboardPage() {
                 {currentChatMessages.length === 0 ? (
                   <div className="empty-chat-state">
                     <p style={{ fontWeight: 600, marginBottom: 4 }}>No messages in this chat yet.</p>
-                    <p style={{ fontSize: 12 }}>Send a message below or click "Manual Refresh" above.</p>
+                    <p style={{ fontSize: 12 }}>Send a message below or click "Fetch 2Chat Messages".</p>
                   </div>
                 ) : (
                   currentChatMessages.map((msg) => {

@@ -8,6 +8,11 @@ export function normalizePhone(phone: string): string {
   return digits ? `+${digits}` : phone;
 }
 
+export function cleanDigits(phone: string): string {
+  if (!phone) return '';
+  return phone.replace(/[^0-9]/g, '');
+}
+
 export function extractMessageText(raw: any): string {
   if (typeof raw === 'string') return raw;
   if (!raw) return '';
@@ -51,7 +56,10 @@ export function extractQuotedMessage(raw: any): string | undefined {
   return undefined;
 }
 
-export async function fetchTwoChatChannels(apiKey: string): Promise<TwoChatChannel[]> {
+/**
+ * Fetch connected WhatsApp numbers/channels
+ */
+export async function fetchTwoChatChannels(apiKey: string): Promise<{ channels: TwoChatChannel[]; error?: string }> {
   try {
     const res = await fetch(`${TWOCHAT_BASE_URL}/whatsapp/channels`, {
       method: 'GET',
@@ -62,24 +70,35 @@ export async function fetchTwoChatChannels(apiKey: string): Promise<TwoChatChann
       next: { revalidate: 0 },
     });
 
-    if (!res.ok) return [];
+    if (!res.ok) {
+      const errText = await res.text();
+      return { channels: [], error: `Channels HTTP ${res.status}: ${errText}` };
+    }
 
     const data = await res.json();
-    if (data.numbers && Array.isArray(data.numbers)) {
-      return data.numbers;
-    }
-    if (Array.isArray(data)) {
-      return data;
-    }
-    return [];
-  } catch (err) {
-    console.error('Error fetching 2Chat channels:', err);
-    return [];
+    const rawList =
+      data.numbers ||
+      data.channels ||
+      data.data ||
+      (Array.isArray(data) ? data : []);
+
+    const channels: TwoChatChannel[] = rawList.map((ch: any) => ({
+      uuid: ch.uuid || ch.id || ch.channel_uuid || '',
+      phone_number: ch.phone_number || ch.number || ch.from_number || '',
+      friendly_name: ch.friendly_name || ch.name || ch.phone_number || '',
+      connection_status: ch.connection_status,
+      enabled: ch.enabled,
+      channel_type: ch.channel_type,
+    }));
+
+    return { channels };
+  } catch (err: any) {
+    return { channels: [], error: err.message };
   }
 }
 
 /**
- * Fetch contacts saved in 2Chat directory to map phone numbers to real contact names
+ * Fetch contacts saved in 2Chat directory
  */
 export async function fetchTwoChatContacts(apiKey: string): Promise<Record<string, string>> {
   const contactMap: Record<string, string> = {};
@@ -123,7 +142,7 @@ export async function fetchTwoChatContacts(apiKey: string): Promise<Record<strin
       }
     }
   } catch (err) {
-    console.error('Error fetching 2Chat contacts directory:', err);
+    console.error('Error fetching contacts:', err);
   }
   return contactMap;
 }
@@ -131,31 +150,77 @@ export async function fetchTwoChatContacts(apiKey: string): Promise<Record<strin
 /**
  * Fetch WhatsApp Groups for a connected number
  */
-export async function fetchTwoChatGroups(apiKey: string, phoneNumber: string): Promise<TwoChatGroup[]> {
+export async function fetchTwoChatGroups(
+  apiKey: string,
+  phoneNumber: string,
+  channelUuid?: string
+): Promise<{ groups: TwoChatGroup[]; error?: string }> {
   try {
-    const cleanNumber = normalizePhone(phoneNumber);
-    const res = await fetch(`${TWOCHAT_BASE_URL}/whatsapp/groups/${encodeURIComponent(cleanNumber)}`, {
+    const plusNumber = normalizePhone(phoneNumber);
+    const rawDigits = cleanDigits(phoneNumber);
+
+    // Try path with +
+    let res = await fetch(`${TWOCHAT_BASE_URL}/whatsapp/groups/${plusNumber}`, {
       method: 'GET',
-      headers: {
-        'X-User-API-Key': apiKey,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'X-User-API-Key': apiKey, 'Content-Type': 'application/json' },
       next: { revalidate: 0 },
     });
 
-    if (!res.ok) return [];
+    // Fallback: try raw digits without +
+    if (!res.ok && rawDigits) {
+      res = await fetch(`${TWOCHAT_BASE_URL}/whatsapp/groups/${rawDigits}`, {
+        method: 'GET',
+        headers: { 'X-User-API-Key': apiKey, 'Content-Type': 'application/json' },
+        next: { revalidate: 0 },
+      });
+    }
+
+    // Fallback: try encoded +
+    if (!res.ok && plusNumber) {
+      res = await fetch(`${TWOCHAT_BASE_URL}/whatsapp/groups/${encodeURIComponent(plusNumber)}`, {
+        method: 'GET',
+        headers: { 'X-User-API-Key': apiKey, 'Content-Type': 'application/json' },
+        next: { revalidate: 0 },
+      });
+    }
+
+    // Fallback: try channel uuid if available
+    if (!res.ok && channelUuid) {
+      res = await fetch(`${TWOCHAT_BASE_URL}/whatsapp/groups/${channelUuid}`, {
+        method: 'GET',
+        headers: { 'X-User-API-Key': apiKey, 'Content-Type': 'application/json' },
+        next: { revalidate: 0 },
+      });
+
+      if (!res.ok && channelUuid.startsWith('WW-WPN')) {
+        const stripped = channelUuid.replace('WW-WPN', '');
+        res = await fetch(`${TWOCHAT_BASE_URL}/whatsapp/groups/${stripped}`, {
+          method: 'GET',
+          headers: { 'X-User-API-Key': apiKey, 'Content-Type': 'application/json' },
+          next: { revalidate: 0 },
+        });
+      }
+    }
+
+    if (!res.ok) {
+      const errText = await res.text();
+      return { groups: [], error: `Groups HTTP ${res.status}: ${errText}` };
+    }
 
     const data = await res.json();
-    if (data.groups && Array.isArray(data.groups)) {
-      return data.groups;
-    }
-    if (Array.isArray(data)) {
-      return data;
-    }
-    return [];
-  } catch (err) {
-    console.error('Error fetching 2Chat groups:', err);
-    return [];
+    const rawGroups = data.groups || data.data || (Array.isArray(data) ? data : []);
+
+    const groups: TwoChatGroup[] = rawGroups.map((g: any) => ({
+      uuid: g.uuid || g.id || g.group_uuid || '',
+      wa_group_name: g.wa_group_name || g.name || g.subject || 'WhatsApp Group',
+      name: g.wa_group_name || g.name || g.subject || 'WhatsApp Group',
+      wa_group_id: g.wa_group_id || g.group_id || g.jid || '',
+      size: g.size || g.participants_count,
+    }));
+
+    return { groups };
+  } catch (err: any) {
+    return { groups: [], error: err.message };
   }
 }
 
@@ -239,7 +304,7 @@ export async function fetchTwoChatGroupMessages(
       } as TwoChatMessage;
     });
   } catch (err) {
-    console.error(`Error fetching messages for group ${group.uuid}:`, err);
+    console.error(`Error fetching group ${group.uuid} messages:`, err);
     return [];
   }
 }
@@ -253,16 +318,17 @@ export async function fetchTwoChatMessages(
   remoteNumber?: string,
   contactDirectory: Record<string, string> = {},
   channelName?: string
-): Promise<TwoChatMessage[]> {
+): Promise<{ messages: TwoChatMessage[]; error?: string }> {
   try {
-    const cleanNumber = normalizePhone(connectedNumber);
-    let url = `${TWOCHAT_BASE_URL}/whatsapp/messages/${encodeURIComponent(cleanNumber)}`;
+    const plusNumber = normalizePhone(connectedNumber);
+    const rawDigits = cleanDigits(connectedNumber);
+
+    let url = `${TWOCHAT_BASE_URL}/whatsapp/messages/${plusNumber}`;
     if (remoteNumber) {
-      const cleanRemote = normalizePhone(remoteNumber);
-      url += `/${encodeURIComponent(cleanRemote)}`;
+      url += `/${normalizePhone(remoteNumber)}`;
     }
 
-    const res = await fetch(url, {
+    let res = await fetch(url, {
       method: 'GET',
       headers: {
         'X-User-API-Key': apiKey,
@@ -271,14 +337,49 @@ export async function fetchTwoChatMessages(
       next: { revalidate: 0 },
     });
 
-    if (!res.ok) return [];
+    // Fallback without + in path
+    if (!res.ok && rawDigits) {
+      let fallbackUrl = `${TWOCHAT_BASE_URL}/whatsapp/messages/${rawDigits}`;
+      if (remoteNumber) {
+        fallbackUrl += `/${cleanDigits(remoteNumber)}`;
+      }
+      res = await fetch(fallbackUrl, {
+        method: 'GET',
+        headers: {
+          'X-User-API-Key': apiKey,
+          'Content-Type': 'application/json',
+        },
+        next: { revalidate: 0 },
+      });
+    }
+
+    // Fallback using query parameter
+    if (!res.ok) {
+      let queryUrl = `${TWOCHAT_BASE_URL}/whatsapp/messages?from_number=${encodeURIComponent(plusNumber)}`;
+      if (remoteNumber) {
+        queryUrl += `&remote_phone_number=${encodeURIComponent(normalizePhone(remoteNumber))}`;
+      }
+      res = await fetch(queryUrl, {
+        method: 'GET',
+        headers: {
+          'X-User-API-Key': apiKey,
+          'Content-Type': 'application/json',
+        },
+        next: { revalidate: 0 },
+      });
+    }
+
+    if (!res.ok) {
+      const errText = await res.text();
+      return { messages: [], error: `Messages HTTP ${res.status}: ${errText}` };
+    }
 
     const data = await res.json();
     const rawList = Array.isArray(data)
       ? data
       : data.messages || data.data || [];
 
-    return (rawList as any[]).map((raw) => {
+    const messages = (rawList as any[]).map((raw) => {
       const isOutbound =
         raw.direction === 'outbound' ||
         raw.sent_by === 'api' ||
@@ -339,9 +440,10 @@ export async function fetchTwoChatMessages(
         mediaUrl: raw.url || raw.media_url || raw.message?.url,
       } as TwoChatMessage;
     });
-  } catch (err) {
-    console.error('Error fetching 2Chat messages:', err);
-    return [];
+
+    return { messages };
+  } catch (err: any) {
+    return { messages: [], error: err.message };
   }
 }
 

@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   const host = req.headers.get('host') || 'localhost:3000';
   const proto = req.headers.get('x-forwarded-proto') || 'http';
   const webhookUrl = `${proto}://${host}/api/webhook/2chat`;
-  const stored = loadStoredMessages();
+  const stored = await loadStoredMessages();
 
   return NextResponse.json({
     status: 'active',
@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
         mediaUrl: item.url || item.message?.url,
       };
 
-      addStoredMessage(msg);
+      await addStoredMessage(msg);
     }
 
     return NextResponse.json({

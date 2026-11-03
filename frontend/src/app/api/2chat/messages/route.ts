@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     const queryKey = searchParams.get('apiKey');
     const headerKey = req.headers.get('x-user-api-key');
     const envKey = process.env.TWOCHAT_API_KEY;
-    const apiKey = queryKey || headerKey || envKey || '';
+    const apiKey = (queryKey || headerKey || envKey || '').trim();
 
     const channelParam = searchParams.get('channel');
     const chatId = searchParams.get('chatId');
@@ -36,15 +36,19 @@ export async function GET(req: NextRequest) {
     let newlyFetchedApiMessages: TwoChatMessage[] = [];
     let activeChannel = channelParam || '';
     let activeChannelName = 'My WhatsApp';
+    const apiErrors: string[] = [];
 
     // 1. Fetch channel metadata, contacts directory, and groups list from 2Chat API
     if (apiKey) {
-      const [fetchedChannels, fetchedContacts] = await Promise.all([
+      const [channelResult, fetchedContacts] = await Promise.all([
         fetchTwoChatChannels(apiKey),
         fetchTwoChatContacts(apiKey),
       ]);
 
-      channels = fetchedChannels;
+      channels = channelResult.channels;
+      if (channelResult.error) {
+        apiErrors.push(`Channels error: ${channelResult.error}`);
+      }
       contactDirectory = fetchedContacts;
 
       if (!activeChannel && channels.length > 0) {
@@ -60,7 +64,7 @@ export async function GET(req: NextRequest) {
 
       if (activeChannel) {
         // Fetch groups list and general direct messages
-        const [directMsgs, fetchedGroups] = await Promise.all([
+        const [directResult, groupResult] = await Promise.all([
           fetchTwoChatMessages(
             apiKey,
             activeChannel,
@@ -68,11 +72,16 @@ export async function GET(req: NextRequest) {
             contactDirectory,
             activeChannelName
           ),
-          fetchTwoChatGroups(apiKey, activeChannel),
+          fetchTwoChatGroups(apiKey, activeChannel, activeChanObj?.uuid),
         ]);
 
-        if (directMsgs.length > 0) newlyFetchedApiMessages.push(...directMsgs);
-        groups = fetchedGroups;
+        if (directResult.error) apiErrors.push(`Messages error: ${directResult.error}`);
+        if (groupResult.error) apiErrors.push(`Groups error: ${groupResult.error}`);
+
+        if (directResult.messages.length > 0) {
+          newlyFetchedApiMessages.push(...directResult.messages);
+        }
+        groups = groupResult.groups;
 
         // If a specific group is requested, fetch that group's messages
         if (groupUuid) {
@@ -89,19 +98,20 @@ export async function GET(req: NextRequest) {
           if (specificGroupMsgs.length > 0) newlyFetchedApiMessages.push(...specificGroupMsgs);
         } else if (chatId && !isGroupParam) {
           // If a specific direct customer is requested, fetch full conversation
-          const specificDirectMsgs = await fetchTwoChatMessages(
+          const specificDirectResult = await fetchTwoChatMessages(
             apiKey,
             activeChannel,
             chatId,
             contactDirectory,
             activeChannelName
           );
-          if (specificDirectMsgs.length > 0) newlyFetchedApiMessages.push(...specificDirectMsgs);
+          if (specificDirectResult.messages.length > 0) {
+            newlyFetchedApiMessages.push(...specificDirectResult.messages);
+          }
         } else if (groups.length > 0) {
-          // Fetch top active groups
-          const topGroups = groups.slice(0, 5);
+          // Fetch messages for all groups (up to 15 groups)
           const groupMsgsArrays = await Promise.all(
-            topGroups.map((g) =>
+            groups.slice(0, 15).map((g) =>
               fetchTwoChatGroupMessages(apiKey, g, contactDirectory, activeChannelName)
             )
           );
@@ -112,13 +122,13 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 2. Persist any newly fetched messages so they NEVER disappear!
+    // 2. Persist any newly fetched messages to Supabase Postgres
     if (newlyFetchedApiMessages.length > 0) {
-      addStoredMessages(newlyFetchedApiMessages);
+      await addStoredMessages(newlyFetchedApiMessages);
     }
 
-    // 3. Load all cumulative stored messages (webhook + api history)
-    const stored = loadStoredMessages();
+    // 3. Load all cumulative stored messages from Postgres
+    const stored = await loadStoredMessages();
 
     // Enrich stored messages with contact directory in case names were updated
     const allMessages = stored.map((m) => {
@@ -239,6 +249,7 @@ export async function GET(req: NextRequest) {
       messages: allMessages,
       threadMessages,
       webhookStoredCount: allMessages.length,
+      apiErrors: apiErrors.length > 0 ? apiErrors : undefined,
     });
   } catch (error: any) {
     console.error('Error in 2chat messages route:', error);

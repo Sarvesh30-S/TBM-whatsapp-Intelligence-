@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
       sentBy: 'agent',
       timestamp: new Date().toISOString(),
     };
-    addStoredMessage(sentMsg);
+    await addStoredMessage(sentMsg);
 
     return NextResponse.json({ success: true, data: result.data, message: sentMsg });
   } catch (error: any) {

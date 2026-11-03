@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { TwoChatMessage } from './types';
+import { clearMessagesFromDb, getMessagesFromDb, saveMessagesToDb } from './db';
 
 const DATA_DIR = path.resolve(process.cwd(), 'data');
 const FILE_PATH = path.join(DATA_DIR, '2chat_messages.json');
@@ -14,11 +15,11 @@ function ensureDataFile() {
       fs.writeFileSync(FILE_PATH, JSON.stringify([], null, 2), 'utf-8');
     }
   } catch (err) {
-    console.error('Failed to ensure data file:', err);
+    // ignore
   }
 }
 
-export function loadStoredMessages(): TwoChatMessage[] {
+export function loadStoredMessagesFromFile(): TwoChatMessage[] {
   ensureDataFile();
   try {
     if (fs.existsSync(FILE_PATH)) {
@@ -36,6 +37,18 @@ export function loadStoredMessages(): TwoChatMessage[] {
   return [];
 }
 
+export async function loadStoredMessages(): Promise<TwoChatMessage[]> {
+  try {
+    const dbMessages = await getMessagesFromDb();
+    if (dbMessages && dbMessages.length > 0) {
+      return dbMessages;
+    }
+  } catch (err) {
+    console.warn('Postgres read failed, falling back to file:', err);
+  }
+  return loadStoredMessagesFromFile();
+}
+
 function getMessageKey(m: TwoChatMessage): string {
   if (m.id && !m.id.startsWith('api-') && !m.id.startsWith('webhook-') && !m.id.startsWith('group-msg-')) {
     return m.id;
@@ -43,16 +56,24 @@ function getMessageKey(m: TwoChatMessage): string {
   return `${m.isGroup ? 'grp' : 'dir'}_${m.chatName}_${m.senderNumber}_${m.timestamp}_${m.text}`;
 }
 
-export function addStoredMessage(msg: TwoChatMessage): void {
-  addStoredMessages([msg]);
+export async function addStoredMessage(msg: TwoChatMessage): Promise<void> {
+  await addStoredMessages([msg]);
 }
 
-export function addStoredMessages(newMessages: TwoChatMessage[]): void {
+export async function addStoredMessages(newMessages: TwoChatMessage[]): Promise<void> {
   if (!newMessages || newMessages.length === 0) return;
-  ensureDataFile();
 
+  // 1. Save to Supabase PostgreSQL database
   try {
-    const list = loadStoredMessages();
+    await saveMessagesToDb(newMessages);
+  } catch (err) {
+    console.error('Error saving to Postgres:', err);
+  }
+
+  // 2. Also sync to local JSON backup
+  try {
+    ensureDataFile();
+    const list = loadStoredMessagesFromFile();
     const existingKeys = new Set(list.map(getMessageKey));
 
     let added = false;
@@ -74,11 +95,17 @@ export function addStoredMessages(newMessages: TwoChatMessage[]): void {
       fs.writeFileSync(FILE_PATH, JSON.stringify(list, null, 2), 'utf-8');
     }
   } catch (err) {
-    console.error('Failed to add stored messages:', err);
+    console.error('Failed to write messages backup:', err);
   }
 }
 
-export function clearStoredMessages(): void {
+export async function clearStoredMessages(): Promise<void> {
+  try {
+    await clearMessagesFromDb();
+  } catch (err) {
+    console.error('Failed to clear Postgres:', err);
+  }
+
   ensureDataFile();
   try {
     fs.writeFileSync(FILE_PATH, JSON.stringify([], null, 2), 'utf-8');
