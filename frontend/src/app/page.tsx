@@ -7,8 +7,8 @@ export default function DashboardPage() {
   const [apiKey, setApiKey] = useState<string>('');
   const [apiKeyInput, setApiKeyInput] = useState<string>('');
   const [messages, setMessages] = useState<TwoChatMessage[]>([]);
-  const [customNames, setCustomNames] = useState<Record<string, string>>({});
-  const [filter, setFilter] = useState<'all' | 'received' | 'sent'>('all');
+  const [filter, setFilter] = useState<'all' | 'groups' | 'direct' | 'received' | 'sent'>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
   const [webhookUrl, setWebhookUrl] = useState<string>('http://localhost:3000/api/webhook/2chat');
@@ -17,10 +17,8 @@ export default function DashboardPage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const savedKey = localStorage.getItem('2chat_api_key') || '';
-      const savedNames = JSON.parse(localStorage.getItem('custom_contact_names') || '{}');
       setApiKey(savedKey);
       setApiKeyInput(savedKey);
-      setCustomNames(savedNames);
       setWebhookUrl(`${window.location.origin}/api/webhook/2chat`);
     }
   }, []);
@@ -73,25 +71,29 @@ export default function DashboardPage() {
     }
   };
 
-  const handleEditContactName = (phone: string, currentName = '') => {
-    const newName = prompt(`Enter saved name for ${phone}:`, currentName);
-    if (newName !== null) {
-      const updated = { ...customNames, [phone]: newName.trim() };
-      setCustomNames(updated);
-      localStorage.setItem('custom_contact_names', JSON.stringify(updated));
-    }
-  };
-
   // Metrics calculation
   const sentCount = messages.filter((m) => m.sentBy === 'agent').length;
   const receivedCount = messages.filter((m) => m.sentBy === 'customer').length;
 
-  // Filter messages
+  // Filter & Search messages
   const filteredMessages = messages
     .filter((m) => {
       if (filter === 'received') return m.sentBy === 'customer';
       if (filter === 'sent') return m.sentBy === 'agent';
+      if (filter === 'groups') return Boolean(m.isGroup);
+      if (filter === 'direct') return !m.isGroup;
       return true;
+    })
+    .filter((m) => {
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        (m.chatName && m.chatName.toLowerCase().includes(q)) ||
+        (m.groupName && m.groupName.toLowerCase().includes(q)) ||
+        (m.senderName && m.senderName.toLowerCase().includes(q)) ||
+        (m.senderNumber && m.senderNumber.toLowerCase().includes(q)) ||
+        (m.text && m.text.toLowerCase().includes(q))
+      );
     })
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
@@ -160,28 +162,52 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Messages Header & Filters */}
-      <div className="section-header">
+      {/* Messages Header, Search & Filters */}
+      <div className="section-header" style={{ flexWrap: 'wrap', gap: 12 }}>
         <h2 className="section-title">All Messages ({filteredMessages.length})</h2>
-        <div className="filter-row">
-          <button
-            className={`filter-btn ${filter === 'all' ? '' : 'secondary'}`}
-            onClick={() => setFilter('all')}
-          >
-            All
-          </button>
-          <button
-            className={`filter-btn ${filter === 'received' ? '' : 'secondary'}`}
-            onClick={() => setFilter('received')}
-          >
-            Received
-          </button>
-          <button
-            className={`filter-btn ${filter === 'sent' ? '' : 'secondary'}`}
-            onClick={() => setFilter('sent')}
-          >
-            Sent
-          </button>
+
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <input
+            type="text"
+            className="config-input"
+            style={{ width: 220, padding: '4px 10px', fontSize: 12 }}
+            placeholder="Search group, name, text..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+
+          <div className="filter-row">
+            <button
+              className={`filter-btn ${filter === 'all' ? '' : 'secondary'}`}
+              onClick={() => setFilter('all')}
+            >
+              All
+            </button>
+            <button
+              className={`filter-btn ${filter === 'groups' ? '' : 'secondary'}`}
+              onClick={() => setFilter('groups')}
+            >
+              Groups
+            </button>
+            <button
+              className={`filter-btn ${filter === 'direct' ? '' : 'secondary'}`}
+              onClick={() => setFilter('direct')}
+            >
+              Direct
+            </button>
+            <button
+              className={`filter-btn ${filter === 'received' ? '' : 'secondary'}`}
+              onClick={() => setFilter('received')}
+            >
+              Received
+            </button>
+            <button
+              className={`filter-btn ${filter === 'sent' ? '' : 'secondary'}`}
+              onClick={() => setFilter('sent')}
+            >
+              Sent
+            </button>
+          </div>
         </div>
       </div>
 
@@ -189,7 +215,7 @@ export default function DashboardPage() {
       <div className="messages-list">
         {filteredMessages.length === 0 ? (
           <div className="empty-box">
-            No messages found. Incoming messages to your webhook or via the API key will appear here.
+            No messages found. Messages received via 2Chat, group chats, or your webhook will appear here with proper group and sender details.
           </div>
         ) : (
           filteredMessages.map((msg) => {
@@ -201,51 +227,61 @@ export default function DashboardPage() {
               // fallback
             }
 
-            // Determine display names (checking custom local overrides first, then backend/2Chat contact directory)
-            const remoteSavedName =
-              customNames[msg.remoteNumber] ||
-              msg.contactName ||
-              '';
-
-            const senderDisplayName = isReceived
-              ? (remoteSavedName ? `${remoteSavedName} (${msg.fromNumber || msg.remoteNumber})` : (msg.senderName || msg.fromNumber || msg.remoteNumber))
-              : (msg.senderName || msg.fromNumber || 'My WhatsApp');
-
-            const receiverDisplayName = isReceived
-              ? (msg.receiverName || msg.toNumber || 'My WhatsApp')
-              : (remoteSavedName ? `${remoteSavedName} (${msg.toNumber || msg.remoteNumber})` : (msg.receiverName || msg.toNumber || msg.remoteNumber));
+            // Determine proper sender display: Name (+Number), or Number if not saved
+            let senderDisplay = msg.senderName;
+            if (msg.senderNumber && msg.senderName !== msg.senderNumber && !msg.senderName.includes(msg.senderNumber)) {
+              senderDisplay = `${msg.senderName} (${msg.senderNumber})`;
+            } else if (!msg.senderName || msg.senderName === msg.senderNumber) {
+              senderDisplay = msg.senderNumber || 'Unknown Number';
+            }
 
             return (
               <div key={msg.id} className="message-item">
                 <div className="message-header">
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                     <span className={`badge ${isReceived ? 'received' : 'sent'}`}>
                       {isReceived ? 'Received' : 'Sent'}
                     </span>
-                    <div style={{ fontSize: 13, display: 'flex', gap: 6, alignItems: 'center' }}>
-                      <span style={{ color: '#777777', fontSize: 12 }}>From:</span>
-                      <strong>{senderDisplayName}</strong>
-                      <span style={{ color: '#777777', fontSize: 12, margin: '0 4px' }}>➔</span>
-                      <span style={{ color: '#777777', fontSize: 12 }}>To:</span>
-                      <strong>{receiverDisplayName}</strong>
+
+                    {/* Proper Group Name if group message */}
+                    {msg.isGroup && (
+                      <span
+                        className="badge"
+                        style={{ backgroundColor: '#f0f0f0', color: '#000000', border: '1px solid #d0d0d0' }}
+                      >
+                        GROUP: {msg.groupName || msg.chatName}
+                      </span>
+                    )}
+
+                    {/* Proper Chat Name */}
+                    <div style={{ fontSize: 13, color: '#333333' }}>
+                      <span style={{ color: '#777777', fontSize: 11, marginRight: 4, textTransform: 'uppercase' }}>
+                        Chat:
+                      </span>
+                      <strong>{msg.chatName || msg.groupName || senderDisplay}</strong>
+                    </div>
+
+                    {/* Proper Sender Name or Number if not saved */}
+                    <div style={{ fontSize: 13, color: '#333333', marginLeft: 6 }}>
+                      <span style={{ color: '#777777', fontSize: 11, marginRight: 4, textTransform: 'uppercase' }}>
+                        Sender:
+                      </span>
+                      <span>{senderDisplay}</span>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                    <button
-                      className="secondary"
-                      style={{ padding: '2px 8px', fontSize: 11, border: '1px solid #ccc' }}
-                      onClick={() => handleEditContactName(msg.remoteNumber, remoteSavedName)}
-                      title="Set or edit saved name for this contact"
-                    >
-                      {remoteSavedName ? '✎ Edit Name' : '+ Save Name'}
-                    </button>
-                    <span style={{ fontSize: 11, color: '#777777', textTransform: 'uppercase' }}>
+
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    <span style={{ fontSize: 10, color: '#888888', textTransform: 'uppercase' }}>
                       {msg.source}
                     </span>
                     <span className="meta-time">{formattedDate}</span>
                   </div>
                 </div>
-                <div className="message-text">{msg.text || '(No text content)'}</div>
+
+                {/* The text message what it says */}
+                <div className="message-text" style={{ fontSize: 15, marginTop: 4 }}>
+                  {msg.text || '(No text content)'}
+                </div>
               </div>
             );
           })

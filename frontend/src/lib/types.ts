@@ -1,17 +1,30 @@
 export interface TwoChatMessage {
   id: string;
   source: 'webhook' | 'api' | 'sent';
+  isGroup?: boolean;
+  groupUuid?: string;
+  groupName?: string;
+  chatName: string; // Group Name for groups, or Contact/Phone Name for direct chats
+  senderName: string; // Saved name, or pushname, or "You"
+  senderNumber: string; // Phone number
+  receiverName?: string; // Receiver name
+  receiverNumber?: string; // Receiver phone
   fromNumber: string;
   toNumber: string;
   remoteNumber: string;
-  senderName?: string;
-  receiverName?: string;
   text: string;
   sentBy: 'customer' | 'agent' | 'api' | 'user';
   timestamp: string;
   event?: string;
-  contactName?: string;
   mediaUrl?: string;
+}
+
+export interface TwoChatGroup {
+  uuid: string;
+  wa_group_name?: string;
+  name?: string;
+  wa_group_id?: string;
+  size?: number;
 }
 
 export interface TwoChatChannel {
@@ -29,13 +42,4 @@ export interface TwoChatContact {
   last_name?: string;
   name?: string;
   phone_number?: string;
-}
-
-export interface TwoChatConversation {
-  remoteNumber: string;
-  contactName?: string;
-  lastMessage: string;
-  lastTimestamp: string;
-  messageCount: number;
-  unreadCount?: number;
 }

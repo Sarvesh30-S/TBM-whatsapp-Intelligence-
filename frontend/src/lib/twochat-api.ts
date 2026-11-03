@@ -1,4 +1,4 @@
-import { TwoChatChannel, TwoChatMessage } from './types';
+import { TwoChatChannel, TwoChatGroup, TwoChatMessage } from './types';
 
 const TWOCHAT_BASE_URL = 'https://api.p.2chat.io/open';
 
@@ -6,6 +6,32 @@ export function normalizePhone(phone: string): string {
   if (!phone) return '';
   const digits = phone.replace(/[^0-9]/g, '');
   return digits ? `+${digits}` : phone;
+}
+
+export function extractMessageText(raw: any): string {
+  if (typeof raw === 'string') return raw;
+  if (!raw) return '';
+
+  if (typeof raw.text === 'string' && raw.text.trim()) return raw.text;
+  if (typeof raw.body === 'string' && raw.body.trim()) return raw.body;
+
+  if (raw.message) {
+    if (typeof raw.message === 'string') return raw.message;
+    if (typeof raw.message.text === 'string' && raw.message.text.trim()) return raw.message.text;
+    if (typeof raw.message.body === 'string' && raw.message.body.trim()) return raw.message.body;
+    if (typeof raw.message.caption === 'string' && raw.message.caption.trim()) return raw.message.caption;
+  }
+
+  if (typeof raw.caption === 'string' && raw.caption.trim()) return raw.caption;
+
+  // Media attachments
+  const mediaUrl = raw.url || raw.media_url || raw.message?.url;
+  if (mediaUrl) {
+    const type = raw.type || raw.message?.type || 'Media';
+    return `[${type}: ${mediaUrl}]`;
+  }
+
+  return '';
 }
 
 export async function fetchTwoChatChannels(apiKey: string): Promise<TwoChatChannel[]> {
@@ -19,9 +45,7 @@ export async function fetchTwoChatChannels(apiKey: string): Promise<TwoChatChann
       next: { revalidate: 0 },
     });
 
-    if (!res.ok) {
-      return [];
-    }
+    if (!res.ok) return [];
 
     const data = await res.json();
     if (data.numbers && Array.isArray(data.numbers)) {
@@ -87,6 +111,124 @@ export async function fetchTwoChatContacts(apiKey: string): Promise<Record<strin
   return contactMap;
 }
 
+/**
+ * Fetch WhatsApp Groups for a connected number
+ */
+export async function fetchTwoChatGroups(apiKey: string, phoneNumber: string): Promise<TwoChatGroup[]> {
+  try {
+    const cleanNumber = normalizePhone(phoneNumber);
+    const res = await fetch(`${TWOCHAT_BASE_URL}/whatsapp/groups/${encodeURIComponent(cleanNumber)}`, {
+      method: 'GET',
+      headers: {
+        'X-User-API-Key': apiKey,
+        'Content-Type': 'application/json',
+      },
+      next: { revalidate: 0 },
+    });
+
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    if (data.groups && Array.isArray(data.groups)) {
+      return data.groups;
+    }
+    if (Array.isArray(data)) {
+      return data;
+    }
+    return [];
+  } catch (err) {
+    console.error('Error fetching 2Chat groups:', err);
+    return [];
+  }
+}
+
+/**
+ * Fetch messages for a specific group
+ */
+export async function fetchTwoChatGroupMessages(
+  apiKey: string,
+  group: TwoChatGroup,
+  contactDirectory: Record<string, string> = {},
+  channelName = 'My WhatsApp'
+): Promise<TwoChatMessage[]> {
+  try {
+    const res = await fetch(`${TWOCHAT_BASE_URL}/whatsapp/groups/messages/${group.uuid}?page_number=0`, {
+      method: 'GET',
+      headers: {
+        'X-User-API-Key': apiKey,
+        'Content-Type': 'application/json',
+      },
+      next: { revalidate: 0 },
+    });
+
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    const rawList = Array.isArray(data)
+      ? data
+      : data.messages || data.data || [];
+
+    const groupTitle = group.wa_group_name || group.name || 'WhatsApp Group';
+
+    return (rawList as any[]).map((raw) => {
+      const isOutbound =
+        raw.sent_by === 'api' ||
+        raw.sent_by === 'agent' ||
+        raw.sent_by === 'user' ||
+        raw.direction === 'outbound';
+
+      const senderNumber = normalizePhone(
+        raw.sender?.phone_number ||
+        raw.remote_phone_number ||
+        raw.from_number ||
+        ''
+      );
+
+      // Name resolution: Contact Directory -> sender pushname -> sender name -> senderNumber (if not saved)
+      const senderSavedName =
+        contactDirectory[senderNumber] ||
+        raw.sender?.pushname ||
+        raw.sender?.name ||
+        raw.pushname ||
+        raw.contact?.name ||
+        raw.contact?.first_name ||
+        '';
+
+      const senderDisplayName = isOutbound
+        ? (channelName || 'You')
+        : (senderSavedName || senderNumber || 'Unknown');
+
+      const text = extractMessageText(raw);
+
+      return {
+        id: raw.id || raw.uuid || `group-msg-${Date.now()}-${Math.random()}`,
+        source: 'api',
+        isGroup: true,
+        groupUuid: group.uuid,
+        groupName: groupTitle,
+        chatName: groupTitle,
+        senderName: senderDisplayName,
+        senderNumber: senderNumber,
+        receiverName: groupTitle,
+        receiverNumber: group.wa_group_id || '',
+        fromNumber: senderNumber,
+        toNumber: group.wa_group_id || '',
+        remoteNumber: senderNumber || groupTitle,
+        text,
+        sentBy: isOutbound ? 'agent' : 'customer',
+        timestamp: raw.created_at || raw.timestamp || new Date().toISOString(),
+        mediaUrl: raw.url || raw.media_url || raw.message?.url,
+      } as TwoChatMessage;
+    });
+  } catch (err) {
+    console.error(`Error fetching messages for group ${group.uuid}:`, err);
+    return [];
+  }
+}
+
+/**
+ * Fetch direct 1-on-1 messages
+ */
 export async function fetchTwoChatMessages(
   apiKey: string,
   connectedNumber: string,
@@ -111,9 +253,7 @@ export async function fetchTwoChatMessages(
       next: { revalidate: 0 },
     });
 
-    if (!res.ok) {
-      return [];
-    }
+    if (!res.ok) return [];
 
     const data = await res.json();
     const rawList = Array.isArray(data)
@@ -135,8 +275,9 @@ export async function fetchTwoChatMessages(
       const cleanRemote = normalizePhone(remoteRaw);
       const cleanConnected = normalizePhone(raw.channel_phone_number || connectedNumber);
 
-      // Extract best name for the remote party
+      // Extract saved name: directory -> pushname -> contact -> phone number if not saved
       const extractedRemoteName =
+        contactDirectory[cleanRemote] ||
         raw.pushname ||
         raw.sender?.pushname ||
         raw.sender?.name ||
@@ -145,34 +286,37 @@ export async function fetchTwoChatMessages(
         (raw.contact?.last_name
           ? `${raw.contact?.first_name || ''} ${raw.contact?.last_name}`.trim()
           : undefined) ||
-        contactDirectory[cleanRemote];
+        '';
 
       const myDisplayName = channelName || 'My WhatsApp';
 
-      const senderName = isOutbound
+      const senderDisplayName = isOutbound
         ? myDisplayName
         : (extractedRemoteName || cleanRemote);
 
-      const receiverName = isOutbound
+      const receiverDisplayName = isOutbound
         ? (extractedRemoteName || cleanRemote)
         : myDisplayName;
+
+      const chatTitle = extractedRemoteName || cleanRemote;
+      const text = extractMessageText(raw);
 
       return {
         id: raw.id || raw.uuid || `api-${Date.now()}-${Math.random()}`,
         source: 'api',
+        isGroup: false,
+        chatName: chatTitle,
         fromNumber: cleanConnected,
         toNumber: isOutbound ? cleanRemote : cleanConnected,
         remoteNumber: cleanRemote,
-        senderName,
-        receiverName,
-        text:
-          typeof raw.message === 'string'
-            ? raw.message
-            : raw.message?.text || raw.text || raw.body || '',
+        senderName: senderDisplayName,
+        senderNumber: isOutbound ? cleanConnected : cleanRemote,
+        receiverName: receiverDisplayName,
+        receiverNumber: isOutbound ? cleanRemote : cleanConnected,
+        text,
         sentBy: isOutbound ? 'agent' : 'customer',
         timestamp: raw.created_at || raw.timestamp || new Date().toISOString(),
         event: raw.event,
-        contactName: extractedRemoteName,
         mediaUrl: raw.url || raw.media_url || raw.message?.url,
       } as TwoChatMessage;
     });

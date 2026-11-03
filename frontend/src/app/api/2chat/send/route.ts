@@ -32,6 +32,11 @@ export async function POST(req: NextRequest) {
     const sentMsg: TwoChatMessage = {
       id: result.data?.id || `sent-${Date.now()}`,
       source: 'sent',
+      chatName: toNumber,
+      senderName: 'You',
+      senderNumber: fromNumber,
+      receiverName: toNumber,
+      receiverNumber: toNumber,
       fromNumber,
       toNumber,
       remoteNumber: toNumber,

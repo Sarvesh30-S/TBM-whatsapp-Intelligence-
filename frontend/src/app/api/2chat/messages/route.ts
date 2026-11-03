@@ -3,10 +3,12 @@ import { loadStoredMessages } from '@/lib/message-store';
 import {
   fetchTwoChatChannels,
   fetchTwoChatContacts,
+  fetchTwoChatGroups,
+  fetchTwoChatGroupMessages,
   fetchTwoChatMessages,
   normalizePhone,
 } from '@/lib/twochat-api';
-import { TwoChatChannel, TwoChatConversation, TwoChatMessage } from '@/lib/types';
+import { TwoChatChannel, TwoChatGroup, TwoChatMessage } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,12 +24,13 @@ export async function GET(req: NextRequest) {
     const remoteParam = searchParams.get('remote');
 
     let channels: TwoChatChannel[] = [];
+    let groups: TwoChatGroup[] = [];
     let contactDirectory: Record<string, string> = {};
     let apiMessages: TwoChatMessage[] = [];
     let activeChannel = channelParam || '';
     let activeChannelName = 'My WhatsApp';
 
-    // 1. If we have an API Key, fetch channels and contacts directory
+    // 1. If we have an API Key, fetch channels, contacts directory, and groups
     if (apiKey) {
       const [fetchedChannels, fetchedContacts] = await Promise.all([
         fetchTwoChatChannels(apiKey),
@@ -49,31 +52,59 @@ export async function GET(req: NextRequest) {
       }
 
       if (activeChannel) {
-        apiMessages = await fetchTwoChatMessages(
-          apiKey,
-          activeChannel,
-          remoteParam || undefined,
-          contactDirectory,
-          activeChannelName
-        );
+        // Fetch direct messages and groups in parallel
+        const [directMsgs, fetchedGroups] = await Promise.all([
+          fetchTwoChatMessages(
+            apiKey,
+            activeChannel,
+            remoteParam || undefined,
+            contactDirectory,
+            activeChannelName
+          ),
+          fetchTwoChatGroups(apiKey, activeChannel),
+        ]);
+
+        apiMessages = [...directMsgs];
+        groups = fetchedGroups;
+
+        // Fetch recent messages for top groups (up to 8 active groups)
+        if (groups.length > 0) {
+          const groupMessagePromises = groups.slice(0, 8).map((grp) =>
+            fetchTwoChatGroupMessages(apiKey, grp, contactDirectory, activeChannelName)
+          );
+          const groupMessagesResults = await Promise.all(groupMessagePromises);
+          for (const gMsgs of groupMessagesResults) {
+            apiMessages.push(...gMsgs);
+          }
+        }
       }
     }
 
     // 2. Load webhook-stored messages & enrich with contact directory
     const webhookMessages = loadStoredMessages().map((m) => {
+      const cleanSender = normalizePhone(m.senderNumber || m.fromNumber);
       const cleanRemote = normalizePhone(m.remoteNumber);
-      const savedName = m.contactName || contactDirectory[cleanRemote];
       const isOutbound = m.sentBy === 'agent';
+
+      // Check contact directory for sender name
+      const savedSenderName = !isOutbound
+        ? (contactDirectory[cleanSender] || contactDirectory[cleanRemote] || m.senderName || cleanSender)
+        : activeChannelName;
+
+      // Check contact directory for chat name if not group
+      let resolvedChatName = m.chatName;
+      if (!m.isGroup) {
+        resolvedChatName = contactDirectory[cleanRemote] || m.chatName || cleanRemote;
+      }
 
       return {
         ...m,
-        contactName: savedName || m.contactName,
-        senderName: isOutbound
-          ? (m.senderName || activeChannelName)
-          : (savedName || m.senderName || cleanRemote),
+        chatName: resolvedChatName,
+        senderName: savedSenderName,
+        senderNumber: m.senderNumber || cleanSender,
         receiverName: isOutbound
-          ? (savedName || m.receiverName || cleanRemote)
-          : (m.receiverName || activeChannelName),
+          ? (contactDirectory[cleanRemote] || m.receiverName || cleanRemote)
+          : (m.groupName || activeChannelName),
       };
     });
 
@@ -81,70 +112,24 @@ export async function GET(req: NextRequest) {
     const messageMap = new Map<string, TwoChatMessage>();
 
     for (const msg of [...webhookMessages, ...apiMessages]) {
-      const key = msg.id || `${msg.remoteNumber}-${msg.timestamp}-${msg.text}`;
+      const key = msg.id || `${msg.chatName}-${msg.senderNumber}-${msg.timestamp}-${msg.text}`;
       if (!messageMap.has(key)) {
         messageMap.set(key, msg);
       }
     }
 
-    let allMessages = Array.from(messageMap.values());
-
-    // Filter by channel if activeChannel is present
-    if (activeChannel) {
-      const cleanActive = normalizePhone(activeChannel);
-      allMessages = allMessages.filter(
-        (m) =>
-          !m.fromNumber ||
-          normalizePhone(m.fromNumber) === cleanActive ||
-          normalizePhone(m.toNumber) === cleanActive ||
-          m.source === 'webhook'
-      );
-    }
-
-    // Group into conversations
-    const conversationMap = new Map<string, TwoChatConversation>();
-    for (const msg of allMessages) {
-      const remote = msg.remoteNumber || 'Unknown';
-      const cleanRemote = normalizePhone(remote);
-      const existing = conversationMap.get(cleanRemote);
-      const contactName = msg.contactName || contactDirectory[cleanRemote];
-
-      if (!existing) {
-        conversationMap.set(cleanRemote, {
-          remoteNumber: cleanRemote,
-          contactName: contactName,
-          lastMessage: msg.text,
-          lastTimestamp: msg.timestamp,
-          messageCount: 1,
-        });
-      } else {
-        existing.messageCount += 1;
-        if (new Date(msg.timestamp).getTime() >= new Date(existing.lastTimestamp).getTime()) {
-          existing.lastMessage = msg.text;
-          existing.lastTimestamp = msg.timestamp;
-          if (contactName && !existing.contactName) {
-            existing.contactName = contactName;
-          }
-        }
-      }
-    }
-
-    const conversations = Array.from(conversationMap.values()).sort(
-      (a, b) => new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime()
+    const allMessages = Array.from(messageMap.values()).sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
-
-    const displayMessages = remoteParam
-      ? allMessages.filter((m) => normalizePhone(m.remoteNumber) === normalizePhone(remoteParam))
-      : allMessages;
 
     return NextResponse.json({
       success: true,
       apiKeyConfigured: Boolean(apiKey),
       channels,
       activeChannel,
+      groups,
       contacts: contactDirectory,
-      conversations,
-      messages: displayMessages,
+      messages: allMessages,
       webhookStoredCount: webhookMessages.length,
     });
   } catch (error: any) {
