@@ -101,17 +101,14 @@ export default function DashboardPage() {
         if (data.channels && data.channels.length > 0) setChannels(data.channels);
         if (data.activeChannel) setActiveChannel(data.activeChannel);
 
-        // Update messages cumulative store
+        // Update messages cumulative store (merging so fresh server data replaces stale entries)
         if (data.messages && Array.isArray(data.messages) && data.messages.length > 0) {
           setAllMessages((prev) => {
-            const existingIds = new Set(prev.map((m) => m.id));
-            const merged = [...prev];
+            const map = new Map(prev.map((m) => [m.id, m]));
             for (const m of data.messages) {
-              if (!existingIds.has(m.id)) {
-                existingIds.add(m.id);
-                merged.push(m);
-              }
+              map.set(m.id, m);
             }
+            const merged = Array.from(map.values());
             merged.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
             if (typeof window !== 'undefined') {
               localStorage.setItem('cached_2chat_messages', JSON.stringify(merged));
@@ -221,25 +218,27 @@ export default function DashboardPage() {
     const chatDigits = cleanDigits(selectedChat.id);
     const chatNameLower = selectedChat.name.toLowerCase();
 
-    return allMessages.filter((m) => {
-      if (selectedChat.isGroup || m.isGroup) {
-        if (selectedChat.groupUuid && (m.groupUuid === selectedChat.groupUuid || m.remoteNumber === selectedChat.groupUuid)) return true;
-        if (selectedChat.id && (m.groupUuid === selectedChat.id || m.remoteNumber === selectedChat.id)) return true;
-        if (selectedChat.phoneOrId && (m.remoteNumber === selectedChat.phoneOrId || m.groupUuid === selectedChat.phoneOrId)) return true;
-        if (selectedChat.name && selectedChat.name !== 'WhatsApp Group') {
-          if (m.groupName && m.groupName.toLowerCase() === chatNameLower) return true;
-          if (m.chatName && m.chatName.toLowerCase() === chatNameLower) return true;
+    return allMessages
+      .filter((m) => {
+        if (selectedChat.isGroup || m.isGroup) {
+          if (selectedChat.groupUuid && (m.groupUuid === selectedChat.groupUuid || m.remoteNumber === selectedChat.groupUuid)) return true;
+          if (selectedChat.id && (m.groupUuid === selectedChat.id || m.remoteNumber === selectedChat.id)) return true;
+          if (selectedChat.phoneOrId && (m.remoteNumber === selectedChat.phoneOrId || m.groupUuid === selectedChat.phoneOrId || m.receiverNumber === selectedChat.phoneOrId || m.toNumber === selectedChat.phoneOrId)) return true;
+          if (selectedChat.name && selectedChat.name !== 'WhatsApp Group') {
+            if (m.groupName && m.groupName.toLowerCase() === chatNameLower) return true;
+            if (m.chatName && m.chatName.toLowerCase() === chatNameLower) return true;
+          }
+          return false;
         }
-        return false;
-      }
 
-      // Direct chat
-      const msgDigits = cleanDigits(m.remoteNumber);
-      if (chatDigits && msgDigits) {
-        return chatDigits === msgDigits || msgDigits.endsWith(chatDigits) || chatDigits.endsWith(msgDigits);
-      }
-      return m.remoteNumber === selectedChat.id || m.chatName === selectedChat.name;
-    });
+        // Direct chat
+        const msgDigits = cleanDigits(m.remoteNumber);
+        if (chatDigits && msgDigits) {
+          return chatDigits === msgDigits || msgDigits.endsWith(chatDigits) || chatDigits.endsWith(msgDigits);
+        }
+        return m.remoteNumber === selectedChat.id || m.chatName === selectedChat.name;
+      })
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   }, [selectedChat, allMessages]);
 
   // Send message or group reply
@@ -505,24 +504,39 @@ export default function DashboardPage() {
         <main className="livechat-thread">
           {selectedChat ? (
             <>
-              {/* Thread Header */}
+              {/* Thread Header matching 2Chat Live Chat */}
               <div className="thread-header">
-                <div>
-                  <div className="thread-header-title">
-                    {selectedChat.isGroup ? `👥 ${selectedChat.name}` : selectedChat.name}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: '50%',
+                    backgroundColor: '#25D366',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#ffffff',
+                    fontSize: 16,
+                  }}>
+                    💬
                   </div>
-                  <div className="thread-header-subtitle">
-                    {selectedChat.isGroup
-                      ? `WhatsApp Group • ${currentChatMessages.length} message${currentChatMessages.length === 1 ? '' : 's'}`
-                      : `${selectedChat.phoneOrId} • ${currentChatMessages.length} message${currentChatMessages.length === 1 ? '' : 's'}`}
+                  <div>
+                    <div className="thread-header-title">
+                      {selectedChat.name}
+                    </div>
+                    <div className="thread-header-subtitle">
+                      {selectedChat.isGroup
+                        ? `Channel: sarvesh (+91 77386 74950) • ${currentChatMessages.length} message${currentChatMessages.length === 1 ? '' : 's'}`
+                        : `${selectedChat.phoneOrId} • ${currentChatMessages.length} message${currentChatMessages.length === 1 ? '' : 's'}`}
+                    </div>
                   </div>
                 </div>
 
-                <div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <button
                     className="secondary"
-                    style={{ padding: '4px 10px', fontSize: 11 }}
-                    onClick={() => loadData(apiKey, selectedChat.id)}
+                    style={{ padding: '5px 12px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}
+                    onClick={() => loadData(apiKey, selectedChat.id, selectedChat.isGroup, selectedChat.groupUuid)}
                     disabled={loading}
                   >
                     ↻ Sync Chat
@@ -535,7 +549,7 @@ export default function DashboardPage() {
                 {currentChatMessages.length === 0 ? (
                   <div className="empty-chat-state">
                     <p style={{ fontWeight: 600, marginBottom: 4 }}>No messages in this chat yet.</p>
-                    <p style={{ fontSize: 12 }}>Send a message below or click "Fetch 2Chat Messages".</p>
+                    <p style={{ fontSize: 12 }}>Incoming messages will appear here via 2Chat webhook.</p>
                   </div>
                 ) : (
                   currentChatMessages.map((msg) => {
@@ -551,29 +565,28 @@ export default function DashboardPage() {
                     }
 
                     const senderTitle = isOutbound
-                      ? 'You'
-                      : (msg.senderName || msg.senderNumber || 'Unknown');
+                      ? 'sarvesh (You)'
+                      : (msg.senderName || msg.senderNumber || 'Participant');
 
                     return (
                       <div
                         key={msg.id}
                         className={`message-bubble-wrapper ${isOutbound ? 'outbound' : 'inbound'}`}
                       >
-                        {!isOutbound && (
-                          <div className="sender-label">
-                            {senderTitle}
-                          </div>
-                        )}
+                        <div className={`sender-header ${isOutbound ? 'outbound' : 'inbound'}`}>
+                          {senderTitle}
+                        </div>
 
                         <div className={`bubble-content ${isOutbound ? 'outbound' : 'inbound'}`}>
                           {msg.quotedMessage && (
                             <div className="quote-box">
-                              {msg.quotedMessage}
+                              <span className="quote-icon">“</span>
+                              <div className="quote-text">{msg.quotedMessage}</div>
                             </div>
                           )}
 
-                          <div style={{ whiteSpace: 'pre-wrap' }}>
-                            {msg.text || '(No text content)'}
+                          <div className="bubble-text">
+                            {msg.text || (msg.mediaUrl ? `[Media: ${msg.mediaUrl}]` : '(No text content)')}
                           </div>
 
                           <div className="bubble-time">
@@ -617,7 +630,7 @@ export default function DashboardPage() {
           )}
         </main>
 
-        {/* Right Details Panel */}
+        {/* Right Details Panel matching 2Chat Live Chat */}
         <aside className="livechat-info">
           {selectedChat ? (
             <>
@@ -627,16 +640,73 @@ export default function DashboardPage() {
                 </div>
                 <div className="info-name">{selectedChat.name}</div>
                 <div className="info-type">
-                  {selectedChat.isGroup ? 'WhatsApp Group' : 'Direct Contact'}
+                  {selectedChat.isGroup ? 'WhatsApp Group' : 'Direct WhatsApp Chat'}
                 </div>
               </div>
 
-              <div className="info-section">
-                <span className="info-label">
-                  {selectedChat.isGroup ? 'Group ID / UUID' : 'Phone Number'}
-                </span>
-                <span className="info-value">{selectedChat.phoneOrId}</span>
-              </div>
+              {selectedChat.isGroup && (
+                <>
+                  <div className="info-section">
+                    <span className="info-label">GROUP DATA</span>
+                    {selectedChat.description ? (
+                      <div
+                        style={{
+                          maxHeight: 220,
+                          overflowY: 'auto',
+                          backgroundColor: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: 6,
+                          padding: 10,
+                          fontSize: 11.5,
+                          lineHeight: 1.5,
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                          color: '#334155',
+                        }}
+                      >
+                        {selectedChat.description}
+                      </div>
+                    ) : (
+                      <span className="info-value" style={{ fontStyle: 'italic', color: '#94a3b8' }}>
+                        No description provided
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="info-section">
+                    <span className="info-label">Group JID / Phone</span>
+                    <span className="info-value">{selectedChat.phoneOrId}</span>
+                  </div>
+
+                  <div className="info-section">
+                    <span className="info-label">ASSIGNED TO</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#64748b' }}>Assignee</span>
+                        <span style={{ fontWeight: 600 }}>Unassigned</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#64748b' }}>Team Inbox</span>
+                        <span style={{ fontWeight: 600 }}>Unassigned</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="info-section">
+                    <span className="info-label">PARTICIPANTS</span>
+                    <span className="info-value">
+                      {selectedChat.size ? `${selectedChat.size} members` : 'Group'}
+                    </span>
+                  </div>
+                </>
+              )}
+
+              {!selectedChat.isGroup && (
+                <div className="info-section">
+                  <span className="info-label">Phone Number</span>
+                  <span className="info-value">{selectedChat.phoneOrId}</span>
+                </div>
+              )}
 
               <div className="info-section">
                 <span className="info-label">Total Messages</span>
@@ -649,6 +719,27 @@ export default function DashboardPage() {
                   <span className="info-value" style={{ fontSize: 11 }}>
                     {new Date(selectedChat.lastTimestamp).toLocaleString()}
                   </span>
+                </div>
+              )}
+
+              {selectedChat.twoChatLink && (
+                <div style={{ marginTop: 8 }}>
+                  <a
+                    href={selectedChat.twoChatLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="secondary"
+                    style={{
+                      display: 'block',
+                      textAlign: 'center',
+                      textDecoration: 'none',
+                      padding: '6px 12px',
+                      fontSize: 11,
+                      fontWeight: 600,
+                    }}
+                  >
+                    Open in 2Chat Live Chat ↗
+                  </a>
                 </div>
               )}
             </>

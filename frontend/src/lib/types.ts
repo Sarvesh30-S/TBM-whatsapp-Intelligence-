@@ -30,6 +30,10 @@ export interface TwoChatConversation {
   lastTimestamp: string;
   messageCount: number;
   unreadCount?: number;
+  description?: string;
+  size?: number;
+  ownerPhone?: string;
+  twoChatLink?: string;
 }
 
 export interface TwoChatGroup {
@@ -38,6 +42,9 @@ export interface TwoChatGroup {
   name?: string;
   wa_group_id?: string;
   size?: number;
+  wa_subject?: string;
+  wa_owner_id?: string;
+  _2chat_link?: string;
 }
 
 export interface TwoChatChannel {

@@ -81,10 +81,13 @@ export async function saveMessagesToDb(messages: TwoChatMessage[]): Promise<void
         ON CONFLICT (id) DO UPDATE SET
           source = EXCLUDED.source,
           is_group = EXCLUDED.is_group,
+          group_uuid = COALESCE(EXCLUDED.group_uuid, twochat_messages.group_uuid),
           group_name = COALESCE(EXCLUDED.group_name, twochat_messages.group_name),
           chat_name = COALESCE(EXCLUDED.chat_name, twochat_messages.chat_name),
-          sender_name = COALESCE(EXCLUDED.sender_name, twochat_messages.sender_name),
-          receiver_name = COALESCE(EXCLUDED.receiver_name, twochat_messages.receiver_name),
+          sender_name = EXCLUDED.sender_name,
+          sender_number = EXCLUDED.sender_number,
+          receiver_name = EXCLUDED.receiver_name,
+          sent_by = EXCLUDED.sent_by,
           text = EXCLUDED.text,
           quoted_message = EXCLUDED.quoted_message,
           timestamp = EXCLUDED.timestamp

@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addStoredMessage, loadStoredMessages } from '@/lib/message-store';
 import { TwoChatMessage } from '@/lib/types';
-import { extractMessageText, normalizePhone } from '@/lib/twochat-api';
+import {
+  cleanDigits,
+  extractJidFromSessionKey,
+  extractMessageText,
+  extractQuotedMessage,
+  formatPhoneDisplay,
+  normalizePhone,
+} from '@/lib/twochat-api';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,21 +39,43 @@ export async function POST(req: NextRequest) {
     const events = Array.isArray(rawBody) ? rawBody : [rawBody];
 
     for (const item of events) {
+      const sessionKey = item.session_key || '';
+      const jidFromSession = extractJidFromSessionKey(sessionKey);
+      const toOrFromJid = item.to_number || item.from_number || item.remote_phone_number || '';
+
       const isGroupEvent =
         item.event?.includes('group') ||
         Boolean(item.group) ||
-        Boolean(item.to_group_uuid);
+        Boolean(item.to_group_uuid) ||
+        Boolean(item.participant) ||
+        jidFromSession.endsWith('@g.us') ||
+        toOrFromJid.includes('@g.us');
+
+      const groupUuid =
+        item.group?.uuid ||
+        item.group_uuid ||
+        item.to_group_uuid ||
+        undefined;
+
+      const groupJid =
+        item.group?.wa_group_id ||
+        item.group_jid ||
+        (jidFromSession.endsWith('@g.us') ? jidFromSession : undefined) ||
+        (toOrFromJid.includes('@g.us') ? toOrFromJid : undefined);
 
       const groupName =
         item.group?.name ||
         item.group?.wa_group_name ||
         item.group_name ||
+        item.contact?.friendly_name ||
         (isGroupEvent ? 'WhatsApp Group' : undefined);
 
-      const groupUuid =
-        item.group?.uuid ||
-        item.to_group_uuid ||
-        undefined;
+      const channelRaw =
+        item.channel_phone_number ||
+        item.channel?.phone_number ||
+        '+917738674950';
+      const cleanChannel = normalizePhone(channelRaw);
+      const channelDigits = cleanDigits(cleanChannel);
 
       const remoteRaw =
         item.remote_phone_number ||
@@ -56,73 +85,88 @@ export async function POST(req: NextRequest) {
         '';
       const cleanRemote = normalizePhone(remoteRaw);
 
-      const channelRaw =
-        item.channel_phone_number ||
-        item.channel?.phone_number ||
-        item.from_number ||
-        '';
-      const cleanChannel = normalizePhone(channelRaw);
+      const participantPhone = normalizePhone(
+        item.participant?.phone_number ||
+        item.sender?.phone_number ||
+        (isGroupEvent ? cleanRemote : '')
+      );
+      const participantDigits = cleanDigits(participantPhone);
 
-      const text = extractMessageText(item);
+      // Check if sent by channel owner (Sarvesh)
+      const isChannelOwner =
+        (Boolean(participantDigits) && participantDigits === channelDigits) ||
+        item.from_me === true;
 
+      // Note: item.sent_by === 'user' means an external contact sent it (INBOUND)
       const isOutbound =
         item.event === 'whatsapp.message.sent' ||
         item.event === 'whatsapp.waba.message.sent' ||
         item.sent_by === 'api' ||
         item.sent_by === 'agent' ||
-        item.sent_by === 'user';
+        item.direction === 'outbound' ||
+        isChannelOwner;
 
-      const contactSavedName =
+      const participantPushname =
+        item.participant?.pushname ||
+        item.participant?.name ||
+        item.sender?.pushname ||
+        item.sender?.name ||
         item.contact?.name ||
         item.contact?.first_name ||
         item.pushname ||
-        item.sender?.pushname ||
-        item.sender?.name ||
-        (item.contact?.last_name
-          ? `${item.contact.first_name || ''} ${item.contact.last_name}`.trim()
-          : undefined);
+        '';
 
-      const channelDisplayName = item.channel?.friendly_name || 'My WhatsApp';
+      const formattedPhone = formatPhoneDisplay(participantPhone || cleanRemote);
+      const channelDisplayName = item.channel?.friendly_name || 'sarvesh';
 
       let chatName = '';
       let senderDisplayName = '';
       let receiverDisplayName = '';
 
-      if (isGroupEvent && groupName) {
-        chatName = groupName;
-        senderDisplayName = isOutbound
-          ? channelDisplayName
-          : (contactSavedName || cleanRemote || 'Participant');
-        receiverDisplayName = groupName;
+      if (isGroupEvent) {
+        chatName = groupName || 'WhatsApp Group';
+        if (isOutbound) {
+          senderDisplayName = channelDisplayName;
+        } else if (participantPushname && formattedPhone) {
+          senderDisplayName = `${participantPushname} (${formattedPhone})`;
+        } else if (participantPushname) {
+          senderDisplayName = participantPushname;
+        } else if (formattedPhone) {
+          senderDisplayName = formattedPhone;
+        } else {
+          senderDisplayName = 'Participant';
+        }
+        receiverDisplayName = chatName;
       } else {
-        chatName = contactSavedName || cleanRemote || 'Direct Chat';
-        senderDisplayName = isOutbound
-          ? channelDisplayName
-          : (contactSavedName || cleanRemote || 'Sender');
-        receiverDisplayName = isOutbound
-          ? (contactSavedName || cleanRemote || 'Recipient')
-          : channelDisplayName;
+        const directName = participantPushname || formattedPhone || cleanRemote || 'Direct Chat';
+        chatName = directName;
+        senderDisplayName = isOutbound ? channelDisplayName : directName;
+        receiverDisplayName = isOutbound ? directName : channelDisplayName;
       }
+
+      const text = extractMessageText(item);
+      const quotedMessage = extractQuotedMessage(item);
 
       const msg: TwoChatMessage = {
         id: item.id || item.uuid || `webhook-${Date.now()}-${Math.random()}`,
         source: 'webhook',
         isGroup: isGroupEvent,
-        groupUuid,
-        groupName,
+        groupUuid: groupUuid || groupJid,
+        groupName: groupName,
         chatName,
-        fromNumber: cleanChannel,
-        toNumber: isOutbound ? cleanRemote : cleanChannel,
-        remoteNumber: cleanRemote,
+        fromNumber: isOutbound ? cleanChannel : (participantPhone || cleanRemote),
+        toNumber: isOutbound ? (isGroupEvent ? (groupJid || groupUuid || '') : cleanRemote) : cleanChannel,
+        remoteNumber: isGroupEvent ? (groupUuid || groupJid || '') : cleanRemote,
         senderName: senderDisplayName,
-        senderNumber: isOutbound ? cleanChannel : cleanRemote,
+        senderNumber: isOutbound ? cleanChannel : (participantPhone || cleanRemote),
         receiverName: receiverDisplayName,
-        receiverNumber: isOutbound ? cleanRemote : cleanChannel,
+        receiverNumber: isGroupEvent ? (groupJid || groupUuid || '') : (isOutbound ? cleanRemote : cleanChannel),
         text,
+        quotedMessage,
         sentBy: isOutbound ? 'agent' : 'customer',
         timestamp: item.created_at || new Date().toISOString(),
         event: item.event,
-        mediaUrl: item.url || item.message?.url,
+        mediaUrl: item.url || item.message?.url || item.message?.media?.url,
       };
 
       await addStoredMessage(msg);

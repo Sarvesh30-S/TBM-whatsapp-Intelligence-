@@ -357,63 +357,98 @@ button.secondary:hover {
   align-items: flex-end;
 }
 
-.sender-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: #333333;
-  margin-bottom: 3px;
-  padding-left: 4px;
+.sender-header {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #4b5563;
+  margin-bottom: 4px;
+  padding-left: 2px;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.sender-header.outbound {
+  color: #64748b;
+  justify-content: flex-end;
 }
 
 .bubble-content {
-  max-width: 72%;
-  padding: 8px 12px 6px;
-  border-radius: 6px;
+  max-width: 68%;
+  min-width: 80px;
+  padding: 10px 14px 6px;
+  border-radius: 12px;
   font-size: 14px;
   line-height: 1.45;
   word-break: break-word;
   position: relative;
-  border: 1px solid #e5e5e5;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .bubble-content.inbound {
   background-color: #ffffff;
-  color: #000000;
+  color: #111827;
+  border: 1px solid #e2e8f0;
 }
 
 .bubble-content.outbound {
-  background-color: #000000;
+  background-color: #0f172a;
   color: #ffffff;
-  border-color: #000000;
+  border: 1px solid #0f172a;
 }
 
 /* Quote box (for replied messages) */
 .quote-box {
-  border-left: 3px solid #666666;
-  background-color: rgba(0, 0, 0, 0.04);
-  padding: 4px 8px;
-  margin-bottom: 6px;
-  border-radius: 2px;
+  border-left: 3px solid #64748b;
+  background-color: #f1f5f9;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  border-radius: 6px;
   font-size: 12px;
-  color: #555555;
+  line-height: 1.4;
+  color: #334155;
   font-style: italic;
+  display: flex;
+  gap: 6px;
 }
 
 .bubble-content.outbound .quote-box {
-  border-left-color: #cccccc;
-  background-color: rgba(255, 255, 255, 0.15);
-  color: #dddddd;
+  border-left-color: #94a3b8;
+  background-color: rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+}
+
+.quote-icon {
+  font-size: 16px;
+  font-weight: 700;
+  color: #64748b;
+  line-height: 1;
+}
+
+.bubble-content.outbound .quote-icon {
+  color: #cbd5e1;
+}
+
+.quote-text {
+  flex: 1;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.bubble-text {
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .bubble-time {
-  font-size: 10px;
+  font-size: 10.5px;
   text-align: right;
   margin-top: 4px;
-  color: #777777;
+  color: #94a3b8;
 }
 
 .bubble-content.outbound .bubble-time {
-  color: #bbbbbb;
+  color: #94a3b8;
 }
 
 /* Reply composer */

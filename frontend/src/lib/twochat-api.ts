@@ -13,6 +13,19 @@ export function cleanDigits(phone: string): string {
   return phone.replace(/[^0-9]/g, '');
 }
 
+export function formatPhoneDisplay(phone: string): string {
+  if (!phone) return '';
+  const digits = cleanDigits(phone);
+  if (!digits) return phone;
+  if (digits.length === 12 && digits.startsWith('91')) {
+    return `+91 ${digits.slice(2, 7)} ${digits.slice(7)}`;
+  }
+  if (digits.length === 10) {
+    return `+91 ${digits.slice(0, 5)} ${digits.slice(5)}`;
+  }
+  return phone.startsWith('+') ? phone : `+${digits}`;
+}
+
 export function decodeHtmlEntities(str: string): string {
   if (!str) return '';
   return str
@@ -253,6 +266,9 @@ export async function fetchTwoChatGroups(
       name: g.wa_group_name || g.name || g.subject || 'WhatsApp Group',
       wa_group_id: g.wa_group_id || g.group_id || g.jid || '',
       size: g.size || g.participants_count,
+      wa_subject: g.wa_subject || g.description || undefined,
+      wa_owner_id: g.wa_owner_id || g.owner_id || undefined,
+      _2chat_link: g._2chat_link || undefined,
     }));
 
     return { groups };
@@ -264,8 +280,9 @@ export async function fetchTwoChatGroups(
 export function extractJidFromSessionKey(sessionKey: string): string {
   if (!sessionKey) return '';
   // Pattern: WW-WPN<uuid>-<jid> or <prefix>-<channel_uuid>-<jid>
+  // Strictly match UUID so that hyphens inside JIDs (e.g. 919619029760-1582312311@g.us) are preserved intact
   const match = sessionKey.match(
-    /^[A-Za-z0-9]+-[A-Za-z0-9]+-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}-(.+)$/
+    /^(?:[A-Za-z0-9]+-)?(?:WPN)?[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}-(.+)$/
   );
   if (match) return match[1];
 
@@ -326,12 +343,6 @@ export async function fetchTwoChatGroupMessages(
           return null;
         }
 
-        const isOutbound =
-          raw.sent_by === 'api' ||
-          raw.sent_by === 'agent' ||
-          raw.direction === 'outbound' ||
-          raw.from_me === true;
-
         const senderNumber = normalizePhone(
           raw.participant?.phone_number ||
           raw.sender?.phone_number ||
@@ -339,6 +350,15 @@ export async function fetchTwoChatGroupMessages(
           raw.from_number ||
           ''
         );
+        const participantDigits = cleanDigits(senderNumber);
+
+        // Outbound is strictly if sent by agent/api or matching the channel's own number
+        const isOutbound =
+          raw.sent_by === 'api' ||
+          raw.sent_by === 'agent' ||
+          raw.direction === 'outbound' ||
+          raw.from_me === true ||
+          (Boolean(participantDigits) && participantDigits === '917738674950');
 
         const senderSavedName =
           contactDirectory[senderNumber] ||
@@ -351,9 +371,20 @@ export async function fetchTwoChatGroupMessages(
           raw.contact?.first_name ||
           '';
 
-        const senderDisplayName = isOutbound
-          ? (channelName || 'You')
-          : (senderSavedName || senderNumber || 'Unknown');
+        const formattedPhone = formatPhoneDisplay(senderNumber);
+
+        let senderDisplayName = '';
+        if (isOutbound) {
+          senderDisplayName = channelName || 'sarvesh';
+        } else if (senderSavedName && formattedPhone) {
+          senderDisplayName = `${senderSavedName} (${formattedPhone})`;
+        } else if (senderSavedName) {
+          senderDisplayName = senderSavedName;
+        } else if (formattedPhone) {
+          senderDisplayName = formattedPhone;
+        } else {
+          senderDisplayName = 'Unknown';
+        }
 
         const groupTitle =
           groupKnownTitle ||
@@ -447,16 +478,27 @@ export async function fetchTwoChatMessages(
           return null;
         }
 
-        const isOutbound =
-          raw.sent_by === 'agent' ||
-          raw.sent_by === 'api' ||
-          raw.direction === 'outbound' ||
-          raw.from_me === true;
-
         const sessionKey = raw.session_key || '';
         const jid = extractJidFromSessionKey(sessionKey);
         const isGroupMsg = jid.endsWith('@g.us') || Boolean(groupJidMap.get(jid));
         const matchedGroup = isGroupMsg ? groupJidMap.get(jid) : undefined;
+
+        const senderNumber = normalizePhone(
+          raw.participant?.phone_number ||
+          raw.sender?.phone_number ||
+          raw.remote_phone_number ||
+          raw.from_number ||
+          ''
+        );
+        const participantDigits = cleanDigits(senderNumber);
+
+        // Outbound is strictly if sent by agent/api or matching the channel's own number
+        const isOutbound =
+          raw.sent_by === 'agent' ||
+          raw.sent_by === 'api' ||
+          raw.direction === 'outbound' ||
+          raw.from_me === true ||
+          (Boolean(participantDigits) && participantDigits === '917738674950');
 
         if (isGroupMsg) {
           const groupTitle =
@@ -467,13 +509,6 @@ export async function fetchTwoChatMessages(
             'WhatsApp Group';
 
           const groupUuid = matchedGroup?.uuid || jid;
-          const senderNumber = normalizePhone(
-            raw.participant?.phone_number ||
-            raw.sender?.phone_number ||
-            raw.remote_phone_number ||
-            raw.from_number ||
-            ''
-          );
           const senderSavedName =
             contactDirectory[senderNumber] ||
             raw.participant?.pushname ||
@@ -482,9 +517,20 @@ export async function fetchTwoChatMessages(
             raw.pushname ||
             '';
 
-          const senderDisplayName = isOutbound
-            ? (channelName || 'You')
-            : (senderSavedName || senderNumber || 'Unknown');
+          const formattedPhone = formatPhoneDisplay(senderNumber);
+
+          let senderDisplayName = '';
+          if (isOutbound) {
+            senderDisplayName = channelName || 'sarvesh';
+          } else if (senderSavedName && formattedPhone) {
+            senderDisplayName = `${senderSavedName} (${formattedPhone})`;
+          } else if (senderSavedName) {
+            senderDisplayName = senderSavedName;
+          } else if (formattedPhone) {
+            senderDisplayName = formattedPhone;
+          } else {
+            senderDisplayName = 'Unknown';
+          }
 
           return {
             id: raw.id || raw.uuid || `group-msg-${Date.now()}-${Math.random()}`,
