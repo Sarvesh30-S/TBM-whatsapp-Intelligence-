@@ -8,7 +8,10 @@ import {
   fetchTwoChatGroupMessages,
   fetchTwoChatMessages,
   formatPhoneDisplay,
+  indexGroups,
+  isGenericName,
   normalizePhone,
+  NormalizeContext,
 } from '@/lib/twochat-api';
 import { TwoChatChannel, TwoChatConversation, TwoChatGroup, TwoChatMessage } from '@/lib/types';
 
@@ -30,9 +33,9 @@ export async function GET(req: NextRequest) {
     let channels: TwoChatChannel[] = [];
     let groups: TwoChatGroup[] = [];
     let contactDirectory: Record<string, string> = {};
-    let newlyFetchedApiMessages: TwoChatMessage[] = [];
+    const newlyFetchedApiMessages: TwoChatMessage[] = [];
     let activeChannel = channelParam || '';
-    let activeChannelName = 'sarvesh';
+    let activeChannelName = 'You';
     const apiErrors: string[] = [];
 
     // 1. Fetch channel metadata, contacts directory, and groups list from 2Chat API
@@ -61,70 +64,62 @@ export async function GET(req: NextRequest) {
       }
 
       if (activeChannel) {
-        // Fetch groups list first
-        const groupResult = await fetchTwoChatGroups(apiKey, activeChannel, activeChanObj?.uuid);
+        // Fetch groups
+        const groupResult = await fetchTwoChatGroups(apiKey, activeChannel);
         if (groupResult.error && !groupResult.error.includes('402')) {
           apiErrors.push(`Groups: ${groupResult.error}`);
         }
         groups = groupResult.groups;
 
-        // Fetch recent messages feed
-        const directResult = await fetchTwoChatMessages(
-          apiKey,
-          activeChannel,
-          undefined,
-          contactDirectory,
-          activeChannelName,
-          groups
-        );
-        if (directResult.error && !directResult.error.includes('402')) {
-          apiErrors.push(`Messages: ${directResult.error}`);
+        const { groupsByJid, groupsByUuid } = indexGroups(groups);
+        const normCtx: NormalizeContext = {
+          channelNumber: activeChannel,
+          channelName: activeChannelName,
+          contacts: contactDirectory,
+          groupsByJid,
+          groupsByUuid,
+          source: 'api',
+        };
+
+        // Fetch recent messages feed (fast parallel page 0 & 1)
+        const feedResult = await fetchTwoChatMessages(apiKey, normCtx, undefined, [0, 1]);
+        if (feedResult.error && !feedResult.error.includes('402')) {
+          apiErrors.push(`Messages: ${feedResult.error}`);
         }
-        if (directResult.messages.length > 0) {
-          newlyFetchedApiMessages.push(...directResult.messages);
+        if (feedResult.messages.length > 0) {
+          newlyFetchedApiMessages.push(...feedResult.messages);
         }
 
-        // If a specific group is requested, fetch that group's messages
+        // If a specific conversation was selected, fetch its history
         if (groupUuid) {
-          const targetGroup = groups.find(
-            (g) => g.uuid === groupUuid || g.wa_group_id === groupUuid
-          ) || {
-            uuid: groupUuid,
-            wa_group_name: '',
-          };
-          const specificGroupMsgs = await fetchTwoChatGroupMessages(
-            apiKey,
-            targetGroup,
-            contactDirectory,
-            activeChannelName
-          );
-          if (specificGroupMsgs.length > 0) newlyFetchedApiMessages.push(...specificGroupMsgs);
+          const targetGroup =
+            groupsByUuid.get(groupUuid) ||
+            groupsByJid.get(groupUuid) || {
+              uuid: groupUuid,
+              wa_group_name: '',
+            };
+          const grpResult = await fetchTwoChatGroupMessages(apiKey, targetGroup, normCtx, [0, 1]);
+          if (grpResult.messages.length > 0) {
+            newlyFetchedApiMessages.push(...grpResult.messages);
+          }
         } else if (chatId && !isGroupParam) {
-          // If a specific direct customer is requested, fetch full conversation
-          const specificDirectResult = await fetchTwoChatMessages(
-            apiKey,
-            activeChannel,
-            chatId,
-            contactDirectory,
-            activeChannelName,
-            groups
-          );
-          if (specificDirectResult.messages.length > 0) {
-            newlyFetchedApiMessages.push(...specificDirectResult.messages);
+          const directResult = await fetchTwoChatMessages(apiKey, normCtx, chatId, [0, 1]);
+          if (directResult.messages.length > 0) {
+            newlyFetchedApiMessages.push(...directResult.messages);
           }
         }
       }
     }
 
-    // 2. Persist any newly fetched messages to Supabase Postgres
+    // 2. Persist newly fetched messages to Supabase Postgres (fast batched upsert)
     if (newlyFetchedApiMessages.length > 0) {
       await addStoredMessages(newlyFetchedApiMessages);
     }
 
     // 3. Load all cumulative stored messages from Postgres
-    const stored = await loadStoredMessages();
+    const stored = await loadStoredMessages(activeChannel || undefined);
 
-    // Index known groups from both API and stored Postgres records
+    // Index all groups from both API and stored Postgres records
     const groupByUuid = new Map<string, TwoChatGroup>();
     const groupByJid = new Map<string, TwoChatGroup>();
     const groupByName = new Map<string, TwoChatGroup>();
@@ -132,14 +127,13 @@ export async function GET(req: NextRequest) {
     for (const g of groups) {
       if (g.uuid) groupByUuid.set(g.uuid, g);
       if (g.wa_group_id) groupByJid.set(g.wa_group_id, g);
-      if (g.wa_group_name && g.wa_group_name !== 'WhatsApp Group') {
+      if (g.wa_group_name && !isGenericName(g.wa_group_name)) {
         groupByName.set(g.wa_group_name.toLowerCase().trim(), g);
       }
     }
 
-    // Also populate group directory from existing stored messages in case API was rate limited
     for (const msg of stored) {
-      if (msg.isGroup && msg.groupName && msg.groupName !== 'WhatsApp Group') {
+      if (msg.isGroup && msg.groupName && !isGenericName(msg.groupName)) {
         const lower = msg.groupName.toLowerCase().trim();
         if (!groupByName.has(lower)) {
           const fallbackGroup: TwoChatGroup = {
@@ -155,34 +149,26 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 4. Enrich stored messages with accurate sender names and phone formatting
+    // 4. Enrich messages with contact names / phone fallback
     const allMessages = stored.map((m) => {
       const cleanSender = normalizePhone(m.senderNumber || m.fromNumber);
       const cleanRemote = normalizePhone(m.remoteNumber);
       const isOutbound = m.sentBy === 'agent';
-      const formattedSenderPhone = formatPhoneDisplay(cleanSender);
+      const formattedSenderPhone = formatPhoneDisplay(cleanSender) || cleanSender;
 
       let resolvedSenderName = '';
       if (isOutbound) {
-        resolvedSenderName = activeChannelName || 'sarvesh';
+        resolvedSenderName = activeChannelName || 'You';
       } else if (m.isGroup) {
-        // If already formatted as Name (+Phone), keep it
-        if (m.senderName && m.senderName.includes('(') && m.senderName.includes(')')) {
-          resolvedSenderName = m.senderName;
+        const rawName = contactDirectory[cleanSender] || m.senderName || '';
+        if (rawName && !isGenericName(rawName)) {
+          resolvedSenderName = rawName;
         } else {
-          const rawName = contactDirectory[cleanSender] || m.senderName || '';
-          if (rawName && formattedSenderPhone) {
-            resolvedSenderName = `${rawName} (${formattedSenderPhone})`;
-          } else if (rawName) {
-            resolvedSenderName = rawName;
-          } else if (formattedSenderPhone) {
-            resolvedSenderName = formattedSenderPhone;
-          } else {
-            resolvedSenderName = 'Participant';
-          }
+          resolvedSenderName = formattedSenderPhone || 'Participant';
         }
       } else {
-        resolvedSenderName = contactDirectory[cleanRemote] || m.senderName || formattedSenderPhone || cleanRemote || 'Direct Chat';
+        const rawName = contactDirectory[cleanRemote] || m.senderName || '';
+        resolvedSenderName = (!isGenericName(rawName) ? rawName : '') || formattedSenderPhone || 'Contact';
       }
 
       let resolvedChatName = m.chatName;
@@ -190,13 +176,14 @@ export async function GET(req: NextRequest) {
         const matched =
           (m.groupUuid ? groupByUuid.get(m.groupUuid) || groupByJid.get(m.groupUuid) : undefined) ||
           (m.remoteNumber ? groupByJid.get(m.remoteNumber) || groupByUuid.get(m.remoteNumber) : undefined) ||
-          (m.groupName && m.groupName !== 'WhatsApp Group' ? groupByName.get(m.groupName.toLowerCase().trim()) : undefined);
+          (m.groupName && !isGenericName(m.groupName) ? groupByName.get(m.groupName.toLowerCase().trim()) : undefined);
 
         if (matched?.wa_group_name) {
           resolvedChatName = matched.wa_group_name;
         }
       } else {
-        resolvedChatName = contactDirectory[cleanRemote] || m.chatName || formatPhoneDisplay(cleanRemote) || cleanRemote;
+        const rawChat = contactDirectory[cleanRemote] || m.chatName || '';
+        resolvedChatName = (!isGenericName(rawChat) ? rawChat : '') || formatPhoneDisplay(cleanRemote) || cleanRemote || 'Direct Chat';
       }
 
       return {
@@ -205,12 +192,12 @@ export async function GET(req: NextRequest) {
         senderName: resolvedSenderName,
         senderNumber: m.senderNumber || cleanSender,
         receiverName: isOutbound
-          ? (m.isGroup ? resolvedChatName : (contactDirectory[cleanRemote] || m.receiverName || cleanRemote))
+          ? (m.isGroup ? resolvedChatName : (contactDirectory[cleanRemote] || m.receiverName || formatPhoneDisplay(cleanRemote) || cleanRemote))
           : (m.groupName || activeChannelName),
       };
     });
 
-    // 5. Build unified conversation directory (only active conversations with messages, strictly deduplicated)
+    // 5. Build unified conversation directory (strictly deduplicated)
     const conversationMap = new Map<string, TwoChatConversation>();
 
     for (const msg of allMessages) {
@@ -227,25 +214,25 @@ export async function GET(req: NextRequest) {
         matchedGroup =
           (msg.groupUuid ? groupByUuid.get(msg.groupUuid) || groupByJid.get(msg.groupUuid) : undefined) ||
           (msg.remoteNumber ? groupByJid.get(msg.remoteNumber) || groupByUuid.get(msg.remoteNumber) : undefined) ||
-          (msg.groupName && msg.groupName !== 'WhatsApp Group' ? groupByName.get(msg.groupName.toLowerCase().trim()) : undefined) ||
-          (msg.chatName && msg.chatName !== 'WhatsApp Group' ? groupByName.get(msg.chatName.toLowerCase().trim()) : undefined);
+          (msg.groupName && !isGenericName(msg.groupName) ? groupByName.get(msg.groupName.toLowerCase().trim()) : undefined) ||
+          (msg.chatName && !isGenericName(msg.chatName) ? groupByName.get(msg.chatName.toLowerCase().trim()) : undefined);
 
         canonicalGroupUuid = matchedGroup?.uuid || msg.groupUuid || 'group-unknown';
         canonicalTitle =
           matchedGroup?.wa_group_name ||
-          (msg.groupName && msg.groupName !== 'WhatsApp Group' ? msg.groupName : undefined) ||
-          (msg.chatName && msg.chatName !== 'WhatsApp Group' ? msg.chatName : undefined) ||
+          (msg.groupName && !isGenericName(msg.groupName) ? msg.groupName : undefined) ||
+          (msg.chatName && !isGenericName(msg.chatName) ? msg.chatName : undefined) ||
           'WhatsApp Group';
 
         canonicalPhoneOrId = matchedGroup?.wa_group_id || canonicalGroupUuid;
-        // Group conversation key is strictly the canonical group UUID so each group appears ONLY ONCE
         convId = canonicalGroupUuid;
       } else {
         const cleanRemote = normalizePhone(msg.remoteNumber);
         if (!cleanRemote) continue;
         convId = cleanRemote;
-        canonicalTitle = contactDirectory[cleanRemote] || msg.chatName || formatPhoneDisplay(cleanRemote) || cleanRemote;
-        canonicalPhoneOrId = cleanRemote;
+        const savedName = contactDirectory[cleanRemote] || (!isGenericName(msg.chatName) ? msg.chatName : '');
+        canonicalTitle = savedName || formatPhoneDisplay(cleanRemote) || cleanRemote;
+        canonicalPhoneOrId = formatPhoneDisplay(cleanRemote) || cleanRemote;
       }
 
       let conv = conversationMap.get(convId);
@@ -274,14 +261,13 @@ export async function GET(req: NextRequest) {
           if (matchedGroup._2chat_link && !conv.twoChatLink) conv.twoChatLink = matchedGroup._2chat_link;
         }
 
-        // Never overwrite a good name with generic "WhatsApp Group"
-        if (conv.name === 'WhatsApp Group' && canonicalTitle !== 'WhatsApp Group') {
+        if (isGenericName(conv.name) && !isGenericName(canonicalTitle)) {
           conv.name = canonicalTitle;
         }
         if (new Date(msg.timestamp).getTime() >= new Date(conv.lastTimestamp).getTime()) {
           conv.lastMessage = msg.text || (msg.mediaUrl ? '[Media]' : '');
           conv.lastTimestamp = msg.timestamp;
-          if (canonicalTitle && canonicalTitle !== 'WhatsApp Group') {
+          if (!isGenericName(canonicalTitle)) {
             conv.name = canonicalTitle;
           }
         }
@@ -292,7 +278,7 @@ export async function GET(req: NextRequest) {
       (a, b) => new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime()
     );
 
-    // 6. If chatId is specified, filter messages specifically for this conversation
+    // 6. Filter thread messages if chatId is requested
     let threadMessages: TwoChatMessage[] = [];
     if (chatId) {
       const targetDigits = cleanDigits(chatId);
@@ -318,7 +304,6 @@ export async function GET(req: NextRequest) {
           return false;
         }
 
-        // Direct chat match
         const msgDigits = cleanDigits(m.remoteNumber);
         if (targetDigits && msgDigits) {
           return targetDigits === msgDigits || msgDigits.endsWith(targetDigits) || targetDigits.endsWith(msgDigits);

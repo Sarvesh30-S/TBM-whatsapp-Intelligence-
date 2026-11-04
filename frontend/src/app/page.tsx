@@ -8,6 +8,42 @@ function cleanDigits(val: string): string {
   return val.replace(/[^0-9]/g, '');
 }
 
+function formatPhone(phone?: string): string {
+  if (!phone) return '';
+  const digits = cleanDigits(phone);
+  if (digits.length === 12 && digits.startsWith('91')) {
+    return `+91 ${digits.slice(2, 7)} ${digits.slice(7)}`;
+  }
+  if (digits.length === 10) {
+    return `+${digits.slice(0, 5)} ${digits.slice(5)}`;
+  }
+  if (phone.startsWith('+')) return phone;
+  return `+${digits}`;
+}
+
+function formatSenderDisplay(msg: TwoChatMessage, channelNum?: string): string {
+  const isOutbound = msg.sentBy === 'agent';
+  if (isOutbound) {
+    const name = msg.senderName && msg.senderName.toLowerCase() !== 'you' ? msg.senderName : '';
+    const num = msg.senderNumber || channelNum || '';
+    if (name && num) return `${name} (${formatPhone(num)})`;
+    if (name) return `${name} (You)`;
+    if (num) return `${formatPhone(num)} (You)`;
+    return 'You';
+  }
+
+  const name = msg.senderName?.trim();
+  const num = msg.senderNumber?.trim();
+  const isGeneric = !name || ['whatsapp group', 'participant', 'unknown', 'contact', 'user'].includes(name.toLowerCase());
+
+  if (!isGeneric && num && cleanDigits(name) !== cleanDigits(num)) {
+    return `${name} (${formatPhone(num)})`;
+  }
+  if (!isGeneric) return name!;
+  if (num) return formatPhone(num);
+  return 'Unknown Sender';
+}
+
 export default function DashboardPage() {
   const [apiKey, setApiKey] = useState<string>('');
   const [apiKeyInput, setApiKeyInput] = useState<string>('');
@@ -22,7 +58,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState<boolean>(false);
   const [sending, setSending] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
-  const [webhookUrl, setWebhookUrl] = useState<string>('http://localhost:3000/api/webhook/2chat');
+  const [webhookUrl, setWebhookUrl] = useState<string>('https://tbm-whatsapp-intelligence.vercel.app/api/webhook/2chat');
   const [statusText, setStatusText] = useState<string>('');
   const [apiErrors, setApiErrors] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -67,7 +103,7 @@ export default function DashboardPage() {
     loadData(keyToUse);
   }, []);
 
-  // Manual fetch function (NO auto refresh timer)
+  // Fetch data function
   const loadData = async (
     key = apiKey,
     targetChatId?: string,
@@ -101,7 +137,7 @@ export default function DashboardPage() {
         if (data.channels && data.channels.length > 0) setChannels(data.channels);
         if (data.activeChannel) setActiveChannel(data.activeChannel);
 
-        // Update messages cumulative store (merging so fresh server data replaces stale entries)
+        // Update messages cumulative store
         if (data.messages && Array.isArray(data.messages) && data.messages.length > 0) {
           setAllMessages((prev) => {
             const map = new Map(prev.map((m) => [m.id, m]));
@@ -123,9 +159,11 @@ export default function DashboardPage() {
           if (typeof window !== 'undefined') {
             localStorage.setItem('cached_2chat_conversations', JSON.stringify(data.conversations));
           }
-          if (!selectedChat) {
-            setSelectedChat(data.conversations[0]);
-          }
+          setSelectedChat((curr) => {
+            if (!curr) return data.conversations[0];
+            const updated = data.conversations.find((c: TwoChatConversation) => c.id === curr.id);
+            return updated || curr;
+          });
         }
       } else if (data.error) {
         setApiErrors([data.error]);
@@ -145,7 +183,7 @@ export default function DashboardPage() {
     }
   }, [apiKey]);
 
-  // Click on a chat: instantly switches view and loads any additional history for this chat
+  // Click on a chat from the navigation list: expands and loads its conversation thread
   const handleChatClick = (chat: TwoChatConversation) => {
     setSelectedChat(chat);
     loadData(apiKey, chat.id, chat.isGroup, chat.groupUuid);
@@ -164,21 +202,25 @@ export default function DashboardPage() {
     }
     setApiKey(trimmed);
     localStorage.setItem('2chat_api_key', trimmed);
-    setStatusText('Saving...');
+    setStatusText('Saving & Subscribing...');
 
-    // Save to server config
     try {
-      await fetch('/api/2chat/config', {
+      const res = await fetch('/api/2chat/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey: trimmed }),
+        body: JSON.stringify({ apiKey: trimmed, webhookUrl }),
       });
+      const result = await res.json();
+      if (result.subscribedChannels && result.subscribedChannels.length > 0) {
+        setStatusText(`Subscribed ${result.subscribedChannels.length} channel(s)!`);
+      } else {
+        setStatusText('Key saved!');
+      }
     } catch {
-      // ignore
+      setStatusText('Key saved!');
     }
 
-    setStatusText('Key saved!');
-    setTimeout(() => setStatusText(''), 2500);
+    setTimeout(() => setStatusText(''), 3000);
     loadData(trimmed);
   };
 
@@ -292,6 +334,12 @@ export default function DashboardPage() {
     }
   };
 
+  const channelDisplayName = activeChannel
+    ? formatPhone(activeChannel)
+    : channels.length > 0
+    ? `${channels[0].name || ''} (${formatPhone(channels[0].phone_number)})`.trim()
+    : 'Connected Channel';
+
   return (
     <div className="container">
       {/* Top Header */}
@@ -364,7 +412,7 @@ export default function DashboardPage() {
             ⚠️ 2Chat API Key Required to Fetch Live Chat Messages
           </div>
           <div>
-            The dashboard needs your 2Chat API Key (<code>X-User-API-Key</code>) to pull your groups (e.g. <em>Tcs 2025 Rehire Jl Update</em>) and conversations.
+            The dashboard needs your 2Chat API Key (<code>X-User-API-Key</code>) to pull your groups and conversations.
           </div>
           <div style={{ marginTop: '8px' }}>
             <strong>How to get it from 2Chat:</strong>
@@ -413,13 +461,13 @@ export default function DashboardPage() {
 
       {/* WhatsApp / 2Chat Live Chat Split Layout */}
       <div className="livechat-wrapper">
-        {/* Left Sidebar: Conversations List */}
+        {/* Left Navigation Section: All chats list like WhatsApp */}
         <aside className="livechat-sidebar">
           <div className="sidebar-header">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span className="sidebar-title">Live Chat</span>
+              <span className="sidebar-title">Chats</span>
               <span style={{ fontSize: 11, fontWeight: 700, color: '#666666' }}>
-                {filteredConversations.length} CHATS
+                {filteredConversations.length} CONVERSATION{filteredConversations.length === 1 ? '' : 'S'}
               </span>
             </div>
 
@@ -500,25 +548,26 @@ export default function DashboardPage() {
           </div>
         </aside>
 
-        {/* Center Pane: Active Chat Conversation Thread */}
+        {/* Center Pane: Active Chat Conversation Thread in LIST TYPE view */}
         <main className="livechat-thread">
           {selectedChat ? (
             <>
-              {/* Thread Header matching 2Chat Live Chat */}
+              {/* Thread Header */}
               <div className="thread-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{
-                    width: 32,
-                    height: 32,
+                    width: 36,
+                    height: 36,
                     borderRadius: '50%',
                     backgroundColor: '#25D366',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     color: '#ffffff',
-                    fontSize: 16,
+                    fontSize: 18,
+                    fontWeight: 700,
                   }}>
-                    💬
+                    {selectedChat.isGroup ? '👥' : '💬'}
                   </div>
                   <div>
                     <div className="thread-header-title">
@@ -526,8 +575,8 @@ export default function DashboardPage() {
                     </div>
                     <div className="thread-header-subtitle">
                       {selectedChat.isGroup
-                        ? `Channel: sarvesh (+91 77386 74950) • ${currentChatMessages.length} message${currentChatMessages.length === 1 ? '' : 's'}`
-                        : `${selectedChat.phoneOrId} • ${currentChatMessages.length} message${currentChatMessages.length === 1 ? '' : 's'}`}
+                        ? `Channel: ${channelDisplayName} • ${currentChatMessages.length} message${currentChatMessages.length === 1 ? '' : 's'}`
+                        : `${formatPhone(selectedChat.phoneOrId) || selectedChat.phoneOrId} • ${currentChatMessages.length} message${currentChatMessages.length === 1 ? '' : 's'}`}
                     </div>
                   </div>
                 </div>
@@ -544,7 +593,7 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Messages Stream */}
+              {/* Messages Stream: LIST TYPE (No alternating left/right bubbles) */}
               <div className="thread-messages-scroll">
                 {currentChatMessages.length === 0 ? (
                   <div className="empty-chat-state">
@@ -564,34 +613,34 @@ export default function DashboardPage() {
                       formattedTime = '';
                     }
 
-                    const senderTitle = isOutbound
-                      ? 'sarvesh (You)'
-                      : (msg.senderName || msg.senderNumber || 'Participant');
+                    const senderDisplay = formatSenderDisplay(msg, activeChannel);
 
                     return (
-                      <div
-                        key={msg.id}
-                        className={`message-bubble-wrapper ${isOutbound ? 'outbound' : 'inbound'}`}
-                      >
-                        <div className={`sender-header ${isOutbound ? 'outbound' : 'inbound'}`}>
-                          {senderTitle}
+                      <div key={msg.id} className="message-list-row">
+                        {/* Header: Sender's name, direction badge, and timestamp */}
+                        <div className="message-list-header">
+                          <div className="message-sender-info">
+                            <span className={`sender-badge ${isOutbound ? 'outbound-badge' : 'inbound-badge'}`}>
+                              {isOutbound ? 'Sent' : 'Received'}
+                            </span>
+                            <span className="sender-display-name">
+                              {senderDisplay}
+                            </span>
+                          </div>
+                          <span className="message-timestamp">{formattedTime}</span>
                         </div>
 
-                        <div className={`bubble-content ${isOutbound ? 'outbound' : 'inbound'}`}>
-                          {msg.quotedMessage && (
-                            <div className="quote-box">
-                              <span className="quote-icon">“</span>
-                              <div className="quote-text">{msg.quotedMessage}</div>
-                            </div>
-                          )}
-
-                          <div className="bubble-text">
-                            {msg.text || (msg.mediaUrl ? `[Media: ${msg.mediaUrl}]` : '(No text content)')}
+                        {/* Quoted Message / Reply Preview if present */}
+                        {msg.quotedMessage && (
+                          <div className="message-quote-box">
+                            <span className="quote-mark">“</span>
+                            <div className="quote-content">{msg.quotedMessage}</div>
                           </div>
+                        )}
 
-                          <div className="bubble-time">
-                            {formattedTime}
-                          </div>
+                        {/* Message Text */}
+                        <div className="message-body-text">
+                          {msg.text || (msg.mediaUrl ? `[Media: ${msg.mediaUrl}]` : '(No text content)')}
                         </div>
                       </div>
                     );
@@ -704,7 +753,7 @@ export default function DashboardPage() {
               {!selectedChat.isGroup && (
                 <div className="info-section">
                   <span className="info-label">Phone Number</span>
-                  <span className="info-value">{selectedChat.phoneOrId}</span>
+                  <span className="info-value">{formatPhone(selectedChat.phoneOrId) || selectedChat.phoneOrId}</span>
                 </div>
               )}
 

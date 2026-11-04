@@ -1,6 +1,7 @@
 export interface TwoChatMessage {
   id: string;
   source: 'webhook' | 'api' | 'sent';
+  channelNumber?: string; // The connected 2Chat WhatsApp number this message belongs to
   isGroup?: boolean;
   groupUuid?: string;
   groupName?: string;

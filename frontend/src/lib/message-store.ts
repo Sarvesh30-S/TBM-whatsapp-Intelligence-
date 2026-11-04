@@ -3,57 +3,48 @@ import path from 'path';
 import { TwoChatMessage } from './types';
 import { clearMessagesFromDb, getMessagesFromDb, saveMessagesToDb } from './db';
 
-const DATA_DIR = path.resolve(process.cwd(), 'data');
-const FILE_PATH = path.join(DATA_DIR, '2chat_messages.json');
+/**
+ * Supabase Postgres is the single source of truth.
+ * The local JSON file is only used as an emergency fallback when the database is unreachable
+ * (it is not writable on Vercel, so failures there are ignored).
+ */
+const FILE_PATH = path.join(process.cwd(), 'data', '2chat_messages.json');
 
-function ensureDataFile() {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-    if (!fs.existsSync(FILE_PATH)) {
-      fs.writeFileSync(FILE_PATH, JSON.stringify([], null, 2), 'utf-8');
-    }
-  } catch (err) {
-    // ignore
-  }
-}
-
-export function loadStoredMessagesFromFile(): TwoChatMessage[] {
-  ensureDataFile();
+function readFallbackFile(): TwoChatMessage[] {
   try {
     if (fs.existsSync(FILE_PATH)) {
-      const content = fs.readFileSync(FILE_PATH, 'utf-8');
-      if (content && content.trim()) {
-        const parsed = JSON.parse(content);
-        if (Array.isArray(parsed)) {
-          return parsed;
-        }
-      }
+      const parsed = JSON.parse(fs.readFileSync(FILE_PATH, 'utf-8'));
+      if (Array.isArray(parsed)) return parsed;
     }
-  } catch (err) {
-    console.error('Failed to read messages file:', err);
+  } catch {
+    // ignore
   }
   return [];
 }
 
-export async function loadStoredMessages(): Promise<TwoChatMessage[]> {
+function writeFallbackFile(newMessages: TwoChatMessage[]) {
   try {
-    const dbMessages = await getMessagesFromDb();
-    if (dbMessages && dbMessages.length > 0) {
-      return dbMessages;
-    }
-  } catch (err) {
-    console.warn('Postgres read failed, falling back to file:', err);
+    const list = readFallbackFile();
+    const map = new Map(list.map((m) => [m.id, m]));
+    for (const m of newMessages) map.set(m.id, m);
+    const merged = Array.from(map.values())
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+      .slice(-3000);
+    fs.mkdirSync(path.dirname(FILE_PATH), { recursive: true });
+    fs.writeFileSync(FILE_PATH, JSON.stringify(merged, null, 2), 'utf-8');
+  } catch {
+    // read-only file system (e.g. Vercel) – ignore
   }
-  return loadStoredMessagesFromFile();
 }
 
-function getMessageKey(m: TwoChatMessage): string {
-  if (m.id && !m.id.startsWith('api-') && !m.id.startsWith('webhook-') && !m.id.startsWith('group-msg-')) {
-    return m.id;
+export async function loadStoredMessages(channelNumber?: string): Promise<TwoChatMessage[]> {
+  try {
+    return await getMessagesFromDb(channelNumber);
+  } catch (err) {
+    console.warn('Postgres read failed, falling back to file:', err);
+    const all = readFallbackFile();
+    return channelNumber ? all.filter((m) => !m.channelNumber || m.channelNumber === channelNumber) : all;
   }
-  return `${m.isGroup ? 'grp' : 'dir'}_${m.chatName}_${m.senderNumber}_${m.timestamp}_${m.text}`;
 }
 
 export async function addStoredMessage(msg: TwoChatMessage): Promise<void> {
@@ -61,55 +52,25 @@ export async function addStoredMessage(msg: TwoChatMessage): Promise<void> {
 }
 
 export async function addStoredMessages(newMessages: TwoChatMessage[]): Promise<void> {
-  if (!newMessages || newMessages.length === 0) return;
-
-  // 1. Save to Supabase PostgreSQL database
+  const list = (newMessages || []).filter(Boolean);
+  if (list.length === 0) return;
   try {
-    await saveMessagesToDb(newMessages);
+    await saveMessagesToDb(list);
   } catch (err) {
-    console.error('Error saving to Postgres:', err);
-  }
-
-  // 2. Also sync to local JSON backup
-  try {
-    ensureDataFile();
-    const list = loadStoredMessagesFromFile();
-    const existingKeys = new Set(list.map(getMessageKey));
-
-    let added = false;
-    for (const msg of newMessages) {
-      if (!msg) continue;
-      const key = getMessageKey(msg);
-      if (!existingKeys.has(key)) {
-        existingKeys.add(key);
-        list.push(msg);
-        added = true;
-      }
-    }
-
-    if (added) {
-      list.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-      if (list.length > 3000) {
-        list.splice(0, list.length - 3000);
-      }
-      fs.writeFileSync(FILE_PATH, JSON.stringify(list, null, 2), 'utf-8');
-    }
-  } catch (err) {
-    console.error('Failed to write messages backup:', err);
+    console.error('Error saving to Postgres, writing fallback file:', err);
+    writeFallbackFile(list);
   }
 }
 
-export async function clearStoredMessages(): Promise<void> {
+export async function clearStoredMessages(channelNumber?: string): Promise<void> {
   try {
-    await clearMessagesFromDb();
+    await clearMessagesFromDb(channelNumber);
   } catch (err) {
     console.error('Failed to clear Postgres:', err);
   }
-
-  ensureDataFile();
   try {
-    fs.writeFileSync(FILE_PATH, JSON.stringify([], null, 2), 'utf-8');
-  } catch (err) {
-    console.error('Failed to clear messages file:', err);
+    if (fs.existsSync(FILE_PATH)) fs.writeFileSync(FILE_PATH, '[]', 'utf-8');
+  } catch {
+    // ignore
   }
 }
