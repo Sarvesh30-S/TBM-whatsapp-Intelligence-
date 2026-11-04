@@ -370,7 +370,19 @@ export default function DashboardPage() {
             <MessageSummaryView
               totalMessagesCount={allMessages.length}
               conversations={conversations}
-              onNavigateToTestMessages={() => setCurrentSection('test-messages')}
+              allMessages={allMessages}
+              onNavigateToTestMessages={(chatId) => {
+                setCurrentSection('test-messages');
+                if (chatId) {
+                  const target = conversations.find(
+                    (c) => c.id === chatId || c.groupUuid === chatId || c.phoneOrId === chatId || c.name === chatId
+                  );
+                  if (target) {
+                    setSelectedChat(target);
+                    loadData(apiKey, target.id, target.isGroup, target.groupUuid);
+                  }
+                }
+              }}
               onNavigateToDeveloper={() => setCurrentSection('developer')}
             />
           )}

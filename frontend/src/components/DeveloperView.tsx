@@ -54,11 +54,23 @@ export default function DeveloperView({
   const [jevNotice, setJevNotice] = useState<string>('');
   const [testingJev, setTestingJev] = useState<boolean>(false);
 
-  // Sync apiKey prop
+  // Sync apiKey prop & fetch current Jev server config
   React.useEffect(() => {
     if (apiKey) {
       setApiKeyInput(apiKey);
     }
+
+    fetch('/api/jev/config')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.isConfigured) {
+          setJevStatus('Connected');
+          setJevNotice(`Jev AI model (${data.model}) configured on server.`);
+        }
+        if (data.endpoint) setJevEndpoint(data.endpoint);
+        if (data.model) setJevModel(data.model);
+      })
+      .catch(() => {});
   }, [apiKey]);
 
   // Handle 2Chat API Key Save
@@ -101,34 +113,62 @@ export default function DeveloperView({
   };
 
   // Handle Jev AI Configuration Save
-  const handleSaveJev = () => {
+  const handleSaveJev = async () => {
     if (!jevApiKey.trim()) {
       alert('Please provide a Jev API key.');
       return;
     }
-    // Security: Do not store in localStorage. Mark pending for Spring Boot backend.
-    setJevStatus('Not Configured');
-    setJevNotice('Configuration validated. Spring Boot backend integration pending for encrypted key persistence.');
+    setJevNotice('Saving configuration on server...');
+    try {
+      const res = await fetch('/api/jev/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiKey: jevApiKey.trim(),
+          endpoint: jevEndpoint.trim(),
+          model: jevModel.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setJevNotice('Jev AI configuration saved securely on server.');
+        await handleTestJevConnection();
+      } else {
+        setJevNotice(`Error saving: ${data.error || 'Failed'}`);
+      }
+    } catch (err: any) {
+      setJevNotice(`Error saving: ${err.message}`);
+    }
   };
 
   // Handle Jev AI Connection Test
   const handleTestJevConnection = async () => {
-    if (!jevApiKey.trim()) {
-      alert('Please enter a Jev API key first.');
-      return;
-    }
     setTestingJev(true);
-    setJevNotice('');
-
-    // Security: Do NOT call Jev API directly from browser.
-    // Check if secure backend proxy exists; otherwise present clearly marked pending state.
-    setTimeout(() => {
+    setJevNotice('Testing connection to Jev AI endpoint...');
+    try {
+      const res = await fetch('/api/jev/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiKey: jevApiKey.trim() || undefined,
+          endpoint: jevEndpoint.trim(),
+          model: jevModel.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setJevStatus('Connected');
+        setJevNotice(data.message || 'Connected to Jev AI successfully.');
+      } else {
+        setJevStatus('Connection Failed');
+        setJevNotice(data.message || 'Connection failed.');
+      }
+    } catch (err: any) {
+      setJevStatus('Connection Failed');
+      setJevNotice(`Network error: ${err.message}`);
+    } finally {
       setTestingJev(false);
-      setJevStatus('Not Configured');
-      setJevNotice(
-        'Backend Integration Pending: Secure proxy will connect via Spring Boot backend service. Direct browser-to-API calls are blocked for credential security.'
-      );
-    }, 900);
+    }
   };
 
   const handleCopyJevKey = () => {

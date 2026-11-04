@@ -1136,6 +1136,450 @@ button.secondary:hover {
   justify-content: center;
 }
 
+/* Intelligence Tabs Row */
+.intelligence-tabs-row {
+  display: flex;
+  gap: 12px;
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 20px;
+}
+
+.sub-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #64748b;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sub-tab-btn:hover {
+  color: #0f172a;
+}
+
+.sub-tab-btn.active {
+  color: #0f172a;
+  border-bottom-color: #0f172a;
+}
+
+.tab-badge-count {
+  background-color: #dc2626;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+
+.tab-badge-count-neutral {
+  background-color: #e2e8f0;
+  color: #334155;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+
+/* Actionable Filter Bar */
+.actionable-filter-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.filter-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.filter-pill-btn:hover {
+  background-color: #f1f5f9;
+}
+
+.filter-pill-btn.active {
+  background-color: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+}
+
+.filter-pill-btn.pill-payment.active {
+  background-color: #7e22ce;
+  border-color: #7e22ce;
+}
+
+.filter-pill-btn.pill-time.active {
+  background-color: #0369a1;
+  border-color: #0369a1;
+}
+
+.filter-pill-btn.pill-attention.active {
+  background-color: #dc2626;
+  border-color: #dc2626;
+}
+
+.filter-pill-btn.pill-recruitment.active {
+  background-color: #059669;
+  border-color: #059669;
+}
+
+/* Actionable Cards Grid */
+.actionable-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 640px) {
+  .actionable-cards-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.actionable-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.actionable-card:hover {
+  border-color: #94a3b8;
+  transform: translateY(-1px);
+}
+
+.actionable-card.card-payment {
+  border-left: 4px solid #7e22ce;
+}
+
+.actionable-card.card-time {
+  border-left: 4px solid #0284c7;
+}
+
+.actionable-card.card-attention {
+  border-left: 4px solid #dc2626;
+}
+
+.actionable-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.category-and-urgency {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.tag-payment {
+  background-color: #faf5ff;
+  color: #7e22ce;
+  border: 1px solid #e9d5ff;
+}
+
+.tag-time {
+  background-color: #f0f9ff;
+  color: #0284c7;
+  border: 1px solid #bae6fd;
+}
+
+.tag-attention {
+  background-color: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.urgency-pill {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+}
+
+.urgency-pill.critical {
+  background-color: #991b1b;
+  color: #ffffff;
+}
+
+.urgency-pill.high {
+  background-color: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.urgency-pill.medium {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.urgency-pill.low {
+  background-color: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+}
+
+.actionable-time {
+  font-size: 11px;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.action-required-box {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.action-required-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.action-required-title span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  margin-right: 4px;
+}
+
+.action-deadline-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #0284c7;
+}
+
+.actionable-context-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #475569;
+  flex-wrap: wrap;
+}
+
+.context-sender {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.context-phone {
+  color: #64748b;
+}
+
+.context-separator {
+  color: #cbd5e1;
+}
+
+.context-group {
+  font-weight: 600;
+  color: #2563eb;
+}
+
+.actionable-quote-box {
+  border-left: 3px solid #cbd5e1;
+  background-color: #f8fafc;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #334155;
+  display: flex;
+  gap: 6px;
+  font-style: italic;
+}
+
+.actionable-card-footer {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 10px;
+}
+
+.btn-jump-chat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+  padding: 5px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-jump-chat:hover {
+  background-color: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+}
+
+/* Group Summaries Cards Stack */
+.summaries-cards-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.group-summary-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 18px 22px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.group-summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 12px;
+}
+
+.group-summary-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.group-summary-subtitle {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.summary-text-block {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #1e293b;
+  margin-bottom: 12px;
+}
+
+.summary-topics-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.topics-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.topics-chips-list {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.topic-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background-color: #f1f5f9;
+  color: #334155;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.action-items-list-block {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 12px 16px;
+}
+
+.action-items-title {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #0f172a;
+  letter-spacing: 0.04em;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.action-items-ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.action-items-ul li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: #334155;
+}
+
+.group-summary-footer {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 10px;
+}
+
 /* ==========================================================================
    Section 3: Developer Settings Styles
    ========================================================================== */
