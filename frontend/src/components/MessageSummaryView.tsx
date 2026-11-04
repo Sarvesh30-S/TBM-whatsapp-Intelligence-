@@ -86,7 +86,7 @@ export default function MessageSummaryView({
     }
   }, [allMessages.length]);
 
-  const availableGroups = conversations.filter((c) => c.isGroup);
+  const availableChats = conversations;
 
   // Filtered actionable messages
   const filteredActionables = (analysisResult?.actionableItems || []).filter((item) => {
@@ -427,16 +427,16 @@ export default function MessageSummaryView({
 
             <div className="filters-grid">
               <div className="filter-item">
-                <label className="filter-label">WhatsApp Group</label>
+                <label className="filter-label">Conversation / Chat</label>
                 <select
                   className="filter-select"
                   value={selectedGroup}
                   onChange={(e) => setSelectedGroup(e.target.value)}
                 >
-                  <option value="all">All WhatsApp Groups</option>
-                  {availableGroups.map((g) => (
+                  <option value="all">All Conversations ({availableChats.length})</option>
+                  {availableChats.map((g) => (
                     <option key={g.id} value={g.name}>
-                      {g.name}
+                      {g.isGroup ? '👥 ' : '👤 '} {g.name}
                     </option>
                   ))}
                 </select>
@@ -527,6 +527,87 @@ export default function MessageSummaryView({
                         </ul>
                       </div>
                     )}
+
+                    {/* Analyzed Messages Breakdown */}
+                    {(() => {
+                      const chatMsgs = allMessages.filter(
+                        (m) =>
+                          (m.chatName && m.chatName.toLowerCase() === grp.groupName.toLowerCase()) ||
+                          (m.groupName && m.groupName.toLowerCase() === grp.groupName.toLowerCase()) ||
+                          (m.senderName && m.senderName.toLowerCase() === grp.groupName.toLowerCase()) ||
+                          grp.groupName === 'Direct Chat' ||
+                          allMessages.length <= 10
+                      );
+                      if (chatMsgs.length === 0) return null;
+                      return (
+                        <div style={{ marginTop: 12, borderTop: '1px solid #f1f5f9', paddingTop: 10 }}>
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 700,
+                              color: '#64748b',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.05em',
+                              display: 'block',
+                              marginBottom: 8,
+                            }}
+                          >
+                            Analyzed Messages in this Chat ({chatMsgs.length}):
+                          </span>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            {chatMsgs.map((m) => {
+                              const isOutbound = m.sentBy === 'agent';
+                              return (
+                                <div
+                                  key={m.id}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    padding: '6px 10px',
+                                    backgroundColor: '#f8fafc',
+                                    borderRadius: 4,
+                                    fontSize: 12,
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
+                                    <span
+                                      style={{
+                                        fontSize: 10,
+                                        fontWeight: 700,
+                                        padding: '2px 6px',
+                                        borderRadius: 3,
+                                        backgroundColor: isOutbound ? '#0f172a' : '#e0f2fe',
+                                        color: isOutbound ? '#ffffff' : '#0369a1',
+                                      }}
+                                    >
+                                      {isOutbound ? 'SENT' : 'RECEIVED'}
+                                    </span>
+                                    <span
+                                      style={{
+                                        color: '#0f172a',
+                                        fontWeight: 500,
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                      }}
+                                    >
+                                      &ldquo;{m.text}&rdquo;
+                                    </span>
+                                  </div>
+                                  <span style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap', marginLeft: 8 }}>
+                                    {new Date(m.timestamp).toLocaleTimeString([], {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   <div className="group-summary-footer">
@@ -535,7 +616,7 @@ export default function MessageSummaryView({
                       className="btn-secondary"
                       onClick={() => onNavigateToTestMessages(grp.chatId)}
                     >
-                      <span>Open Group Chat</span>
+                      <span>Open Chat &amp; Reply</span>
                       <ExternalLink size={13} />
                     </button>
                   </div>

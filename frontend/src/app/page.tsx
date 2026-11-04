@@ -26,6 +26,40 @@ function formatPhone(phone?: string): string {
   return `+${digits}`;
 }
 
+function deduplicateList(messages: TwoChatMessage[]): TwoChatMessage[] {
+  const result: TwoChatMessage[] = [];
+  const seenIds = new Set<string>();
+
+  for (const msg of messages) {
+    if (!msg || !msg.text || !msg.text.trim()) continue;
+    if (seenIds.has(msg.id)) continue;
+
+    const cleanText = msg.text.trim().toLowerCase();
+    const msgTime = new Date(msg.timestamp).getTime();
+
+    const dupIndex = result.findIndex((existing) => {
+      if (existing.sentBy !== msg.sentBy) return false;
+      if (existing.text?.trim().toLowerCase() !== cleanText) return false;
+      const existTime = new Date(existing.timestamp).getTime();
+      return Math.abs(existTime - msgTime) <= 120000;
+    });
+
+    if (dupIndex !== -1) {
+      const existing = result[dupIndex];
+      if (!msg.id.startsWith('sent-') && existing.id.startsWith('sent-')) {
+        result[dupIndex] = msg;
+        seenIds.add(msg.id);
+      }
+      continue;
+    }
+
+    seenIds.add(msg.id);
+    result.push(msg);
+  }
+
+  return result.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+}
+
 export default function DashboardPage() {
   // Navigation State: 'test-messages' | 'message-summary' | 'developer'
   const [currentSection, setCurrentSection] = useState<DashboardSection>('test-messages');
@@ -63,7 +97,7 @@ export default function DashboardPage() {
         try {
           const parsed = JSON.parse(cachedMsgs);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            setAllMessages(parsed);
+            setAllMessages(deduplicateList(parsed));
           }
         } catch {
           // ignore
@@ -120,15 +154,10 @@ export default function DashboardPage() {
         if (data.channels && data.channels.length > 0) setChannels(data.channels);
         if (data.activeChannel) setActiveChannel(data.activeChannel);
 
-        // Update messages cumulative store
+        // Update messages cumulative store with deduplication
         if (data.messages && Array.isArray(data.messages) && data.messages.length > 0) {
           setAllMessages((prev) => {
-            const map = new Map(prev.map((m) => [m.id, m]));
-            for (const m of data.messages) {
-              map.set(m.id, m);
-            }
-            const merged = Array.from(map.values());
-            merged.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+            const merged = deduplicateList([...prev, ...data.messages]);
             if (typeof window !== 'undefined') {
               localStorage.setItem('cached_2chat_messages', JSON.stringify(merged));
             }

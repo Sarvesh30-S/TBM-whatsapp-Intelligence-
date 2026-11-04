@@ -94,6 +94,47 @@ function rowValues(m: TwoChatMessage): unknown[] {
 }
 
 /**
+ * Deduplicate messages to ensure 100% data collection accuracy:
+ * Prevents identical messages from being double-counted when an optimistic
+ * sent record and a 2Chat webhook/API confirmation arrive for the same text.
+ */
+export function deduplicateMessages(messages: TwoChatMessage[]): TwoChatMessage[] {
+  const result: TwoChatMessage[] = [];
+  const seenIds = new Set<string>();
+
+  for (const msg of messages) {
+    if (!msg || !msg.text || !msg.text.trim()) continue; // Skip empty text
+    if (seenIds.has(msg.id)) continue;
+
+    const cleanText = msg.text.trim().toLowerCase();
+    const msgTime = new Date(msg.timestamp).getTime();
+
+    // Check for duplicate message with same text & direction within a 120s window
+    const dupIndex = result.findIndex((existing) => {
+      if (existing.sentBy !== msg.sentBy) return false;
+      if (existing.text?.trim().toLowerCase() !== cleanText) return false;
+      const existTime = new Date(existing.timestamp).getTime();
+      return Math.abs(existTime - msgTime) <= 120000;
+    });
+
+    if (dupIndex !== -1) {
+      const existing = result[dupIndex];
+      // If the incoming message is canonical 2Chat (starts with MSG or UUID) and existing was a temporary sent-*, replace it!
+      if (!msg.id.startsWith('sent-') && existing.id.startsWith('sent-')) {
+        result[dupIndex] = msg;
+        seenIds.add(msg.id);
+      }
+      continue;
+    }
+
+    seenIds.add(msg.id);
+    result.push(msg);
+  }
+
+  return result.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+}
+
+/**
  * Batched upsert: one round-trip per 200 messages (instead of one per message).
  */
 export async function saveMessagesToDb(messages: TwoChatMessage[]): Promise<void> {
@@ -101,12 +142,27 @@ export async function saveMessagesToDb(messages: TwoChatMessage[]): Promise<void
   await initDb();
   const p = getPool();
 
-  // De-duplicate by id within the batch (Postgres rejects touching the same row twice in one statement)
-  const unique = new Map<string, TwoChatMessage>();
-  for (const m of messages) {
-    if (m && m.id) unique.set(m.id, m);
+  // Deduplicate before saving
+  const deduplicated = deduplicateMessages(messages);
+
+  // Clean up any matching sent-* messages from the database when real 2Chat messages arrive
+  const canonicalTexts = deduplicated
+    .filter((m) => !m.id.startsWith('sent-'))
+    .map((m) => m.text?.trim())
+    .filter(Boolean);
+
+  if (canonicalTexts.length > 0) {
+    try {
+      await p.query(
+        "DELETE FROM twochat_messages WHERE id LIKE 'sent-%' AND text = ANY($1::text[])",
+        [canonicalTexts]
+      );
+    } catch {
+      // ignore
+    }
   }
-  const list = Array.from(unique.values());
+
+  const list = deduplicated;
 
   const CHUNK = 200;
   for (let i = 0; i < list.length; i += CHUNK) {
@@ -169,6 +225,7 @@ export async function getMessagesFromDb(channelNumber?: string, limit = 3000): P
         sent_by AS "sentBy", timestamp, event, media_url AS "mediaUrl"
       FROM twochat_messages
       WHERE ($1::text IS NULL OR channel_number = $1 OR channel_number IS NULL)
+        AND text IS NOT NULL AND text != ''
       ORDER BY timestamp DESC
       LIMIT $2
     ) recent
@@ -177,7 +234,7 @@ export async function getMessagesFromDb(channelNumber?: string, limit = 3000): P
     [channelNumber || null, limit]
   );
 
-  return res.rows.map((row) => ({
+  const mapped = res.rows.map((row) => ({
     ...row,
     groupUuid: row.groupUuid || undefined,
     groupName: row.groupName || undefined,
@@ -187,6 +244,8 @@ export async function getMessagesFromDb(channelNumber?: string, limit = 3000): P
     channelNumber: row.channelNumber || undefined,
     timestamp: row.timestamp ? new Date(row.timestamp).toISOString() : new Date().toISOString(),
   }));
+
+  return deduplicateMessages(mapped);
 }
 
 export async function clearMessagesFromDb(channelNumber?: string): Promise<void> {

@@ -37,8 +37,15 @@ export async function POST(req: NextRequest) {
     const destinationId = toGroupUuid || toNumber;
     const chatTitle = groupName || toNumber;
 
+    const canonicalId =
+      result.data?.message?.id ||
+      result.data?.uuid ||
+      result.data?.id ||
+      result.data?.msg_id ||
+      `sent-${Date.now()}`;
+
     const sentMsg: TwoChatMessage = {
-      id: result.data?.id || `sent-${Date.now()}`,
+      id: canonicalId,
       source: 'sent',
       isGroup,
       groupUuid: toGroupUuid,
