@@ -1,6 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Menu, ShieldCheck } from 'lucide-react';
+import Sidebar, { DashboardSection } from '@/components/Sidebar';
+import TestMessagesView from '@/components/TestMessagesView';
+import MessageSummaryView from '@/components/MessageSummaryView';
+import DeveloperView from '@/components/DeveloperView';
 import { TwoChatConversation, TwoChatMessage } from '@/lib/types';
 
 function cleanDigits(val: string): string {
@@ -21,32 +26,13 @@ function formatPhone(phone?: string): string {
   return `+${digits}`;
 }
 
-function formatSenderDisplay(msg: TwoChatMessage, channelNum?: string): string {
-  const isOutbound = msg.sentBy === 'agent';
-  if (isOutbound) {
-    const name = msg.senderName && msg.senderName.toLowerCase() !== 'you' ? msg.senderName : '';
-    const num = msg.senderNumber || channelNum || '';
-    if (name && num) return `${name} (${formatPhone(num)})`;
-    if (name) return `${name} (You)`;
-    if (num) return `${formatPhone(num)} (You)`;
-    return 'You';
-  }
-
-  const name = msg.senderName?.trim();
-  const num = msg.senderNumber?.trim();
-  const isGeneric = !name || ['whatsapp group', 'participant', 'unknown', 'contact', 'user'].includes(name.toLowerCase());
-
-  if (!isGeneric && num && cleanDigits(name) !== cleanDigits(num)) {
-    return `${name} (${formatPhone(num)})`;
-  }
-  if (!isGeneric) return name!;
-  if (num) return formatPhone(num);
-  return 'Unknown Sender';
-}
-
 export default function DashboardPage() {
+  // Navigation State: 'test-messages' | 'message-summary' | 'developer'
+  const [currentSection, setCurrentSection] = useState<DashboardSection>('test-messages');
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
+
+  // Application Data State
   const [apiKey, setApiKey] = useState<string>('');
-  const [apiKeyInput, setApiKeyInput] = useState<string>('');
   const [channels, setChannels] = useState<any[]>([]);
   const [activeChannel, setActiveChannel] = useState<string>('');
   const [conversations, setConversations] = useState<TwoChatConversation[]>([]);
@@ -57,11 +43,9 @@ export default function DashboardPage() {
   const [replyText, setReplyText] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [sending, setSending] = useState<boolean>(false);
-  const [copied, setCopied] = useState<boolean>(false);
   const [webhookUrl, setWebhookUrl] = useState<string>('https://tbm-whatsapp-intelligence.vercel.app/api/webhook/2chat');
   const [statusText, setStatusText] = useState<string>('');
   const [apiErrors, setApiErrors] = useState<string[]>([]);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Load saved state from browser localStorage on startup & fetch from DB/API
   useEffect(() => {
@@ -73,7 +57,6 @@ export default function DashboardPage() {
 
       keyToUse = savedKey;
       setApiKey(savedKey);
-      setApiKeyInput(savedKey);
       setWebhookUrl(`${window.location.origin}/api/webhook/2chat`);
 
       if (cachedMsgs) {
@@ -99,7 +82,7 @@ export default function DashboardPage() {
         }
       }
     }
-    // Always trigger initial fetch on mount (loads messages from Supabase Postgres / 2Chat)
+    // Always trigger initial fetch on mount
     loadData(keyToUse);
   }, []);
 
@@ -176,32 +159,21 @@ export default function DashboardPage() {
     }
   };
 
-  // Initial load on mount or when API key is saved
+  // Initial load when API key is set
   useEffect(() => {
     if (apiKey) {
       loadData(apiKey);
     }
   }, [apiKey]);
 
-  // Click on a chat from the navigation list: expands and loads its conversation thread
-  const handleChatClick = (chat: TwoChatConversation) => {
-    setSelectedChat(chat);
-    loadData(apiKey, chat.id, chat.isGroup, chat.groupUuid);
-  };
-
-  // Auto-scroll to bottom of conversation
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [selectedChat, allMessages]);
-
-  const handleSaveKey = async () => {
-    const trimmed = apiKeyInput.trim();
-    if (!trimmed) {
-      alert('Please paste a valid 2Chat API key.');
-      return;
-    }
+  // Handle saving API key from Developer settings
+  const handleSaveApiKey = async (newKey: string) => {
+    const trimmed = newKey.trim();
+    if (!trimmed) return;
     setApiKey(trimmed);
-    localStorage.setItem('2chat_api_key', trimmed);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('2chat_api_key', trimmed);
+    }
     setStatusText('Saving & Subscribing...');
 
     try {
@@ -221,39 +193,29 @@ export default function DashboardPage() {
     }
 
     setTimeout(() => setStatusText(''), 3000);
-    loadData(trimmed);
+    await loadData(trimmed);
   };
 
-  const handleCopyWebhook = () => {
-    if (typeof navigator !== 'undefined') {
-      navigator.clipboard.writeText(webhookUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+  // Handle clearing messages
+  const handleClearMessages = async () => {
+    if (confirm('Clear all stored messages?')) {
+      await fetch('/api/2chat/clear', { method: 'POST' });
+      setAllMessages([]);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('cached_2chat_messages');
+        localStorage.removeItem('cached_2chat_conversations');
+      }
+      loadData(apiKey);
     }
   };
 
-  // Metrics
-  const sentCount = allMessages.filter((m) => m.sentBy === 'agent').length;
-  const receivedCount = allMessages.filter((m) => m.sentBy === 'customer').length;
+  // Click on a chat
+  const handleSelectChat = (chat: TwoChatConversation) => {
+    setSelectedChat(chat);
+    loadData(apiKey, chat.id, chat.isGroup, chat.groupUuid);
+  };
 
-  // Filter conversations in left list
-  const filteredConversations = conversations
-    .filter((c) => {
-      if (chatFilter === 'groups') return c.isGroup;
-      if (chatFilter === 'direct') return !c.isGroup;
-      return true;
-    })
-    .filter((c) => {
-      if (!searchQuery.trim()) return true;
-      const q = searchQuery.toLowerCase();
-      return (
-        c.name.toLowerCase().includes(q) ||
-        (c.lastMessage && c.lastMessage.toLowerCase().includes(q)) ||
-        (c.phoneOrId && c.phoneOrId.toLowerCase().includes(q))
-      );
-    });
-
-  // Messages in the active conversation thread
+  // Messages in active conversation thread
   const currentChatMessages = React.useMemo(() => {
     if (!selectedChat) return [];
 
@@ -289,7 +251,8 @@ export default function DashboardPage() {
     if (!replyText.trim() || !selectedChat) return;
 
     if (!apiKey) {
-      alert('Please enter and save your 2Chat API Key first.');
+      alert('Please enter and save your 2Chat API Key first in the Developer section.');
+      setCurrentSection('developer');
       return;
     }
 
@@ -334,470 +297,93 @@ export default function DashboardPage() {
     }
   };
 
-  const channelDisplayName = activeChannel
+  const channelInfoDisplay = activeChannel
     ? formatPhone(activeChannel)
     : channels.length > 0
     ? `${channels[0].name || ''} (${formatPhone(channels[0].phone_number)})`.trim()
-    : 'Connected Channel';
+    : 'WhatsApp Channel Active';
 
   return (
-    <div className="container">
-      {/* Top Header */}
-      <div className="header-row">
-        <h1 className="title">Messages Dashboard</h1>
-        <div className="header-actions">
-          {allMessages.length > 0 && (
-            <button
-              className="secondary"
-              onClick={async () => {
-                if (confirm('Clear all stored messages?')) {
-                  await fetch('/api/2chat/clear', { method: 'POST' });
-                  setAllMessages([]);
-                  if (typeof window !== 'undefined') {
-                    localStorage.removeItem('cached_2chat_messages');
-                    localStorage.removeItem('cached_2chat_conversations');
-                  }
-                  loadData(apiKey);
-                }
-              }}
-            >
-              Clear Messages
-            </button>
-          )}
-          <button className="secondary" onClick={() => loadData(apiKey)} disabled={loading}>
-            {loading ? 'Fetching 2Chat...' : '↻ Fetch 2Chat Messages'}
+    <div className="saas-app-layout">
+      {/* Persistent Left Sidebar Navigation */}
+      <Sidebar
+        currentSection={currentSection}
+        onSelectSection={(sec) => setCurrentSection(sec)}
+        mobileOpen={mobileSidebarOpen}
+        onToggleMobile={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+        channelInfo={channelInfoDisplay}
+      />
+
+      {/* Main Content Area */}
+      <div className="app-main-viewport">
+        {/* Mobile Header Bar */}
+        <header className="mobile-top-bar">
+          <button
+            type="button"
+            className="mobile-hamburger-btn"
+            onClick={() => setMobileSidebarOpen(true)}
+            aria-label="Open navigation menu"
+          >
+            <Menu size={20} />
           </button>
-        </div>
-      </div>
-
-      {/* Configuration Box */}
-      <div className="config-section">
-        <div className="config-row">
-          <span className="config-label">Webhook URL</span>
-          <span className="config-code">{webhookUrl}</span>
-          <button className="secondary" onClick={handleCopyWebhook}>
-            {copied ? 'Copied' : 'Copy URL'}
-          </button>
-        </div>
-
-        <div className="config-row">
-          <span className="config-label">2Chat API Key</span>
-          <input
-            type="password"
-            className="config-input"
-            placeholder="Paste your 2Chat API Key (X-User-API-Key) here..."
-            value={apiKeyInput}
-            onChange={(e) => setApiKeyInput(e.target.value)}
-          />
-          <button onClick={handleSaveKey}>
-            {statusText ? statusText : 'Save Key'}
-          </button>
-        </div>
-      </div>
-
-      {/* API Key Missing Warning Banner */}
-      {!apiKey && (
-        <div
-          style={{
-            border: '2px solid #000000',
-            backgroundColor: '#ffffff',
-            padding: '16px 20px',
-            marginBottom: '20px',
-            borderRadius: '4px',
-            fontSize: '13px',
-            lineHeight: '1.6',
-          }}
-        >
-          <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '6px' }}>
-            ⚠️ 2Chat API Key Required to Fetch Live Chat Messages
+          <div className="mobile-top-title">
+            <span>WhatsApp Intelligence</span>
+            <span className="mobile-section-badge">
+              {currentSection === 'test-messages'
+                ? 'Test Messages'
+                : currentSection === 'message-summary'
+                ? 'Message Summary'
+                : 'Developer'}
+            </span>
           </div>
-          <div>
-            The dashboard needs your 2Chat API Key (<code>X-User-API-Key</code>) to pull your groups and conversations.
-          </div>
-          <div style={{ marginTop: '8px' }}>
-            <strong>How to get it from 2Chat:</strong>
-            <ol style={{ margin: '4px 0 0 18px', padding: 0 }}>
-              <li>Open your 2Chat tab (<a href="https://app.2chat.io" target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>app.2chat.io</a>).</li>
-              <li>In the left sidebar menu, scroll to the bottom and click <strong>Developers &lt; &gt;</strong> → <strong>API Keys</strong>.</li>
-              <li>Copy your API Key, paste it into the <strong>2Chat API Key</strong> box above, and click <strong>"Save Key"</strong>.</li>
-            </ol>
-          </div>
-        </div>
-      )}
+        </header>
 
-      {/* API Errors Banner if 2Chat returns an error */}
-      {apiErrors.length > 0 && (
-        <div
-          style={{
-            border: '1px solid #000000',
-            backgroundColor: '#f9f9f9',
-            padding: '12px 18px',
-            marginBottom: '20px',
-            borderRadius: '4px',
-            fontSize: '13px',
-          }}
-        >
-          <strong>2Chat Connection Diagnostics:</strong>
-          <ul style={{ marginTop: 6, paddingLeft: 18 }}>
-            {apiErrors.map((err, i) => (
-              <li key={i}>{err}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* 2 Main KPI Cards */}
-      <div className="cards-grid">
-        <div className="card">
-          <div className="card-title">Messages Sent</div>
-          <div className="card-count">{sentCount}</div>
-        </div>
-
-        <div className="card">
-          <div className="card-title">Messages Received</div>
-          <div className="card-count">{receivedCount}</div>
-        </div>
-      </div>
-
-      {/* WhatsApp / 2Chat Live Chat Split Layout */}
-      <div className="livechat-wrapper">
-        {/* Left Navigation Section: All chats list like WhatsApp */}
-        <aside className="livechat-sidebar">
-          <div className="sidebar-header">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span className="sidebar-title">Chats</span>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#666666' }}>
-                {filteredConversations.length} CONVERSATION{filteredConversations.length === 1 ? '' : 'S'}
-              </span>
-            </div>
-
-            <input
-              type="text"
-              className="search-box"
-              placeholder="Search chats..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+        {/* View Switching */}
+        <main className="content-scroll-area">
+          {currentSection === 'test-messages' && (
+            <TestMessagesView
+              apiKey={apiKey}
+              channels={channels}
+              activeChannel={activeChannel}
+              conversations={conversations}
+              selectedChat={selectedChat}
+              onSelectChat={handleSelectChat}
+              allMessages={allMessages}
+              currentChatMessages={currentChatMessages}
+              chatFilter={chatFilter}
+              onSetChatFilter={setChatFilter}
+              searchQuery={searchQuery}
+              onSetSearchQuery={setSearchQuery}
+              replyText={replyText}
+              onSetReplyText={setReplyText}
+              loading={loading}
+              sending={sending}
+              apiErrors={apiErrors}
+              onLoadData={loadData}
+              onSendMessage={handleSendMessage}
+              onClearMessages={handleClearMessages}
+              onNavigateToDeveloper={() => setCurrentSection('developer')}
             />
+          )}
 
-            <div className="filter-pills">
-              <button
-                className={`pill-btn ${chatFilter === 'all' ? 'active' : ''}`}
-                onClick={() => setChatFilter('all')}
-              >
-                All
-              </button>
-              <button
-                className={`pill-btn ${chatFilter === 'groups' ? 'active' : ''}`}
-                onClick={() => setChatFilter('groups')}
-              >
-                Groups
-              </button>
-              <button
-                className={`pill-btn ${chatFilter === 'direct' ? 'active' : ''}`}
-                onClick={() => setChatFilter('direct')}
-              >
-                Direct
-              </button>
-            </div>
-          </div>
+          {currentSection === 'message-summary' && (
+            <MessageSummaryView
+              totalMessagesCount={allMessages.length}
+              conversations={conversations}
+              onNavigateToTestMessages={() => setCurrentSection('test-messages')}
+              onNavigateToDeveloper={() => setCurrentSection('developer')}
+            />
+          )}
 
-          <div className="chat-items-scroll">
-            {filteredConversations.length === 0 ? (
-              <div style={{ padding: '30px 16px', textAlign: 'center', color: '#888888', fontSize: 13 }}>
-                {loading ? 'Fetching from 2Chat...' : 'No chats found. Paste your 2Chat API Key and click "Fetch 2Chat Messages".'}
-              </div>
-            ) : (
-              filteredConversations.map((conv) => {
-                const isSelected = selectedChat?.id === conv.id;
-                let formattedTime = '';
-                try {
-                  if (conv.lastTimestamp && new Date(conv.lastTimestamp).getTime() > 0) {
-                    formattedTime = new Date(conv.lastTimestamp).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    });
-                  }
-                } catch {
-                  formattedTime = '';
-                }
-
-                const initial = conv.isGroup
-                  ? '👥'
-                  : (conv.name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 1).toUpperCase() || '#');
-
-                return (
-                  <div
-                    key={conv.id}
-                    className={`chat-item ${isSelected ? 'active' : ''}`}
-                    onClick={() => handleChatClick(conv)}
-                  >
-                    <div className="chat-avatar">{initial}</div>
-                    <div className="chat-info">
-                      <div className="chat-info-top">
-                        <span className="chat-name">{conv.name}</span>
-                        {formattedTime && <span className="chat-time">{formattedTime}</span>}
-                      </div>
-                      <div className="chat-preview">
-                        {conv.lastMessage || (conv.isGroup ? 'Group Conversation' : 'Direct Conversation')}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </aside>
-
-        {/* Center Pane: Active Chat Conversation Thread in LIST TYPE view */}
-        <main className="livechat-thread">
-          {selectedChat ? (
-            <>
-              {/* Thread Header */}
-              <div className="thread-header">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: '50%',
-                    backgroundColor: '#25D366',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#ffffff',
-                    fontSize: 18,
-                    fontWeight: 700,
-                  }}>
-                    {selectedChat.isGroup ? '👥' : '💬'}
-                  </div>
-                  <div>
-                    <div className="thread-header-title">
-                      {selectedChat.name}
-                    </div>
-                    <div className="thread-header-subtitle">
-                      {selectedChat.isGroup
-                        ? `Channel: ${channelDisplayName} • ${currentChatMessages.length} message${currentChatMessages.length === 1 ? '' : 's'}`
-                        : `${formatPhone(selectedChat.phoneOrId) || selectedChat.phoneOrId} • ${currentChatMessages.length} message${currentChatMessages.length === 1 ? '' : 's'}`}
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <button
-                    className="secondary"
-                    style={{ padding: '5px 12px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}
-                    onClick={() => loadData(apiKey, selectedChat.id, selectedChat.isGroup, selectedChat.groupUuid)}
-                    disabled={loading}
-                  >
-                    ↻ Sync Chat
-                  </button>
-                </div>
-              </div>
-
-              {/* Messages Stream: LIST TYPE (No alternating left/right bubbles) */}
-              <div className="thread-messages-scroll">
-                {currentChatMessages.length === 0 ? (
-                  <div className="empty-chat-state">
-                    <p style={{ fontWeight: 600, marginBottom: 4 }}>No messages in this chat yet.</p>
-                    <p style={{ fontSize: 12 }}>Incoming messages will appear here via 2Chat webhook.</p>
-                  </div>
-                ) : (
-                  currentChatMessages.map((msg) => {
-                    const isOutbound = msg.sentBy === 'agent';
-                    let formattedTime = '';
-                    try {
-                      formattedTime = new Date(msg.timestamp).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      });
-                    } catch {
-                      formattedTime = '';
-                    }
-
-                    const senderDisplay = formatSenderDisplay(msg, activeChannel);
-
-                    return (
-                      <div key={msg.id} className="message-list-row">
-                        {/* Header: Sender's name, direction badge, and timestamp */}
-                        <div className="message-list-header">
-                          <div className="message-sender-info">
-                            <span className={`sender-badge ${isOutbound ? 'outbound-badge' : 'inbound-badge'}`}>
-                              {isOutbound ? 'Sent' : 'Received'}
-                            </span>
-                            <span className="sender-display-name">
-                              {senderDisplay}
-                            </span>
-                          </div>
-                          <span className="message-timestamp">{formattedTime}</span>
-                        </div>
-
-                        {/* Quoted Message / Reply Preview if present */}
-                        {msg.quotedMessage && (
-                          <div className="message-quote-box">
-                            <span className="quote-mark">“</span>
-                            <div className="quote-content">{msg.quotedMessage}</div>
-                          </div>
-                        )}
-
-                        {/* Message Text */}
-                        <div className="message-body-text">
-                          {msg.text || (msg.mediaUrl ? `[Media: ${msg.mediaUrl}]` : '(No text content)')}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-
-              {/* Message Composer / Reply Bar */}
-              <form className="thread-composer" onSubmit={handleSendMessage}>
-                <input
-                  type="text"
-                  className="composer-input"
-                  placeholder={`Write a reply to ${selectedChat.name}...`}
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  disabled={sending}
-                />
-                <button
-                  type="submit"
-                  disabled={sending || !replyText.trim()}
-                  style={{ minWidth: 70 }}
-                >
-                  {sending ? '...' : 'Send'}
-                </button>
-              </form>
-            </>
-          ) : (
-            <div className="empty-chat-state">
-              <div style={{ fontSize: 36, marginBottom: 12 }}>💬</div>
-              <p style={{ fontWeight: 700, fontSize: 16 }}>Select a chat or group</p>
-              <p style={{ fontSize: 13, marginTop: 4 }}>
-                Click on any conversation from the list on the left to open and view the conversation thread.
-              </p>
-            </div>
+          {currentSection === 'developer' && (
+            <DeveloperView
+              apiKey={apiKey}
+              onSaveApiKey={handleSaveApiKey}
+              webhookUrl={webhookUrl}
+              statusText={statusText}
+            />
           )}
         </main>
-
-        {/* Right Details Panel matching 2Chat Live Chat */}
-        <aside className="livechat-info">
-          {selectedChat ? (
-            <>
-              <div className="info-header">
-                <div className="info-avatar">
-                  {selectedChat.isGroup ? '👥' : '👤'}
-                </div>
-                <div className="info-name">{selectedChat.name}</div>
-                <div className="info-type">
-                  {selectedChat.isGroup ? 'WhatsApp Group' : 'Direct WhatsApp Chat'}
-                </div>
-              </div>
-
-              {selectedChat.isGroup && (
-                <>
-                  <div className="info-section">
-                    <span className="info-label">GROUP DATA</span>
-                    {selectedChat.description ? (
-                      <div
-                        style={{
-                          maxHeight: 220,
-                          overflowY: 'auto',
-                          backgroundColor: '#f8fafc',
-                          border: '1px solid #e2e8f0',
-                          borderRadius: 6,
-                          padding: 10,
-                          fontSize: 11.5,
-                          lineHeight: 1.5,
-                          whiteSpace: 'pre-wrap',
-                          wordBreak: 'break-word',
-                          color: '#334155',
-                        }}
-                      >
-                        {selectedChat.description}
-                      </div>
-                    ) : (
-                      <span className="info-value" style={{ fontStyle: 'italic', color: '#94a3b8' }}>
-                        No description provided
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="info-section">
-                    <span className="info-label">Group JID / Phone</span>
-                    <span className="info-value">{selectedChat.phoneOrId}</span>
-                  </div>
-
-                  <div className="info-section">
-                    <span className="info-label">ASSIGNED TO</span>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: '#64748b' }}>Assignee</span>
-                        <span style={{ fontWeight: 600 }}>Unassigned</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: '#64748b' }}>Team Inbox</span>
-                        <span style={{ fontWeight: 600 }}>Unassigned</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="info-section">
-                    <span className="info-label">PARTICIPANTS</span>
-                    <span className="info-value">
-                      {selectedChat.size ? `${selectedChat.size} members` : 'Group'}
-                    </span>
-                  </div>
-                </>
-              )}
-
-              {!selectedChat.isGroup && (
-                <div className="info-section">
-                  <span className="info-label">Phone Number</span>
-                  <span className="info-value">{formatPhone(selectedChat.phoneOrId) || selectedChat.phoneOrId}</span>
-                </div>
-              )}
-
-              <div className="info-section">
-                <span className="info-label">Total Messages</span>
-                <span className="info-value">{currentChatMessages.length}</span>
-              </div>
-
-              {selectedChat.lastTimestamp && new Date(selectedChat.lastTimestamp).getTime() > 0 && (
-                <div className="info-section">
-                  <span className="info-label">Last Active</span>
-                  <span className="info-value" style={{ fontSize: 11 }}>
-                    {new Date(selectedChat.lastTimestamp).toLocaleString()}
-                  </span>
-                </div>
-              )}
-
-              {selectedChat.twoChatLink && (
-                <div style={{ marginTop: 8 }}>
-                  <a
-                    href={selectedChat.twoChatLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="secondary"
-                    style={{
-                      display: 'block',
-                      textAlign: 'center',
-                      textDecoration: 'none',
-                      padding: '6px 12px',
-                      fontSize: 11,
-                      fontWeight: 600,
-                    }}
-                  >
-                    Open in 2Chat Live Chat ↗
-                  </a>
-                </div>
-              )}
-            </>
-          ) : (
-            <div style={{ color: '#888888', fontSize: 12, textAlign: 'center', marginTop: 30 }}>
-              No chat selected
-            </div>
-          )}
-        </aside>
       </div>
     </div>
   );
