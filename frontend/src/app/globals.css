@@ -9,12 +9,14 @@ body {
   color: #000000;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
-  padding: 24px 20px;
+  padding: 16px 24px;
+  min-height: 100vh;
 }
 
 .container {
-  max-width: 1300px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
 }
 
 /* Header & Controls */
@@ -155,10 +157,11 @@ button.secondary:hover {
 /* Live Chat Split Window (like WhatsApp / 2Chat) */
 .livechat-wrapper {
   display: grid;
-  grid-template-columns: 340px 1fr 280px;
+  grid-template-columns: 360px 1fr 300px;
   border: 1px solid #000000;
   border-radius: 6px;
-  height: 650px;
+  height: calc(100vh - 275px);
+  min-height: 600px;
   background-color: #ffffff;
   overflow: hidden;
 }
