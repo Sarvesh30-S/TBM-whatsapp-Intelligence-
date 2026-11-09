@@ -256,19 +256,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const canAccessSection = useCallback(
     (section: string) => {
       if (!user) return false;
+      // Administrator has full visibility across all portal intelligence workspaces
+      if (hasRole('ADMIN')) return true;
+
       switch (section) {
         case 'overview':
           return true;
         case 'test-messages':
           return true; // Read-only viewing permitted; send action is strictly gated on backend
         case 'message-summary':
-          return hasPermission('SUMMARY_READ') || hasPermission('EXECUTIVE_BI_READ');
+          return hasPermission('SUMMARY_READ') || hasPermission('EXECUTIVE_BI_READ') || hasRole('C_SUITE') || hasRole('MANAGER');
         case 'priority-inbox':
-          return hasPermission('PRIORITY_INBOX_READ');
+          return hasPermission('PRIORITY_INBOX_READ') || hasRole('C_SUITE') || hasRole('MANAGER');
         case 'developer':
-          return hasPermission('TELEMETRY_READ') || hasRole('DEVELOPER') || hasRole('ADMIN');
+          return hasPermission('TELEMETRY_READ') || hasRole('DEVELOPER');
         case 'admin':
-          return hasPermission('USER_MANAGE') || hasRole('ADMIN');
+          return hasPermission('USER_MANAGE');
         default:
           return false;
       }
