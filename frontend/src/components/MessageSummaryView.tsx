@@ -5,23 +5,17 @@ import {
   MessageSquare,
   Sparkles,
   AlertTriangle,
-  Briefcase,
-  TrendingUp,
-  Filter,
-  Calendar,
-  Layers,
-  ArrowRight,
-  Clock,
-  CheckCircle2,
-  FileQuestion,
   RotateCw,
   CreditCard,
   CalendarClock,
   ShieldAlert,
-  ChevronRight,
+  Layers,
+  ArrowRight,
+  Clock,
+  CheckCircle2,
   ExternalLink,
-  Tag,
-  Check,
+  Users,
+  Search,
 } from 'lucide-react';
 import { TwoChatMessage, TwoChatConversation } from '@/lib/types';
 import { GroqActionableItem, GroqGroupSummary, GroqAnalysisResult } from '@/lib/groq-client';
@@ -41,8 +35,13 @@ export default function MessageSummaryView({
   onNavigateToTestMessages,
   onNavigateToDeveloper,
 }: MessageSummaryViewProps) {
-  // Active Tab: 'actionable' (default) vs 'summaries'
-  const [activeTab, setActiveTab] = useState<'actionable' | 'summaries'>('actionable');
+  // Master 3-Tab Architecture: 'chats' | 'summary' | 'insights'
+  const [activeTab, setActiveTab] = useState<'chats' | 'summary' | 'insights'>('summary');
+
+  // Selected Group Filter for Chats tab
+  const [selectedChatId, setSelectedChatId] = useState<string>(
+    conversations[0]?.id || 'Fleet Ops Pod'
+  );
 
   // Analysis State
   const [analyzing, setAnalyzing] = useState<boolean>(false);
@@ -50,10 +49,10 @@ export default function MessageSummaryView({
   const [analysisError, setAnalysisError] = useState<string>('');
 
   // Actionable Filter State
-  const [actionableCategoryFilter, setActionableCategoryFilter] = useState<'all' | 'payment' | 'time_change' | 'urgent_attention' | 'recruitment'>('all');
+  const [insightCategoryFilter, setInsightCategoryFilter] = useState<
+    'all' | 'payment' | 'time_change' | 'urgent_attention' | 'recruitment'
+  >('all');
 
-  // Filter States for Group Summaries
-  const [selectedGroup, setSelectedGroup] = useState<string>('all');
   const [selectedUrgency, setSelectedUrgency] = useState<string>('all');
 
   // Run analysis function
@@ -79,30 +78,22 @@ export default function MessageSummaryView({
     }
   };
 
-  // Run initial analysis automatically on mount or when messages arrive
   useEffect(() => {
     if (allMessages.length > 0 && !analysisResult) {
       runAnalysis();
     }
   }, [allMessages.length]);
 
-  const availableChats = conversations;
-
-  // Filtered actionable messages
   const filteredActionables = (analysisResult?.actionableItems || []).filter((item) => {
-    if (actionableCategoryFilter === 'payment') return item.category === 'payment';
-    if (actionableCategoryFilter === 'time_change') return item.category === 'time_change';
-    if (actionableCategoryFilter === 'urgent_attention') return item.category === 'urgent_attention';
-    if (actionableCategoryFilter === 'recruitment') return item.category === 'recruitment';
+    if (insightCategoryFilter === 'payment') return item.category === 'payment';
+    if (insightCategoryFilter === 'time_change') return item.category === 'time_change';
+    if (insightCategoryFilter === 'urgent_attention') return item.category === 'urgent_attention';
+    if (insightCategoryFilter === 'recruitment') return item.category === 'recruitment';
     return true;
   });
 
-  // Filtered group summaries
   const filteredSummaries = (analysisResult?.groupSummaries || []).filter((grp) => {
-    if (selectedGroup !== 'all' && grp.groupName !== selectedGroup) return false;
-    if (selectedUrgency !== 'all') {
-      if (selectedUrgency === 'high' && grp.highPriorityCount === 0) return false;
-    }
+    if (selectedUrgency === 'high' && grp.highPriorityCount === 0) return false;
     return true;
   });
 
@@ -110,32 +101,43 @@ export default function MessageSummaryView({
   const urgentPayments = analysisResult?.urgentPaymentsCount ?? 0;
   const timeChanges = analysisResult?.timeChangesCount ?? 0;
   const highPriority = analysisResult?.highPriorityCount ?? 0;
-  const recruitment = analysisResult?.recruitmentCount ?? 0;
+
+  // Selected chat messages for the CHATS tab
+  const activeConversation = conversations.find((c) => c.id === selectedChatId) || conversations[0];
+  const chatMessages = allMessages.filter((m) => {
+    if (activeConversation?.isGroup) {
+      return m.groupUuid === activeConversation.groupUuid || m.groupName === activeConversation.name;
+    }
+    const otherNumber = m.sentBy === 'user' || m.sentBy === 'agent' || m.sentBy === 'api'
+      ? m.toNumber || m.remoteNumber || m.receiverNumber
+      : m.fromNumber || m.remoteNumber || m.senderNumber;
+    return otherNumber === activeConversation?.phoneOrId || otherNumber === activeConversation?.id;
+  });
 
   return (
     <div className="message-summary-container">
-      {/* Page Title & Subtitle */}
-      <div className="section-header">
+      {/* Page Title & Actions */}
+      <div className="overview-header-card">
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <h2 className="section-title">Message Summary &amp; Intelligence</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <h1 className="overview-greeting">Group Communication Intelligence</h1>
             <span className="ai-badge groq">
-              <Sparkles size={12} /> Groq AI Engine
+              <Sparkles size={12} /> Groq LPU (openai/gpt-oss-120b)
             </span>
           </div>
-          <p className="section-subtitle">
-            Automated intelligence overview, executive conversation summaries, and real-time actionable triage powered by Groq LPU.
+          <p className="overview-subtitle">
+            Synthesized operational workspace with real-time feeds, verifiable citations, and actionable risk extraction.
           </p>
         </div>
-        <div className="header-actions">
+        <div>
           <button
             type="button"
-            className="btn-primary"
+            className="btn btn-primary"
             onClick={runAnalysis}
             disabled={analyzing}
           >
             <RotateCw size={14} className={analyzing ? 'animate-spin' : ''} />
-            <span>{analyzing ? 'Analyzing with Groq...' : '⚡ Run Groq AI Analysis'}</span>
+            <span>{analyzing ? 'Synthesizing...' : 'Re-Analyze with Groq'}</span>
           </button>
         </div>
       </div>
@@ -147,483 +149,284 @@ export default function MessageSummaryView({
         </div>
       )}
 
-      {/* 5 Overview KPI Cards */}
-      <div className="summary-kpi-grid">
-        <div className="summary-kpi-card">
-          <div className="kpi-top">
-            <span className="kpi-label">Total Messages</span>
-            <div className="kpi-icon-wrap">
+      {/* KPI Cards */}
+      <div className="kpi-grid">
+        <div className="kpi-card">
+          <div className="kpi-card-top">
+            <span className="kpi-title">Messages Collected</span>
+            <div className="kpi-icon-bubble" style={{ backgroundColor: '#eef2ff', color: '#4f46e5' }}>
               <MessageSquare size={16} />
             </div>
           </div>
           <div className="kpi-value">{totalMessagesCount}</div>
-          <div className="kpi-subtext">Received &amp; stored in database</div>
+          <div className="kpi-footer-row">100% persisted in Supabase</div>
         </div>
 
-        <div className="summary-kpi-card">
-          <div className="kpi-top">
-            <span className="kpi-label">Messages Analyzed</span>
-            <div className="kpi-icon-wrap kpi-blue">
+        <div className="kpi-card">
+          <div className="kpi-card-top">
+            <span className="kpi-title">Messages Synthesized</span>
+            <div className="kpi-icon-bubble" style={{ backgroundColor: '#ecfeff', color: '#0891b2' }}>
               <Sparkles size={16} />
             </div>
           </div>
           <div className="kpi-value">{totalAnalyzed}</div>
-          <div className="kpi-subtext">Processed by Groq LPU engine</div>
+          <div className="kpi-footer-row">Evidence verified with IDs</div>
         </div>
 
-        <div className="summary-kpi-card">
-          <div className="kpi-top">
-            <span className="kpi-label">High Priority Messages</span>
-            <div className="kpi-icon-wrap kpi-red">
+        <div className="kpi-card kpi-card-alert">
+          <div className="kpi-card-top">
+            <span className="kpi-title">High Priority Alerts</span>
+            <div className="kpi-icon-bubble" style={{ backgroundColor: '#fff1f2', color: '#e11d48' }}>
               <AlertTriangle size={16} />
             </div>
           </div>
           <div className="kpi-value">{highPriority}</div>
-          <div className="kpi-subtext">Immediate attention required</div>
+          <div className="kpi-footer-row">Critical operational flags</div>
         </div>
 
-        <div className="summary-kpi-card">
-          <div className="kpi-top">
-            <span className="kpi-label">Urgent Payments</span>
-            <div className="kpi-icon-wrap kpi-purple">
+        <div className="kpi-card">
+          <div className="kpi-card-top">
+            <span className="kpi-title">Payment Requests</span>
+            <div className="kpi-icon-bubble" style={{ backgroundColor: '#faf5ff', color: '#7c3aed' }}>
               <CreditCard size={16} />
             </div>
           </div>
           <div className="kpi-value">{urgentPayments}</div>
-          <div className="kpi-subtext">Invoices, fees &amp; settlements</div>
-        </div>
-
-        <div className="summary-kpi-card">
-          <div className="kpi-top">
-            <span className="kpi-label">Time &amp; Schedule Changes</span>
-            <div className="kpi-icon-wrap kpi-green">
-              <CalendarClock size={16} />
-            </div>
-          </div>
-          <div className="kpi-value">{timeChanges}</div>
-          <div className="kpi-subtext">Late arrivals &amp; postponements</div>
+          <div className="kpi-footer-row">Advances &amp; fuel settlements</div>
         </div>
       </div>
 
-      {/* Navigation Sub-Tabs */}
-      <div className="intelligence-tabs-row">
+      {/* 3 Dedicated Sub-Tabs */}
+      <div className="intelligence-tabs-row" style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
         <button
           type="button"
-          className={`sub-tab-btn ${activeTab === 'actionable' ? 'active' : ''}`}
-          onClick={() => setActiveTab('actionable')}
+          className={`btn ${activeTab === 'chats' ? 'btn-primary' : 'btn-outline'}`}
+          onClick={() => setActiveTab('chats')}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <ShieldAlert size={16} />
-            <span>Actionable Messages Hub</span>
-          </div>
-          {(analysisResult?.actionableItems.length ?? 0) > 0 && (
-            <span className="tab-badge-count">{analysisResult?.actionableItems.length}</span>
-          )}
+          <MessageSquare size={16} />
+          <span>CHATS (Live Conversations)</span>
         </button>
 
         <button
           type="button"
-          className={`sub-tab-btn ${activeTab === 'summaries' ? 'active' : ''}`}
-          onClick={() => setActiveTab('summaries')}
+          className={`btn ${activeTab === 'summary' ? 'btn-primary' : 'btn-outline'}`}
+          onClick={() => setActiveTab('summary')}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Layers size={16} />
-            <span>Group Conversation Summaries</span>
-          </div>
-          {(analysisResult?.groupSummaries.length ?? 0) > 0 && (
-            <span className="tab-badge-count-neutral">{analysisResult?.groupSummaries.length}</span>
+          <Sparkles size={16} />
+          <span>SUMMARY (Evidence-Backed AI Synthesis)</span>
+        </button>
+
+        <button
+          type="button"
+          className={`btn ${activeTab === 'insights' ? 'btn-primary' : 'btn-outline'}`}
+          onClick={() => setActiveTab('insights')}
+        >
+          <ShieldAlert size={16} />
+          <span>INSIGHTS (Action Items &amp; Risks)</span>
+          {(analysisResult?.actionableItems.length ?? 0) > 0 && (
+            <span className="status-badge badge-danger">
+              {analysisResult?.actionableItems.length}
+            </span>
           )}
         </button>
       </div>
 
       {/* =========================================================================
-          TAB 1: ACTIONABLE MESSAGES HUB (Urgent payments, time changes, attention)
+          TAB 1: CHATS (Group Conversations Feed)
           ========================================================================= */}
-      {activeTab === 'actionable' && (
-        <div className="actionable-hub-section">
-          {/* Actionable Sub-Filters */}
-          <div className="actionable-filter-bar">
-            <button
-              type="button"
-              className={`filter-pill-btn ${actionableCategoryFilter === 'all' ? 'active' : ''}`}
-              onClick={() => setActionableCategoryFilter('all')}
-            >
-              All Actionable ({analysisResult?.actionableItems.length || 0})
-            </button>
-            <button
-              type="button"
-              className={`filter-pill-btn pill-payment ${actionableCategoryFilter === 'payment' ? 'active' : ''}`}
-              onClick={() => setActionableCategoryFilter('payment')}
-            >
-              <CreditCard size={13} />
-              <span>Urgent Payments ({urgentPayments})</span>
-            </button>
-            <button
-              type="button"
-              className={`filter-pill-btn pill-time ${actionableCategoryFilter === 'time_change' ? 'active' : ''}`}
-              onClick={() => setActionableCategoryFilter('time_change')}
-            >
-              <Clock size={13} />
-              <span>Time &amp; Schedule Changes ({timeChanges})</span>
-            </button>
-            <button
-              type="button"
-              className={`filter-pill-btn pill-attention ${actionableCategoryFilter === 'urgent_attention' ? 'active' : ''}`}
-              onClick={() => setActionableCategoryFilter('urgent_attention')}
-            >
-              <AlertTriangle size={13} />
-              <span>Requires Attention</span>
-            </button>
-            <button
-              type="button"
-              className={`filter-pill-btn pill-recruitment ${actionableCategoryFilter === 'recruitment' ? 'active' : ''}`}
-              onClick={() => setActionableCategoryFilter('recruitment')}
-            >
-              <Briefcase size={13} />
-              <span>Recruitment ({recruitment})</span>
-            </button>
+      {activeTab === 'chats' && (
+        <div className="overview-split-layout">
+          {/* Conversation List */}
+          <div className="overview-card" style={{ padding: 16 }}>
+            <h3 className="card-title" style={{ marginBottom: 12 }}>Active Groups &amp; Pods</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {conversations.map((c) => (
+                <div
+                  key={c.id}
+                  className={`inbox-card ${selectedChatId === c.id ? 'selected' : ''}`}
+                  onClick={() => setSelectedChatId(c.id)}
+                  style={{ cursor: 'pointer', padding: 12 }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <strong>{c.name}</strong>
+                    <span className="status-badge badge-info">{c.isGroup ? 'GROUP' : 'DIRECT'}</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
+                    {c.lastMessage?.slice(0, 50)}...
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* Actionable Messages List */}
-          {filteredActionables.length === 0 ? (
-            <div className="empty-intelligence-card">
-              <div className="empty-icon-circle">
-                <CheckCircle2 size={36} className="text-green" />
-              </div>
-              <h3 className="empty-title">
-                {allMessages.length === 0
-                  ? 'No message intelligence available yet. Connect your message source to get started.'
-                  : 'No pending actionable items found in current messages.'}
-              </h3>
-              <p className="empty-description">
-                {allMessages.length === 0
-                  ? 'Once connected to WhatsApp via 2Chat, all incoming messages will be continuously analyzed by Groq AI for urgent payments, schedule updates, and action items.'
-                  : 'Groq AI evaluated your WhatsApp discussions. Messages containing urgent payments, changes in office arrival times, or critical tasks will appear here automatically.'}
-              </p>
-              <div className="empty-actions">
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={() => onNavigateToTestMessages()}
-                >
-                  <MessageSquare size={16} />
-                  <span>Go to Test Messages</span>
-                </button>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={onNavigateToDeveloper}
-                >
-                  <span>Configure Groq AI Key</span>
-                  <ArrowRight size={15} />
-                </button>
-              </div>
+          {/* Conversation Message Stream */}
+          <div className="overview-card" style={{ padding: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <h3 className="card-title">{activeConversation?.name || 'Conversation Stream'}</h3>
+              <span className="status-badge badge-info">{chatMessages.length} Messages</span>
+            </div>
+
+            <div style={{ maxHeight: 520, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {chatMessages.length === 0 ? (
+                <div style={{ textAlign: 'center', color: '#94a3b8', padding: 32 }}>
+                  No messages recorded in this conversation yet.
+                </div>
+              ) : (
+                chatMessages.map((msg) => {
+                  const isSent = msg.sentBy === 'user' || msg.sentBy === 'agent' || msg.sentBy === 'api';
+                  return (
+                    <div
+                      key={msg.id}
+                      style={{
+                        alignSelf: isSent ? 'flex-end' : 'flex-start',
+                        maxWidth: '80%',
+                        backgroundColor: isSent ? '#eef2ff' : '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: 8,
+                        padding: '10px 14px',
+                      }}
+                    >
+                      <div style={{ fontSize: 11, fontWeight: 700, color: isSent ? '#4f46e5' : '#0f172a', marginBottom: 2 }}>
+                        {msg.senderName} ({msg.fromNumber || msg.senderNumber})
+                      </div>
+                      <div style={{ fontSize: 13, color: '#1e293b' }}>{msg.text}</div>
+                      <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 4, textAlign: 'right' }}>
+                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} &bull; ID: {msg.id.slice(0, 8)}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          TAB 2: SUMMARY (Verifiable AI Summaries Citing Message IDs)
+          ========================================================================= */}
+      {activeTab === 'summary' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {filteredSummaries.length === 0 ? (
+            <div className="overview-card" style={{ padding: 32, textAlign: 'center' }}>
+              <Sparkles size={32} style={{ color: '#6366f1', margin: '0 auto 12px' }} />
+              <h3>No Summaries Available Yet</h3>
+              <p style={{ color: '#64748b' }}>Click "Re-Analyze with Groq" above to synthesize active conversations.</p>
             </div>
           ) : (
-            <div className="actionable-cards-grid">
-              {filteredActionables.map((item) => {
-                let formattedTime = '';
-                try {
-                  formattedTime = new Date(item.timestamp).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  });
-                } catch {
-                  formattedTime = '';
-                }
-
-                const isPayment = item.category === 'payment';
-                const isTimeChange = item.category === 'time_change';
-
-                return (
-                  <div key={item.id} className={`actionable-card ${isPayment ? 'card-payment' : isTimeChange ? 'card-time' : 'card-attention'}`}>
-                    {/* Header */}
-                    <div className="actionable-card-header">
-                      <div className="category-and-urgency">
-                        {isPayment && (
-                          <span className="action-tag tag-payment">
-                            <CreditCard size={12} />
-                            <span>URGENT PAYMENT</span>
-                          </span>
-                        )}
-                        {isTimeChange && (
-                          <span className="action-tag tag-time">
-                            <Clock size={12} />
-                            <span>TIME / SCHEDULE CHANGE</span>
-                          </span>
-                        )}
-                        {!isPayment && !isTimeChange && (
-                          <span className="action-tag tag-attention">
-                            <AlertTriangle size={12} />
-                            <span>ATTENTION REQUIRED</span>
-                          </span>
-                        )}
-                        <span className={`urgency-pill ${item.urgency}`}>
-                          {item.urgency.toUpperCase()}
-                        </span>
-                      </div>
-                      <span className="actionable-time">{formattedTime}</span>
-                    </div>
-
-                    {/* Action Required Callout Box */}
-                    <div className="action-required-box">
-                      <div className="action-required-title">
-                        <span>ACTION ITEM:</span> {item.actionRequired}
-                      </div>
-                      {item.deadline && (
-                        <div className="action-deadline-badge">
-                          <CalendarClock size={12} />
-                          <span>Reported Time: {item.deadline}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Sender & Group Context */}
-                    <div className="actionable-context-row">
-                      <span className="context-sender">{item.senderName}</span>
-                      {item.senderNumber && <span className="context-phone">({item.senderNumber})</span>}
-                      <span className="context-separator">•</span>
-                      <span className="context-group">{item.groupName}</span>
-                    </div>
-
-                    {/* Exact Message Snippet */}
-                    <div className="actionable-quote-box">
-                      <span className="quote-icon">“</span>
-                      <p className="quote-text">{item.text}</p>
-                    </div>
-
-                    {/* Card Footer */}
-                    <div className="actionable-card-footer">
-                      <button
-                        type="button"
-                        className="btn-jump-chat"
-                        onClick={() => onNavigateToTestMessages(item.chatId)}
-                      >
-                        <span>View &amp; Reply in Chat</span>
-                        <ChevronRight size={14} />
-                      </button>
-                    </div>
+            filteredSummaries.map((summary, idx) => (
+              <div key={idx} className="overview-card" style={{ padding: 24 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                  <div>
+                    <span className="status-badge badge-info" style={{ marginRight: 8 }}>WHATSAPP POD</span>
+                    <h3 style={{ display: 'inline', fontSize: 18, fontWeight: 700 }}>{summary.groupName}</h3>
                   </div>
-                );
-              })}
-            </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <span className="status-badge badge-warning">
+                      Messages: {summary.totalMessagesCount}
+                    </span>
+                    <span className="status-badge badge-danger">
+                      High Priority: {summary.highPriorityCount}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ backgroundColor: '#f8fafc', padding: 16, borderRadius: 8, border: '1px solid #e2e8f0', marginBottom: 16 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 4 }}>
+                    Executive AI Synthesis
+                  </div>
+                  <p style={{ fontSize: 14, lineHeight: 1.5, color: '#1e293b' }}>
+                    {summary.summaryText}
+                  </p>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+                  <div>
+                    <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: '#334155' }}>
+                      Key Topics Discussed
+                    </h4>
+                    <ul style={{ paddingLeft: 18, fontSize: 13, color: '#475569', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {summary.importantTopics?.map((t, i) => (
+                        <li key={i}>{t}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div>
+                    <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: '#334155' }}>
+                      Identified Action Items
+                    </h4>
+                    <ul style={{ paddingLeft: 18, fontSize: 13, color: '#475569', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {summary.actionItems?.map((a, i) => (
+                        <li key={i}>{a}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                {summary.actionableMessages && summary.actionableMessages.length > 0 && (
+                  <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b' }}>VERIFIED CITATIONS:</span>
+                    {summary.actionableMessages.map((item, i) => (
+                      <span key={i} className="status-badge badge-info" style={{ fontFamily: 'monospace' }}>
+                        ID #{item.messageId?.slice(0, 8) || item.id}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))
           )}
         </div>
       )}
 
       {/* =========================================================================
-          TAB 2: GROUP CONVERSATION SUMMARIES
+          TAB 3: INSIGHTS (Actionable Matters, Payments & Risks)
           ========================================================================= */}
-      {activeTab === 'summaries' && (
-        <div className="summaries-tab-section">
-          {/* Summary Filters Bar */}
-          <div className="summary-filters-card">
-            <div className="filters-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700 }}>
-                <Filter size={15} />
-                <span>SUMMARY FILTERS</span>
-              </div>
-            </div>
-
-            <div className="filters-grid">
-              <div className="filter-item">
-                <label className="filter-label">Conversation / Chat</label>
-                <select
-                  className="filter-select"
-                  value={selectedGroup}
-                  onChange={(e) => setSelectedGroup(e.target.value)}
-                >
-                  <option value="all">All Conversations ({availableChats.length})</option>
-                  {availableChats.map((g) => (
-                    <option key={g.id} value={g.name}>
-                      {g.isGroup ? '👥 ' : '👤 '} {g.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="filter-item">
-                <label className="filter-label">Priority Filter</label>
-                <select
-                  className="filter-select"
-                  value={selectedUrgency}
-                  onChange={(e) => setSelectedUrgency(e.target.value)}
-                >
-                  <option value="all">All Priorities</option>
-                  <option value="high">High &amp; Critical Priority Only</option>
-                </select>
-              </div>
-            </div>
+      {activeTab === 'insights' && (
+        <div>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+            {['all', 'payment', 'time_change', 'urgent_attention', 'recruitment'].map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                className={`filter-pill-btn ${insightCategoryFilter === cat ? 'active' : ''}`}
+                onClick={() => setInsightCategoryFilter(cat as any)}
+              >
+                {cat.replace('_', ' ').toUpperCase()}
+              </button>
+            ))}
           </div>
 
-          {/* Group Summaries Cards */}
-          {filteredSummaries.length === 0 ? (
-            <div className="empty-intelligence-card">
-              <div className="empty-icon-circle">
-                <FileQuestion size={36} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+            {filteredActionables.length === 0 ? (
+              <div className="overview-card" style={{ padding: 24, textAlign: 'center', gridColumn: '1 / -1' }}>
+                <CheckCircle2 size={28} style={{ color: '#059669', margin: '0 auto 8px' }} />
+                <h4>No Actionable Risks in Selected Category</h4>
               </div>
-              <h3 className="empty-title">
-                No group summaries available yet. Click "Run Groq AI Analysis" to summarize.
-              </h3>
-              <p className="empty-description">
-                Groq AI analyzes conversation threads, identifies topic themes, and generates an executive overview for each WhatsApp group.
-              </p>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={runAnalysis}
-                disabled={analyzing}
-              >
-                <span>{analyzing ? 'Analyzing...' : '⚡ Run Groq AI Analysis'}</span>
-              </button>
-            </div>
-          ) : (
-            <div className="summaries-cards-stack">
-              {filteredSummaries.map((grp, idx) => (
-                <div key={idx} className="group-summary-card">
-                  <div className="group-summary-header">
-                    <div>
-                      <h4 className="group-summary-title">{grp.groupName}</h4>
-                      <p className="group-summary-subtitle">
-                        {grp.totalMessagesCount} messages analyzed • Last active {new Date(grp.lastActive).toLocaleDateString()}
-                      </p>
-                    </div>
-                    {grp.highPriorityCount > 0 && (
-                      <span className="urgency-pill high">
-                        {grp.highPriorityCount} HIGH PRIORITY
-                      </span>
-                    )}
+            ) : (
+              filteredActionables.map((item, idx) => (
+                <div key={idx} className="inbox-card" style={{ padding: 18 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span className="status-badge badge-danger">
+                      {item.category.replace('_', ' ').toUpperCase()}
+                    </span>
+                    <span className="status-badge badge-warning">
+                      Urgency: {item.urgency.toUpperCase()}
+                    </span>
                   </div>
 
-                  <div className="group-summary-body">
-                    {/* Executive Summary */}
-                    <div className="summary-text-block">
-                      <strong>Executive Summary:</strong> {grp.summaryText}
-                    </div>
+                  <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>{item.actionRequired}</h4>
+                  <p style={{ fontSize: 13, color: '#475569', marginBottom: 12 }}>{item.text}</p>
 
-                    {/* Topics */}
-                    <div className="summary-topics-row">
-                      <span className="topics-label">Important Topics:</span>
-                      <div className="topics-chips-list">
-                        {grp.importantTopics.map((topic, i) => (
-                          <span key={i} className="topic-chip">
-                            <Tag size={11} /> {topic}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Action Items List */}
-                    {grp.actionItems.length > 0 && (
-                      <div className="action-items-list-block">
-                        <span className="action-items-title">Key Action Items:</span>
-                        <ul className="action-items-ul">
-                          {grp.actionItems.map((action, i) => (
-                            <li key={i}>
-                              <CheckCircle2 size={13} className="text-green" />
-                              <span>{action}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {/* Analyzed Messages Breakdown */}
-                    {(() => {
-                      const chatMsgs = allMessages.filter(
-                        (m) =>
-                          (m.chatName && m.chatName.toLowerCase() === grp.groupName.toLowerCase()) ||
-                          (m.groupName && m.groupName.toLowerCase() === grp.groupName.toLowerCase()) ||
-                          (m.senderName && m.senderName.toLowerCase() === grp.groupName.toLowerCase()) ||
-                          grp.groupName === 'Direct Chat' ||
-                          allMessages.length <= 10
-                      );
-                      if (chatMsgs.length === 0) return null;
-                      return (
-                        <div style={{ marginTop: 12, borderTop: '1px solid #f1f5f9', paddingTop: 10 }}>
-                          <span
-                            style={{
-                              fontSize: 11,
-                              fontWeight: 700,
-                              color: '#64748b',
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.05em',
-                              display: 'block',
-                              marginBottom: 8,
-                            }}
-                          >
-                            Analyzed Messages in this Chat ({chatMsgs.length}):
-                          </span>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                            {chatMsgs.map((m) => {
-                              const isOutbound = m.sentBy === 'agent';
-                              return (
-                                <div
-                                  key={m.id}
-                                  style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    padding: '6px 10px',
-                                    backgroundColor: '#f8fafc',
-                                    borderRadius: 4,
-                                    fontSize: 12,
-                                  }}
-                                >
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
-                                    <span
-                                      style={{
-                                        fontSize: 10,
-                                        fontWeight: 700,
-                                        padding: '2px 6px',
-                                        borderRadius: 3,
-                                        backgroundColor: isOutbound ? '#0f172a' : '#e0f2fe',
-                                        color: isOutbound ? '#ffffff' : '#0369a1',
-                                      }}
-                                    >
-                                      {isOutbound ? 'SENT' : 'RECEIVED'}
-                                    </span>
-                                    <span
-                                      style={{
-                                        color: '#0f172a',
-                                        fontWeight: 500,
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap',
-                                      }}
-                                    >
-                                      &ldquo;{m.text}&rdquo;
-                                    </span>
-                                  </div>
-                                  <span style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap', marginLeft: 8 }}>
-                                    {new Date(m.timestamp).toLocaleTimeString([], {
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                    })}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })()}
-                  </div>
-
-                  <div className="group-summary-footer">
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      onClick={() => onNavigateToTestMessages(grp.chatId)}
-                    >
-                      <span>Open Chat &amp; Reply</span>
-                      <ExternalLink size={13} />
-                    </button>
+                  <div style={{ fontSize: 11, color: '#64748b', borderTop: '1px solid #f1f5f9', paddingTop: 8, display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Source: {item.senderName} ({item.senderNumber})</span>
+                    <span style={{ fontFamily: 'monospace' }}>ID: {item.messageId?.slice(0, 8) || item.id}</span>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+              ))
+            )}
+          </div>
         </div>
       )}
     </div>

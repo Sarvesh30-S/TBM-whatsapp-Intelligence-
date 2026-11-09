@@ -16,3 +16,5 @@ tmp/
 Thumbs.db
 .idea/
 .vscode/
+.agents/
+skills-lock.json

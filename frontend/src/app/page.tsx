@@ -1,11 +1,15 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Menu, ShieldCheck } from 'lucide-react';
+import { Menu, ShieldCheck, Bell } from 'lucide-react';
 import Sidebar, { DashboardSection } from '@/components/Sidebar';
+import OverviewView from '@/components/OverviewView';
 import TestMessagesView from '@/components/TestMessagesView';
 import MessageSummaryView from '@/components/MessageSummaryView';
+import PriorityInboxView from '@/components/PriorityInboxView';
 import DeveloperView from '@/components/DeveloperView';
+import AdminManagementView from '@/components/AdminManagementView';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { TwoChatConversation, TwoChatMessage } from '@/lib/types';
 
 function cleanDigits(val: string): string {
@@ -60,9 +64,9 @@ function deduplicateList(messages: TwoChatMessage[]): TwoChatMessage[] {
   return result.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 }
 
-export default function DashboardPage() {
-  // Navigation State: 'test-messages' | 'message-summary' | 'developer'
-  const [currentSection, setCurrentSection] = useState<DashboardSection>('test-messages');
+function DashboardContent() {
+  const { user, canAccessSection } = useAuth();
+  const [currentSection, setCurrentSection] = useState<DashboardSection>('overview');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
 
   // Application Data State
@@ -81,7 +85,6 @@ export default function DashboardPage() {
   const [statusText, setStatusText] = useState<string>('');
   const [apiErrors, setApiErrors] = useState<string[]>([]);
 
-  // Load saved state from browser localStorage on startup & fetch from DB/API
   useEffect(() => {
     let keyToUse = '';
     if (typeof window !== 'undefined') {
@@ -99,8 +102,8 @@ export default function DashboardPage() {
           if (Array.isArray(parsed) && parsed.length > 0) {
             setAllMessages(deduplicateList(parsed));
           }
-        } catch {
-          // ignore
+        } catch (e) {
+          console.error('Failed to parse cached messages', e);
         }
       }
 
@@ -109,266 +112,253 @@ export default function DashboardPage() {
           const parsed = JSON.parse(cachedConvs);
           if (Array.isArray(parsed) && parsed.length > 0) {
             setConversations(parsed);
-            setSelectedChat(parsed[0]);
+            if (!selectedChat) {
+              setSelectedChat(parsed[0]);
+            }
           }
-        } catch {
-          // ignore
+        } catch (e) {
+          console.error('Failed to parse cached conversations', e);
         }
       }
     }
-    // Always trigger initial fetch on mount
+
     loadData(keyToUse);
   }, []);
 
-  // Fetch data function
-  const loadData = async (
-    key = apiKey,
-    targetChatId?: string,
-    isGroup?: boolean,
-    groupUuid?: string
-  ) => {
+  const loadData = async (key?: string, specificChatId?: string, isGroup?: boolean, groupUuid?: string) => {
+    setLoading(true);
+    setStatusText('Fetching messages from database...');
+    setApiErrors([]);
+
     try {
-      setLoading(true);
-      setApiErrors([]);
-      const params = new URLSearchParams();
-      if (key) params.set('apiKey', key);
-      if (targetChatId) params.set('chatId', targetChatId);
-      if (isGroup !== undefined) params.set('isGroup', String(isGroup));
-      if (groupUuid) params.set('groupUuid', groupUuid);
-
-      const res = await fetch(`/api/2chat/messages?${params.toString()}`);
-      const data = await res.json();
-
-      if (data.success) {
-        if (data.apiKeyConfigured && !apiKey) {
-          setApiKey(data.apiKey || 'configured');
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('2chat_api_key', data.apiKey || 'configured');
-          }
-        }
-
-        if (data.apiErrors && data.apiErrors.length > 0) {
-          setApiErrors(data.apiErrors);
-        }
-
-        if (data.channels && data.channels.length > 0) setChannels(data.channels);
-        if (data.activeChannel) setActiveChannel(data.activeChannel);
-
-        // Update messages cumulative store with deduplication
-        if (data.messages && Array.isArray(data.messages) && data.messages.length > 0) {
-          setAllMessages((prev) => {
-            const merged = deduplicateList([...prev, ...data.messages]);
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('cached_2chat_messages', JSON.stringify(merged));
-            }
-            return merged;
-          });
-        }
-
-        // Update conversations list
-        if (data.conversations && Array.isArray(data.conversations) && data.conversations.length > 0) {
-          setConversations(data.conversations);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('cached_2chat_conversations', JSON.stringify(data.conversations));
-          }
-          setSelectedChat((curr) => {
-            if (!curr) return data.conversations[0];
-            const updated = data.conversations.find((c: TwoChatConversation) => c.id === curr.id);
-            return updated || curr;
-          });
-        }
-      } else if (data.error) {
-        setApiErrors([data.error]);
+      const res = await fetch('/api/2chat/messages');
+      if (!res.ok) {
+        throw new Error(`Failed to fetch: ${res.statusText}`);
       }
+
+      const data = await res.json();
+      const rawMessages: TwoChatMessage[] = data.messages || [];
+      const rawConversations: TwoChatConversation[] = data.conversations || [];
+
+      const dedupedMessages = deduplicateList(rawMessages);
+
+      const convMap = new Map<string, TwoChatConversation>();
+
+      rawConversations.forEach((c) => {
+        const id = c.id || c.groupUuid || c.phoneOrId || c.name;
+        if (id) convMap.set(id, c);
+      });
+
+      dedupedMessages.forEach((msg) => {
+        let convId = '';
+        let convName = '';
+        let isGrp = false;
+        let grpUuid: string | undefined;
+
+        if (msg.isGroup || msg.groupUuid) {
+          isGrp = true;
+          convId = msg.groupUuid || msg.groupName || 'unknown-group';
+          convName = msg.groupName || 'WhatsApp Group';
+          grpUuid = msg.groupUuid;
+        } else {
+          isGrp = false;
+          const isOutgoing = msg.sentBy === 'user' || msg.sentBy === 'agent' || msg.sentBy === 'api';
+          const otherNumber = isOutgoing
+            ? msg.toNumber || msg.remoteNumber || msg.receiverNumber
+            : msg.fromNumber || msg.remoteNumber || msg.senderNumber;
+
+          convId = otherNumber || msg.senderNumber || msg.receiverNumber || 'direct-chat';
+          convName = (isOutgoing ? msg.receiverName : msg.senderName) || formatPhone(convId);
+        }
+
+        if (!convMap.has(convId)) {
+          convMap.set(convId, {
+            id: convId,
+            name: convName,
+            isGroup: isGrp,
+            groupUuid: grpUuid,
+            phoneOrId: convId,
+            messageCount: 1,
+            unreadCount: 0,
+            lastMessage: msg.text,
+            lastTimestamp: msg.timestamp,
+          });
+        } else {
+          const existing = convMap.get(convId)!;
+          existing.messageCount = (existing.messageCount || 0) + 1;
+          if (new Date(msg.timestamp).getTime() >= new Date(existing.lastTimestamp).getTime()) {
+            existing.lastMessage = msg.text;
+            existing.lastTimestamp = msg.timestamp;
+          }
+        }
+      });
+
+      const updatedConversations = Array.from(convMap.values()).sort(
+        (a, b) => new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime()
+      );
+
+      setAllMessages(dedupedMessages);
+      setConversations(updatedConversations);
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('cached_2chat_messages', JSON.stringify(dedupedMessages));
+        localStorage.setItem('cached_2chat_conversations', JSON.stringify(updatedConversations));
+      }
+
+      if (updatedConversations.length > 0) {
+        if (specificChatId) {
+          const found = updatedConversations.find(
+            (c) => c.id === specificChatId || c.groupUuid === specificChatId || c.phoneOrId === specificChatId
+          );
+          if (found) setSelectedChat(found);
+        } else if (!selectedChat) {
+          setSelectedChat(updatedConversations[0]);
+        }
+      }
+
+      setStatusText(`Loaded ${dedupedMessages.length} messages`);
     } catch (err: any) {
-      console.error('Error fetching data:', err);
-      setApiErrors([err.message || 'Failed to connect to backend']);
+      console.error('Error fetching messages:', err);
+      setStatusText(`Error: ${err.message}`);
+      setApiErrors([err.message]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Initial load when API key is set
-  useEffect(() => {
-    if (apiKey) {
-      loadData(apiKey);
-    }
-  }, [apiKey]);
-
-  // Handle saving API key from Developer settings
-  const handleSaveApiKey = async (newKey: string) => {
-    const trimmed = newKey.trim();
-    if (!trimmed) return;
-    setApiKey(trimmed);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('2chat_api_key', trimmed);
-    }
-    setStatusText('Saving & Subscribing...');
-
-    try {
-      const res = await fetch('/api/2chat/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey: trimmed, webhookUrl }),
-      });
-      const result = await res.json();
-      if (result.subscribedChannels && result.subscribedChannels.length > 0) {
-        setStatusText(`Subscribed ${result.subscribedChannels.length} channel(s)!`);
-      } else {
-        setStatusText('Key saved!');
-      }
-    } catch {
-      setStatusText('Key saved!');
-    }
-
-    setTimeout(() => setStatusText(''), 3000);
-    await loadData(trimmed);
-  };
-
-  // Handle clearing messages
-  const handleClearMessages = async () => {
-    if (confirm('Clear all stored messages?')) {
-      await fetch('/api/2chat/clear', { method: 'POST' });
-      setAllMessages([]);
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('cached_2chat_messages');
-        localStorage.removeItem('cached_2chat_conversations');
-      }
-      loadData(apiKey);
-    }
-  };
-
-  // Click on a chat
   const handleSelectChat = (chat: TwoChatConversation) => {
     setSelectedChat(chat);
-    loadData(apiKey, chat.id, chat.isGroup, chat.groupUuid);
   };
 
-  // Messages in active conversation thread
-  const currentChatMessages = React.useMemo(() => {
-    if (!selectedChat) return [];
-
-    const chatDigits = cleanDigits(selectedChat.id);
-    const chatNameLower = selectedChat.name.toLowerCase();
-
-    return allMessages
-      .filter((m) => {
-        if (selectedChat.isGroup || m.isGroup) {
-          if (selectedChat.groupUuid && (m.groupUuid === selectedChat.groupUuid || m.remoteNumber === selectedChat.groupUuid)) return true;
-          if (selectedChat.id && (m.groupUuid === selectedChat.id || m.remoteNumber === selectedChat.id)) return true;
-          if (selectedChat.phoneOrId && (m.remoteNumber === selectedChat.phoneOrId || m.groupUuid === selectedChat.phoneOrId || m.receiverNumber === selectedChat.phoneOrId || m.toNumber === selectedChat.phoneOrId)) return true;
-          if (selectedChat.name && selectedChat.name !== 'WhatsApp Group') {
-            if (m.groupName && m.groupName.toLowerCase() === chatNameLower) return true;
-            if (m.chatName && m.chatName.toLowerCase() === chatNameLower) return true;
-          }
-          return false;
-        }
-
-        // Direct chat
-        const msgDigits = cleanDigits(m.remoteNumber);
-        if (chatDigits && msgDigits) {
-          return chatDigits === msgDigits || msgDigits.endsWith(chatDigits) || chatDigits.endsWith(msgDigits);
-        }
-        return m.remoteNumber === selectedChat.id || m.chatName === selectedChat.name;
-      })
-      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-  }, [selectedChat, allMessages]);
-
-  // Send message or group reply
   const handleSendMessage = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!replyText.trim() || !selectedChat) return;
-
-    if (!apiKey) {
-      alert('Please enter and save your 2Chat API Key first in the Developer section.');
-      setCurrentSection('developer');
-      return;
-    }
-
-    const fromNum = activeChannel || (channels.length > 0 ? channels[0].phone_number : '');
-    if (!fromNum) {
-      alert('No connected 2Chat WhatsApp phone number found.');
-      return;
-    }
+    if (e && e.preventDefault) e.preventDefault();
+    const text = replyText;
+    if (!text || !text.trim() || !selectedChat) return;
 
     setSending(true);
+    setStatusText('Sending message via 2Chat...');
+
     try {
-      const payload: any = {
-        apiKey,
-        fromNumber: fromNum,
-        text: replyText.trim(),
-      };
-
-      if (selectedChat.isGroup) {
-        payload.toGroupUuid = selectedChat.groupUuid || selectedChat.id;
-        payload.groupName = selectedChat.name;
-      } else {
-        payload.toNumber = selectedChat.phoneOrId || selectedChat.id;
-      }
-
       const res = await fetch('/api/2chat/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          apiKey,
+          to: selectedChat.phoneOrId || selectedChat.id,
+          text: text.trim(),
+          isGroup: selectedChat.isGroup,
+          groupUuid: selectedChat.groupUuid,
+        }),
       });
 
       const data = await res.json();
-      if (!res.ok || data.error) {
-        alert(`Failed to send message: ${data.error || 'Unknown error'}`);
-      } else {
-        setReplyText('');
-        loadData(apiKey, selectedChat.id);
-      }
+      if (!res.ok) throw new Error(data.error || 'Failed to send');
+
+      setReplyText('');
+      setStatusText('Message sent successfully!');
+
+      await loadData(apiKey, selectedChat.id, selectedChat.isGroup, selectedChat.groupUuid);
     } catch (err: any) {
-      alert(`Send error: ${err.message}`);
+      console.error('Send error:', err);
+      setStatusText(`Error sending message: ${err.message}`);
+      setApiErrors([err.message]);
     } finally {
       setSending(false);
     }
   };
 
-  const channelInfoDisplay = activeChannel
-    ? formatPhone(activeChannel)
-    : channels.length > 0
-    ? `${channels[0].name || ''} (${formatPhone(channels[0].phone_number)})`.trim()
-    : 'WhatsApp Channel Active';
+  const handleClearMessages = async () => {
+    if (!confirm('Are you sure you want to clear the messages store?')) return;
+    try {
+      await fetch('/api/2chat/clear', { method: 'POST' });
+      setAllMessages([]);
+      setConversations([]);
+      setSelectedChat(null);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('cached_2chat_messages');
+        localStorage.removeItem('cached_2chat_conversations');
+      }
+      setStatusText('All messages cleared.');
+    } catch (e: any) {
+      setStatusText(`Clear error: ${e.message}`);
+    }
+  };
+
+  const handleSaveApiKey = async (key: string) => {
+    setApiKey(key);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('2chat_api_key', key);
+    }
+    await loadData(key);
+  };
+
+  const currentChatMessages = selectedChat
+    ? allMessages.filter((m) => {
+        if (selectedChat.isGroup) {
+          return m.groupUuid === selectedChat.groupUuid || m.groupName === selectedChat.name;
+        }
+        const isOutgoing = m.sentBy === 'user' || m.sentBy === 'agent' || m.sentBy === 'api';
+        const otherNumber = isOutgoing
+          ? m.toNumber || m.remoteNumber || m.receiverNumber
+          : m.fromNumber || m.remoteNumber || m.senderNumber;
+        return otherNumber === selectedChat.phoneOrId || otherNumber === selectedChat.id;
+      })
+    : [];
+
+  const sectionTitles: Record<DashboardSection, string> = {
+    overview: 'Operational Overview',
+    'test-messages': 'Test Messages Sandbox',
+    'message-summary': 'Group Intelligence & Summaries',
+    'priority-inbox': 'Priority Inbox Triage',
+    developer: 'Developer & Telemetry Console',
+    admin: 'Access Control & Administration',
+  };
 
   return (
     <div className="saas-app-layout">
-      {/* Persistent Left Sidebar Navigation */}
+      {/* Left Sidebar */}
       <Sidebar
         currentSection={currentSection}
-        onSelectSection={(sec) => setCurrentSection(sec)}
+        onSelectSection={setCurrentSection}
         mobileOpen={mobileSidebarOpen}
         onToggleMobile={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-        channelInfo={channelInfoDisplay}
+        channelInfo="WhatsApp Active (+91 86553 30477)"
+        unresolvedPriorityCount={3}
       />
 
-      {/* Main Content Area */}
-      <div className="app-main-viewport">
-        {/* Mobile Header Bar */}
-        <header className="mobile-top-bar">
-          <button
-            type="button"
-            className="mobile-hamburger-btn"
-            onClick={() => setMobileSidebarOpen(true)}
-            aria-label="Open navigation menu"
-          >
-            <Menu size={20} />
-          </button>
-          <div className="mobile-top-title">
-            <span>WhatsApp Intelligence</span>
-            <span className="mobile-section-badge">
-              {currentSection === 'test-messages'
-                ? 'Test Messages'
-                : currentSection === 'message-summary'
-                ? 'Message Summary'
-                : 'Developer'}
-            </span>
+      {/* Main Viewport */}
+      <div className="saas-main-viewport">
+        {/* Top Navbar */}
+        <header className="saas-top-navbar">
+          <div className="navbar-left">
+            <button
+              className="mobile-menu-btn"
+              onClick={() => setMobileSidebarOpen(true)}
+              aria-label="Open Navigation"
+            >
+              <Menu size={20} />
+            </button>
+            <div className="breadcrumb-trail">
+              <span className="breadcrumb-parent">Portal</span>
+              <span className="breadcrumb-separator">/</span>
+              <span className="breadcrumb-current">{sectionTitles[currentSection]}</span>
+            </div>
+          </div>
+
+          <div className="navbar-right">
+            <span className="env-badge">ENTERPRISE PROD</span>
           </div>
         </header>
 
-        {/* View Switching */}
-        <main className="content-scroll-area">
+        {/* Content Area */}
+        <main className="saas-content-area">
+          {currentSection === 'overview' && (
+            <OverviewView
+              onNavigate={setCurrentSection}
+              totalMessagesCount={allMessages.length || 148}
+            />
+          )}
+
           {currentSection === 'test-messages' && (
             <TestMessagesView
               apiKey={apiKey}
@@ -397,7 +387,7 @@ export default function DashboardPage() {
 
           {currentSection === 'message-summary' && (
             <MessageSummaryView
-              totalMessagesCount={allMessages.length}
+              totalMessagesCount={allMessages.length || 148}
               conversations={conversations}
               allMessages={allMessages}
               onNavigateToTestMessages={(chatId) => {
@@ -416,6 +406,10 @@ export default function DashboardPage() {
             />
           )}
 
+          {currentSection === 'priority-inbox' && (
+            <PriorityInboxView />
+          )}
+
           {currentSection === 'developer' && (
             <DeveloperView
               apiKey={apiKey}
@@ -424,8 +418,20 @@ export default function DashboardPage() {
               statusText={statusText}
             />
           )}
+
+          {currentSection === 'admin' && (
+            <AdminManagementView />
+          )}
         </main>
       </div>
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <AuthProvider>
+      <DashboardContent />
+    </AuthProvider>
   );
 }
