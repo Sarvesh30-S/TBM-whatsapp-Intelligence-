@@ -66,7 +66,7 @@ function deduplicateList(messages: TwoChatMessage[]): TwoChatMessage[] {
 }
 
 function DashboardContent() {
-  const { user, canAccessSection, isAuthenticated, isLoading } = useAuth();
+  const { user, token, canAccessSection, isAuthenticated, isLoading } = useAuth();
   const [currentSection, setCurrentSection] = useState<DashboardSection>('overview');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
 
@@ -133,7 +133,9 @@ function DashboardContent() {
     setApiErrors([]);
 
     try {
-      const res = await fetch('/api/2chat/messages');
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch('/api/2chat/messages', { headers });
       if (!res.ok) {
         throw new Error(`Failed to fetch: ${res.statusText}`);
       }
@@ -243,7 +245,10 @@ function DashboardContent() {
     try {
       const res = await fetch('/api/2chat/send', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           apiKey,
           to: selectedChat.phoneOrId || selectedChat.id,
@@ -272,7 +277,10 @@ function DashboardContent() {
   const handleClearMessages = async () => {
     if (!confirm('Are you sure you want to clear the messages store?')) return;
     try {
-      await fetch('/api/2chat/clear', { method: 'POST' });
+      await fetch('/api/2chat/clear', {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       setAllMessages([]);
       setConversations([]);
       setSelectedChat(null);
