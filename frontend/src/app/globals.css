@@ -2256,43 +2256,99 @@ body {
   font-size: 13px;
 }
 
-/* Linear / Notion Style Subnav Strip */
-.briefing-subnav-strip {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background-color: #ffffff;
-  padding: 6px 10px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-subtle);
-  overflow-x: auto;
+/* =========================================================================
+   2-Column Intelligence Layout (Left Sub-Nav Sidebar + Right Content Area)
+   ========================================================================= */
+
+.intelligence-main-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 24px;
+  align-items: start;
 }
 
-.subnav-item {
-  display: inline-flex;
+@media (max-width: 960px) {
+  .intelligence-main-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Left Sub-Navigation Sidebar */
+.intelligence-subnav-sidebar {
+  background-color: #ffffff;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 16px 14px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: sticky;
+  top: 20px;
+}
+
+.subnav-sidebar-header {
+  padding: 2px 8px 10px 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.subnav-sidebar-tag {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.subnav-vertical-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.subnav-vertical-item {
+  display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 8px 14px;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
   border-radius: var(--radius-md);
-  border: none;
+  border: 1px solid transparent;
   background: none;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-secondary);
   cursor: pointer;
-  white-space: nowrap;
   transition: all 0.15s ease;
 }
 
-.subnav-item:hover {
+.subnav-vertical-item:hover {
   background-color: #f8fafc;
   color: var(--text-primary);
 }
 
-.subnav-item.active {
+.subnav-vertical-item.active {
   background-color: #eef2ff;
   color: #4338ca;
   font-weight: 700;
+  border-color: #c7d2fe;
+  box-shadow: 0 1px 2px 0 rgba(79, 70, 229, 0.06);
+}
+
+.subnav-item-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+  flex-shrink: 0;
+}
+
+.subnav-vertical-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .subnav-count-badge {
@@ -2302,9 +2358,10 @@ body {
   border-radius: 999px;
   background-color: #e2e8f0;
   color: #334155;
+  flex-shrink: 0;
 }
 
-.subnav-item.active .subnav-count-badge {
+.subnav-vertical-item.active .subnav-count-badge {
   background-color: #c7d2fe;
   color: #312e81;
 }
@@ -2312,6 +2369,53 @@ body {
 .subnav-count-badge.alert {
   background-color: #ffe4e6;
   color: #9f1239;
+}
+
+/* Sidebar Context / Audit Card */
+.subnav-sidebar-info-card {
+  background-color: #fafafb;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.info-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #4f46e5;
+  text-transform: uppercase;
+}
+
+.info-card-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11.5px;
+}
+
+.stat-label {
+  color: var(--text-muted);
+}
+
+.stat-val {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Right Content Pane */
+.intelligence-content-pane {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 /* =========================================================================
@@ -2325,15 +2429,15 @@ body {
 /* 1. Executive Briefing Reading Pane */
 .editorial-briefing-pane {
   display: flex;
-  justify-content: center;
+  width: 100%;
 }
 
 .briefing-paper-card {
   background-color: #ffffff;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  padding: 40px 48px;
-  max-width: 920px;
+  padding: 36px 40px;
+  max-width: 100%;
   width: 100%;
   box-shadow: var(--shadow-card);
   display: flex;

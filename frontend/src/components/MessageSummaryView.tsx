@@ -309,94 +309,137 @@ export default function MessageSummaryView({
       </header>
 
       {/* =========================================================================
-          2. ELEGANT EDITORIAL NAVIGATION (Linear / Notion Style)
+          2. MAIN 2-COLUMN INTELLIGENCE LAYOUT (Left Sub-Nav + Right Content Pane)
           ========================================================================= */}
-      <nav className="briefing-subnav-strip">
-        <button
-          type="button"
-          className={`subnav-item ${activeSection === 'briefing' ? 'active' : ''}`}
-          onClick={() => setActiveSection('briefing')}
-        >
-          <FileText size={14} />
-          <span>Executive Briefing</span>
-        </button>
+      <div className="intelligence-main-layout">
+        {/* Left Sub-Navigation Sidebar */}
+        <aside className="intelligence-subnav-sidebar">
+          <div className="subnav-sidebar-header">
+            <span className="subnav-sidebar-tag">INTELLIGENCE VIEWS</span>
+          </div>
 
-        <button
-          type="button"
-          className={`subnav-item ${activeSection === 'storyline' ? 'active' : ''}`}
-          onClick={() => setActiveSection('storyline')}
-        >
-          <Clock size={14} />
-          <span>Conversation Storyline</span>
-          {briefing?.storyline && briefing.storyline.length > 0 && (
-            <span className="subnav-count-badge">{briefing.storyline.length}</span>
-          )}
-        </button>
+          <nav className="subnav-vertical-menu">
+            <button
+              type="button"
+              className={`subnav-vertical-item ${activeSection === 'briefing' ? 'active' : ''}`}
+              onClick={() => setActiveSection('briefing')}
+            >
+              <div className="subnav-item-icon-wrap">
+                <FileText size={15} />
+              </div>
+              <span className="subnav-vertical-label">Executive Briefing</span>
+            </button>
 
-        <button
-          type="button"
-          className={`subnav-item ${activeSection === 'topics' ? 'active' : ''}`}
-          onClick={() => setActiveSection('topics')}
-        >
-          <Layers size={14} />
-          <span>Topic Explorer</span>
-          {briefing?.topics && briefing.topics.length > 0 && (
-            <span className="subnav-count-badge">{briefing.topics.length}</span>
-          )}
-        </button>
+            <button
+              type="button"
+              className={`subnav-vertical-item ${activeSection === 'storyline' ? 'active' : ''}`}
+              onClick={() => setActiveSection('storyline')}
+            >
+              <div className="subnav-item-icon-wrap">
+                <Clock size={15} />
+              </div>
+              <span className="subnav-vertical-label">Storyline</span>
+              {briefing?.storyline && briefing.storyline.length > 0 && (
+                <span className="subnav-count-badge">{briefing.storyline.length}</span>
+              )}
+            </button>
 
-        <button
-          type="button"
-          className={`subnav-item ${activeSection === 'decisions' ? 'active' : ''}`}
-          onClick={() => setActiveSection('decisions')}
-        >
-          <CheckCircle2 size={14} />
-          <span>Decisions &amp; Agreements</span>
-          {briefing?.decisions && briefing.decisions.length > 0 && (
-            <span className="subnav-count-badge">{briefing.decisions.length}</span>
-          )}
-        </button>
+            <button
+              type="button"
+              className={`subnav-vertical-item ${activeSection === 'topics' ? 'active' : ''}`}
+              onClick={() => setActiveSection('topics')}
+            >
+              <div className="subnav-item-icon-wrap">
+                <Layers size={15} />
+              </div>
+              <span className="subnav-vertical-label">Topic Explorer</span>
+              {briefing?.topics && briefing.topics.length > 0 && (
+                <span className="subnav-count-badge">{briefing.topics.length}</span>
+              )}
+            </button>
 
-        <button
-          type="button"
-          className={`subnav-item ${activeSection === 'actions' ? 'active' : ''}`}
-          onClick={() => setActiveSection('actions')}
-        >
-          <ListTodo size={14} />
-          <span>Action Tracker</span>
-          {briefing?.actionTracker && briefing.actionTracker.length > 0 && (
-            <span className="subnav-count-badge">{briefing.actionTracker.length}</span>
-          )}
-        </button>
+            <button
+              type="button"
+              className={`subnav-vertical-item ${activeSection === 'decisions' ? 'active' : ''}`}
+              onClick={() => setActiveSection('decisions')}
+            >
+              <div className="subnav-item-icon-wrap">
+                <CheckCircle2 size={15} />
+              </div>
+              <span className="subnav-vertical-label">Decisions Log</span>
+              {briefing?.decisions && briefing.decisions.length > 0 && (
+                <span className="subnav-count-badge">{briefing.decisions.length}</span>
+              )}
+            </button>
 
-        <button
-          type="button"
-          className={`subnav-item ${activeSection === 'pending' ? 'active' : ''}`}
-          onClick={() => setActiveSection('pending')}
-        >
-          <HelpCircle size={14} />
-          <span>Pending Discussions &amp; Risks</span>
-          {briefing?.pendingDiscussions && briefing.pendingDiscussions.length > 0 && (
-            <span className="subnav-count-badge alert">
-              {briefing.pendingDiscussions.length}
-            </span>
-          )}
-        </button>
+            <button
+              type="button"
+              className={`subnav-vertical-item ${activeSection === 'actions' ? 'active' : ''}`}
+              onClick={() => setActiveSection('actions')}
+            >
+              <div className="subnav-item-icon-wrap">
+                <ListTodo size={15} />
+              </div>
+              <span className="subnav-vertical-label">Action Tracker</span>
+              {briefing?.actionTracker && briefing.actionTracker.length > 0 && (
+                <span className="subnav-count-badge">{briefing.actionTracker.length}</span>
+              )}
+            </button>
 
-        <button
-          type="button"
-          className={`subnav-item ${activeSection === 'participants' ? 'active' : ''}`}
-          onClick={() => setActiveSection('participants')}
-        >
-          <Users size={14} />
-          <span>Participant Contributions</span>
-        </button>
-      </nav>
+            <button
+              type="button"
+              className={`subnav-vertical-item ${activeSection === 'pending' ? 'active' : ''}`}
+              onClick={() => setActiveSection('pending')}
+            >
+              <div className="subnav-item-icon-wrap">
+                <HelpCircle size={15} />
+              </div>
+              <span className="subnav-vertical-label">Pending Discussions</span>
+              {briefing?.pendingDiscussions && briefing.pendingDiscussions.length > 0 && (
+                <span className="subnav-count-badge alert">
+                  {briefing.pendingDiscussions.length}
+                </span>
+              )}
+            </button>
 
-      {/* =========================================================================
-          3. CONTENT SECTIONS
-          ========================================================================= */}
-      <main className="briefing-content-area">
+            <button
+              type="button"
+              className={`subnav-vertical-item ${activeSection === 'participants' ? 'active' : ''}`}
+              onClick={() => setActiveSection('participants')}
+            >
+              <div className="subnav-item-icon-wrap">
+                <Users size={15} />
+              </div>
+              <span className="subnav-vertical-label">Contributors</span>
+              {briefing?.participantContributions && briefing.participantContributions.length > 0 && (
+                <span className="subnav-count-badge">{briefing.participantContributions.length}</span>
+              )}
+            </button>
+          </nav>
+
+          {/* Quick Context Card in Sidebar */}
+          <div className="subnav-sidebar-info-card">
+            <div className="info-card-header">
+              <Shield size={13} style={{ color: '#4f46e5' }} />
+              <span>INTELLIGENCE AUDIT</span>
+            </div>
+            <div className="info-card-stat">
+              <span className="stat-label">Coverage</span>
+              <span className="stat-val">{briefing?.isCompleteCoverage ? '100% Complete' : 'Partial'}</span>
+            </div>
+            <div className="info-card-stat">
+              <span className="stat-label">Messages</span>
+              <span className="stat-val">{briefing?.messagesIncluded ?? currentGroupMessages.length} Analyzed</span>
+            </div>
+            <div className="info-card-stat">
+              <span className="stat-label">AI Engine</span>
+              <span className="stat-val">Groq LPU</span>
+            </div>
+          </div>
+        </aside>
+
+        {/* Right Main Content Pane */}
+        <main className="intelligence-content-pane">
         {/* SECTION 1: EXECUTIVE BRIEFING (DEFAULT VIEW) */}
         {activeSection === 'briefing' && (
           <div className="editorial-briefing-pane">
@@ -764,7 +807,8 @@ export default function MessageSummaryView({
             </div>
           </div>
         )}
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
