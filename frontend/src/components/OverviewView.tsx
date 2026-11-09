@@ -174,7 +174,10 @@ export default function OverviewView({ onNavigate, totalMessagesCount = 148 }: O
         {/* Right: Quick Action Workspaces */}
         <div className="overview-card">
           <div className="overview-card-header">
-            <h2 className="card-title">Intelligence Workspaces</h2>
+            <div className="card-header-title-group">
+              <div className="section-pill admin-pill">WORKSPACES</div>
+              <h2 className="card-title">Intelligence Workspaces</h2>
+            </div>
           </div>
 
           <div className="quick-nav-grid">
