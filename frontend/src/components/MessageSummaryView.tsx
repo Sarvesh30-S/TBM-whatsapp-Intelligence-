@@ -133,6 +133,21 @@ export default function MessageSummaryView({
     setAnalyzing(true);
     setBriefingError('');
     try {
+      const now = Date.now();
+      const targetGroupMessages = allMessages
+        .filter((m) => {
+          const mGroup = m.groupName || (m.isGroup ? m.chatName : '');
+          return mGroup && mGroup.toLowerCase() === targetGroup.toLowerCase();
+        })
+        .filter((m) => {
+          if (dateRange === 'all') return true;
+          const msgTime = new Date(m.timestamp).getTime();
+          if (dateRange === '24h') return now - msgTime <= 24 * 3600 * 1000;
+          if (dateRange === '7d') return now - msgTime <= 7 * 24 * 3600 * 1000;
+          return true;
+        })
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
       const res = await fetch('/api/groq/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -140,7 +155,7 @@ export default function MessageSummaryView({
           mode: 'group_intelligence',
           groupName: targetGroup,
           dateRange,
-          messages: currentGroupMessages.length > 0 ? currentGroupMessages : allMessages,
+          messages: targetGroupMessages.length > 0 ? targetGroupMessages : undefined,
         }),
       });
 
@@ -380,31 +395,6 @@ export default function MessageSummaryView({
                 Past 24 Hours
               </button>
             </div>
-          </div>
-        </div>
-
-        {/* Interactive Clickable Group Cards Bar */}
-        <div className="group-chips-scroll-container">
-          <div className="group-chips-header-row">
-            <span className="group-chips-label">SELECT GROUP FOR AI BRIEFING:</span>
-            <span className="group-chips-hint">Click any group name to view its summary</span>
-          </div>
-          <div className="group-chips-row">
-            {availableGroups.map((g) => {
-              const isSelected = g.name.toLowerCase() === selectedGroup.toLowerCase();
-              return (
-                <button
-                  key={g.name}
-                  type="button"
-                  className={`group-chip-btn ${isSelected ? 'active' : ''}`}
-                  onClick={() => handleSelectGroup(g.name)}
-                >
-                  <span className="group-chip-icon">👥</span>
-                  <span className="group-chip-name">{g.name}</span>
-                  <span className="group-chip-badge">{g.count} msgs</span>
-                </button>
-              );
-            })}
           </div>
         </div>
 
