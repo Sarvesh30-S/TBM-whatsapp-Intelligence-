@@ -22,6 +22,8 @@ import {
   Search,
   Filter,
   Cpu,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { TwoChatMessage, TwoChatConversation } from '@/lib/types';
 import {
@@ -99,7 +101,11 @@ export default function MessageSummaryView({
   // Selected topic for Topic Explorer
   const [selectedTopicId, setSelectedTopicId] = useState<string>('');
 
-  // Briefing generation state
+  // Briefing generation & language state (Default to Hinglish as requested!)
+  const [summaryLanguage, setSummaryLanguage] = useState<'hinglish' | 'english'>('hinglish');
+  const [groupBriefingsCache, setGroupBriefingsCache] = useState<Record<string, GroupIntelligenceBriefing>>({});
+  const [copiedToast, setCopiedToast] = useState<string>('');
+
   const [analyzing, setAnalyzing] = useState<boolean>(false);
   const [briefing, setBriefing] = useState<GroupIntelligenceBriefing | null>(null);
   const [briefingError, setBriefingError] = useState<string>('');
@@ -122,8 +128,8 @@ export default function MessageSummaryView({
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   }, [allMessages, selectedGroup, dateRange]);
 
-  // Request new briefing from API
-  const generateGroupBriefing = async () => {
+  // Request new briefing from API for a specific group
+  const generateGroupBriefing = async (targetGroup: string = selectedGroup) => {
     setAnalyzing(true);
     setBriefingError('');
     try {
@@ -132,7 +138,7 @@ export default function MessageSummaryView({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mode: 'group_intelligence',
-          groupName: selectedGroup,
+          groupName: targetGroup,
           dateRange,
           messages: currentGroupMessages.length > 0 ? currentGroupMessages : allMessages,
         }),
@@ -141,6 +147,7 @@ export default function MessageSummaryView({
       const json = await res.json();
       if (json.success && json.data) {
         setBriefing(json.data);
+        setGroupBriefingsCache((prev) => ({ ...prev, [targetGroup]: json.data }));
         if (json.data.topics && json.data.topics.length > 0) {
           setSelectedTopicId(json.data.topics[0].id);
         }
@@ -154,10 +161,50 @@ export default function MessageSummaryView({
     }
   };
 
-  // Auto-generate on first load or when group changes
+  // Switch active group and immediately present cached summary or fetch from Groq
+  const handleSelectGroup = (gName: string) => {
+    setSelectedGroup(gName);
+    if (groupBriefingsCache[gName]) {
+      setBriefing(groupBriefingsCache[gName]);
+      if (groupBriefingsCache[gName].topics && groupBriefingsCache[gName].topics.length > 0) {
+        setSelectedTopicId(groupBriefingsCache[gName].topics[0].id);
+      }
+    } else {
+      generateGroupBriefing(gName);
+    }
+  };
+
+  // Copy all raw chronological messages of the active group to clipboard
+  const handleCopyAllMessages = () => {
+    if (!currentGroupMessages || currentGroupMessages.length === 0) {
+      setCopiedToast('No messages found for this group.');
+      setTimeout(() => setCopiedToast(''), 3000);
+      return;
+    }
+
+    const payload = currentGroupMessages
+      .map((m) => {
+        const time = new Date(m.timestamp).toLocaleString();
+        const sender = m.senderName || m.senderNumber || 'Team Member';
+        const reply = m.quotedMessage ? ` [In reply to: "${m.quotedMessage}"]` : '';
+        return `[${time}] ${sender}${reply}: ${m.text || '[Media/Attachment]'}`;
+      })
+      .join('\n\n');
+
+    navigator.clipboard.writeText(payload).then(() => {
+      setCopiedToast(`Copied ${currentGroupMessages.length} messages from "${selectedGroup}" to clipboard!`);
+      setTimeout(() => setCopiedToast(''), 3500);
+    });
+  };
+
+  // Auto-generate on first load or when group/dateRange changes
   useEffect(() => {
     if (selectedGroup) {
-      generateGroupBriefing();
+      if (groupBriefingsCache[selectedGroup]) {
+        setBriefing(groupBriefingsCache[selectedGroup]);
+      } else {
+        generateGroupBriefing(selectedGroup);
+      }
     }
   }, [selectedGroup, dateRange]);
 
@@ -243,13 +290,40 @@ export default function MessageSummaryView({
             </div>
           </div>
 
-          {/* Action Button */}
+          {/* Action Buttons: Copy Messages, Language Switcher, Regenerate */}
           <div className="header-actions-group">
+            <button
+              type="button"
+              className="btn-intelligence-copy"
+              onClick={handleCopyAllMessages}
+              title="Copy all available conversation messages for this group to clipboard"
+            >
+              <Copy size={13} />
+              <span>Copy All Messages</span>
+            </button>
+
+            <div className="language-switch-toggle" title="Switch summary language">
+              <button
+                type="button"
+                className={`lang-btn ${summaryLanguage === 'hinglish' ? 'active' : ''}`}
+                onClick={() => setSummaryLanguage('hinglish')}
+              >
+                🇮🇳 Hinglish
+              </button>
+              <button
+                type="button"
+                className={`lang-btn ${summaryLanguage === 'english' ? 'active' : ''}`}
+                onClick={() => setSummaryLanguage('english')}
+              >
+                🇬🇧 English
+              </button>
+            </div>
+
             {canGenerate && (
               <button
                 type="button"
                 className="btn-intelligence-generate"
-                onClick={generateGroupBriefing}
+                onClick={() => generateGroupBriefing(selectedGroup)}
                 disabled={analyzing}
               >
                 <RotateCw size={14} className={analyzing ? 'animate-spin' : ''} />
@@ -269,7 +343,7 @@ export default function MessageSummaryView({
             <select
               className="group-select-dropdown"
               value={selectedGroup}
-              onChange={(e) => setSelectedGroup(e.target.value)}
+              onChange={(e) => handleSelectGroup(e.target.value)}
             >
               {availableGroups.map((g) => (
                 <option key={g.name} value={g.name}>
@@ -306,6 +380,31 @@ export default function MessageSummaryView({
                 Past 24 Hours
               </button>
             </div>
+          </div>
+        </div>
+
+        {/* Interactive Clickable Group Cards Bar */}
+        <div className="group-chips-scroll-container">
+          <div className="group-chips-header-row">
+            <span className="group-chips-label">SELECT GROUP FOR AI BRIEFING:</span>
+            <span className="group-chips-hint">Click any group name to view its summary</span>
+          </div>
+          <div className="group-chips-row">
+            {availableGroups.map((g) => {
+              const isSelected = g.name.toLowerCase() === selectedGroup.toLowerCase();
+              return (
+                <button
+                  key={g.name}
+                  type="button"
+                  className={`group-chip-btn ${isSelected ? 'active' : ''}`}
+                  onClick={() => handleSelectGroup(g.name)}
+                >
+                  <span className="group-chip-icon">👥</span>
+                  <span className="group-chip-name">{g.name}</span>
+                  <span className="group-chip-badge">{g.count} msgs</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -427,6 +526,41 @@ export default function MessageSummaryView({
           </nav>
 
           {/* Quick Context Card in Sidebar */}
+          <div className="subnav-sidebar-actions-card">
+            <div className="info-card-header">
+              <Sparkles size={13} style={{ color: '#4f46e5' }} />
+              <span>QUICK ACTIONS</span>
+            </div>
+            <button
+              type="button"
+              className="sidebar-action-btn copy-btn"
+              onClick={handleCopyAllMessages}
+              title="Copy entire conversation history to clipboard"
+            >
+              <Copy size={13} />
+              <span>Copy All Messages</span>
+            </button>
+            <div className="sidebar-lang-toggle-wrap">
+              <span className="sidebar-action-label">Language:</span>
+              <div className="sidebar-lang-pills">
+                <button
+                  type="button"
+                  className={`pill-mini ${summaryLanguage === 'hinglish' ? 'active' : ''}`}
+                  onClick={() => setSummaryLanguage('hinglish')}
+                >
+                  🇮🇳 Hinglish
+                </button>
+                <button
+                  type="button"
+                  className={`pill-mini ${summaryLanguage === 'english' ? 'active' : ''}`}
+                  onClick={() => setSummaryLanguage('english')}
+                >
+                  🇬🇧 English
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div className="subnav-sidebar-info-card">
             <div className="info-card-header">
               <Shield size={13} style={{ color: '#4f46e5' }} />
@@ -501,7 +635,9 @@ export default function MessageSummaryView({
                 </div>
 
                 <p className="bottom-line-summary">
-                  {briefing?.executiveBriefing.currentSituation}
+                  {((summaryLanguage === 'hinglish' && briefing?.executiveBriefing.currentSituationHinglish)
+                    ? briefing.executiveBriefing.currentSituationHinglish
+                    : briefing?.executiveBriefing.currentSituation)}
                 </p>
 
                 {briefing?.decisions && briefing.decisions.length > 0 && (
@@ -541,7 +677,10 @@ export default function MessageSummaryView({
 
               {/* Natural Language Multi-Paragraph Overview */}
               <div className="briefing-narrative-text">
-                {briefing?.executiveBriefing.overview.split('\n\n').map((paragraph, idx) => (
+                {((summaryLanguage === 'hinglish' && briefing?.executiveBriefing.overviewHinglish)
+                  ? briefing.executiveBriefing.overviewHinglish
+                  : (briefing?.executiveBriefing.overview || '')
+                ).split('\n\n').map((paragraph, idx) => (
                   <p key={idx} className="editorial-paragraph">
                     {renderFormattedText(paragraph)}
                   </p>
@@ -556,7 +695,9 @@ export default function MessageSummaryView({
                     <span className="callout-title">Current Situation &amp; Alignment</span>
                   </div>
                   <p className="callout-body">
-                    {briefing?.executiveBriefing.currentSituation}
+                    {(summaryLanguage === 'hinglish' && briefing?.executiveBriefing.currentSituationHinglish)
+                      ? briefing.executiveBriefing.currentSituationHinglish
+                      : briefing?.executiveBriefing.currentSituation}
                   </p>
                 </div>
 
@@ -566,7 +707,9 @@ export default function MessageSummaryView({
                     <span className="callout-title">Matters Requiring Attention</span>
                   </div>
                   <p className="callout-body">
-                    {briefing?.executiveBriefing.attentionRequired}
+                    {(summaryLanguage === 'hinglish' && briefing?.executiveBriefing.attentionRequiredHinglish)
+                      ? briefing.executiveBriefing.attentionRequiredHinglish
+                      : briefing?.executiveBriefing.attentionRequired}
                   </p>
                 </div>
               </div>
@@ -896,6 +1039,14 @@ export default function MessageSummaryView({
         )}
         </main>
       </div>
+
+      {/* Floating Toast Notification */}
+      {copiedToast && (
+        <div className="toast-floating-banner">
+          <Check size={16} />
+          <span>{copiedToast}</span>
+        </div>
+      )}
     </div>
   );
 }

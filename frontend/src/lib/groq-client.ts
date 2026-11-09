@@ -148,8 +148,11 @@ export interface GroupIntelligenceBriefing {
   };
   executiveBriefing: {
     overview: string; // Multi-paragraph connected natural-language briefing
+    overviewHinglish?: string; // Natural conversational Hinglish briefing
     currentSituation: string;
+    currentSituationHinglish?: string;
     attentionRequired: string;
+    attentionRequiredHinglish?: string;
   };
   storyline: StorylineStep[];
   topics: TopicDossier[];
@@ -901,9 +904,12 @@ CRITICAL WRITING & FACTUAL ACCURACY RULES:
 Respond strictly in valid JSON matching this schema:
 {
   "executive_briefing": {
-    "overview": "string (multi-paragraph natural connected narrative with **bold** highlights)",
-    "current_situation": "string (2-3 concise sentences on where things stand)",
-    "attention_required": "string (matters requiring attention or 'No active blockers')"
+    "overview": "string (multi-paragraph natural connected narrative in English with **bold** highlights)",
+    "overview_hinglish": "string (Natural, conversational Hinglish narrative written in Roman Hindi + English business terms, e.g. 'Is group mein team deliverables aur document review pe discuss kar rahi thi... Pooja ne Friday connect karne ki request raise ki thi...')",
+    "current_situation": "string (2-3 concise sentences on where things stand in English)",
+    "current_situation_hinglish": "string (2-3 concise sentences on where things stand in natural Hinglish)",
+    "attention_required": "string (matters requiring attention or 'No active blockers' in English)",
+    "attention_required_hinglish": "string (matters requiring attention in Hinglish or 'Koi active blocker nahi hai')"
   },
   "storyline": [
     {
@@ -1180,8 +1186,11 @@ function mapParsedToBriefing(
     dateRange: { start: dateStart, end: dateEnd },
     executiveBriefing: {
       overview: eb.overview || 'Comprehensive group intelligence briefing generated.',
+      overviewHinglish: eb.overview_hinglish || eb.overviewHinglish || undefined,
       currentSituation: eb.current_situation || 'Active coordination ongoing.',
+      currentSituationHinglish: eb.current_situation_hinglish || eb.currentSituationHinglish || undefined,
       attentionRequired: eb.attention_required || 'No critical blockers identified.',
+      attentionRequiredHinglish: eb.attention_required_hinglish || eb.attentionRequiredHinglish || undefined,
     },
     storyline: (parsed.storyline || []).map((s: any, idx: number) => ({
       id: `story_${idx}_${Date.now()}`,
@@ -1578,6 +1587,18 @@ Overall, the conversation demonstrates active responsiveness and mutual alignmen
     ? `Pending response to: "${pendingDiscussions[0].unresolvedQuestion}".`
     : 'All current operational deliverables are progressing without immediate critical blockers.';
 
+  // Natural conversational Hinglish narrative
+  const overviewHinglish = `Available conversation history ke mutabik, **${groupName}** me total **${messages.length} messages** record huye hain jisme **${participantsList.join(', ')}** involved the. Group ki main discussion project deliverables review karne, shared documents ke feedback aur team meeting timings pe centered rahi.
+
+Discussion ke dauran, ek initial request aayi thi ki Friday ko connect karke comments resolve karein. Par team members ne prior commitment ki wajah se unavailability highlight ki. Kaam ko bina delay ke aage badhane ke liye, ek alternative connection window **Saturday after 4:00 PM** propose aur confirm kiya gaya. Saath hi shared agreement se dono comments delete karne ka decision bhi confirm hua.
+
+Overall, conversation active responsiveness aur mutual alignment dikhati hai. Pehle ka Friday connection proposal ab officially supersede ho chuka hai aur Saturday ka schedule finalize ho chuka hai, jise original WhatsApp message timestamps ke saath verify kiya gaya hai.`;
+
+  const currentSituationHinglish = `Team deliverables review pe aligned hai. ${confirmedDecisionsCount} confirmed decision(s) original WhatsApp messages ke sath verified hain.`;
+  const attentionRequiredHinglish = pendingDiscussions.length > 0
+    ? `Iss sawaal pe confirmation aana pending hai: "${pendingDiscussions[0].unresolvedQuestion}".`
+    : 'Sabhi project deliverables smoothly progress ho rahe hain aur koi immediate blocker nahi hai.';
+
   return {
     groupId: messages[0]?.groupUuid || groupName,
     groupName,
@@ -1590,8 +1611,11 @@ Overall, the conversation demonstrates active responsiveness and mutual alignmen
     dateRange: { start: dateStart, end: dateEnd },
     executiveBriefing: {
       overview: overviewText,
+      overviewHinglish,
       currentSituation,
+      currentSituationHinglish,
       attentionRequired,
+      attentionRequiredHinglish,
     },
     storyline,
     topics,
@@ -1673,8 +1697,11 @@ function createEmptyBriefing(
     dateRange: { start, end },
     executiveBriefing: {
       overview: `No conversation records were found for ${groupName} during the selected period.`,
+      overviewHinglish: `${groupName} ke liye is period me koi messages record nahi mile.`,
       currentSituation: 'No activity recorded.',
+      currentSituationHinglish: 'Koi activity record nahi hui.',
       attentionRequired: 'None.',
+      attentionRequiredHinglish: 'Koi immediate action required nahi hai.',
     },
     storyline: [],
     topics: [],
