@@ -28,6 +28,14 @@ services:
         value: "Sarvesh@30"
       - key: DASHBOARD_ADMIN_API_KEY
         value: "fNA3ZlwPK1YlRLSgcKrfNyjws4bJx9XoG445T0xbDD0"
+      - key: APP_ADMIN_BOOTSTRAP_TOKEN
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_ACCESS_EXPIRATION_MS
+        value: "900000"
+      - key: JWT_REFRESH_EXPIRATION_DAYS
+        value: "7"
       - key: GROQ_MODEL
         value: "openai/gpt-oss-120b"
       - key: GROQ_ENDPOINT
