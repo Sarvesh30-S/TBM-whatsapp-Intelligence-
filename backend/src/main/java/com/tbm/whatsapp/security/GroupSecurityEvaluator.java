@@ -6,9 +6,17 @@ import com.tbm.whatsapp.repository.WhatsAppGroupRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * Enterprise Resource-Level Group Security Evaluator.
+ * Enforces explicit group assignments for EMPLOYEES, MANAGERS, C_SUITE, DEVELOPERS, and ADMINS.
+ * Prevents IDOR, parameter tampering, and unassigned cross-department data leakage.
+ */
 @Component("groupSecurity")
 public class GroupSecurityEvaluator {
     private final UserGroupAssignmentRepository assignmentRepository;
@@ -20,40 +28,62 @@ public class GroupSecurityEvaluator {
         this.groupRepository = groupRepository;
     }
 
+    /**
+     * Verifies if an authenticated principal has permission to view a specific group's
+     * messages, summaries, insights, and media assets.
+     */
     public boolean canReadGroup(Authentication authentication, UUID groupId) {
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (authentication == null || !authentication.isAuthenticated() || groupId == null) {
             return false;
         }
 
-        // C-Suite with EXECUTIVE_BI_READ or Admin with explicit content read can view all
-        if (hasAuthority(authentication, "EXECUTIVE_BI_READ")) {
+        // Automated system workers / background M2M integrations
+        if (hasAuthority(authentication, "M2M_INTEGRATION")) {
             return true;
         }
 
         if (authentication.getPrincipal() instanceof UserPrincipal principal) {
-            // Check direct assignment
-            if (assignmentRepository.hasViewAccess(principal.getId(), groupId)) {
-                return true;
+            // Must possess at least one content/summary reading authority
+            boolean hasReadAuthority = hasAuthority(authentication, "WHATSAPP_CONTENT_READ")
+                    || hasAuthority(authentication, "SUMMARY_READ")
+                    || hasAuthority(authentication, "EXECUTIVE_BI_READ");
+
+            if (!hasReadAuthority) {
+                return false;
             }
 
-            // If user is a MANAGER, check if group belongs to their department
-            if (hasAuthority(authentication, "ROLE_MANAGER") && principal.getDepartmentId() != null) {
-                Optional<WhatsAppGroup> group = groupRepository.findById(groupId);
-                // In existing model, group links to campaign which links to brand
-                // If direct department mapping exists or assignment exists
-                return assignmentRepository.hasViewAccess(principal.getId(), groupId);
-            }
+            // Both Employees, Managers, and C-Suite require explicit group access
+            // C_SUITE: Access is strictly scoped to authorized departments/groups (never blanket)
+            return assignmentRepository.hasViewAccess(principal.getId(), groupId);
         }
 
         return false;
     }
 
+    /**
+     * Verifies if an authenticated principal can read a group identified by its string Meta Group ID.
+     */
+    public boolean canReadMetaGroup(Authentication authentication, String metaGroupId) {
+        if (metaGroupId == null || metaGroupId.isBlank()) {
+            return false;
+        }
+        Optional<WhatsAppGroup> group = groupRepository.findByMetaGroupId(metaGroupId);
+        return group.isPresent() && canReadGroup(authentication, group.get().getId());
+    }
+
+    /**
+     * Outbound messaging strictly requires WHATSAPP_MESSAGE_SEND permission AND explicit canSend assignment.
+     */
     public boolean canSendToGroup(Authentication authentication, UUID groupId) {
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (authentication == null || !authentication.isAuthenticated() || groupId == null) {
             return false;
         }
 
-        // Outbound messaging strictly requires WHATSAPP_MESSAGE_SEND permission AND explicit canSend assignment
+        // M2M background services
+        if (hasAuthority(authentication, "M2M_INTEGRATION")) {
+            return true;
+        }
+
         if (!hasAuthority(authentication, "WHATSAPP_MESSAGE_SEND")) {
             return false;
         }
@@ -63,6 +93,37 @@ public class GroupSecurityEvaluator {
         }
 
         return false;
+    }
+
+    /**
+     * Resolves the list of Meta Group IDs that the authenticated principal is explicitly permitted to read.
+     * Used for database-level query filtering.
+     */
+    public List<String> getPermittedMetaGroupIds(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return Collections.emptyList();
+        }
+
+        if (hasAuthority(authentication, "M2M_INTEGRATION")) {
+            return groupRepository.findAllByMetaGroupIdIsNotNull().stream()
+                    .map(WhatsAppGroup::getMetaGroupId)
+                    .filter(Objects::nonNull)
+                    .toList();
+        }
+
+        if (authentication.getPrincipal() instanceof UserPrincipal principal) {
+            List<UUID> accessibleGroupIds = assignmentRepository.findAccessibleGroupIdsByUserId(principal.getId());
+            if (accessibleGroupIds.isEmpty()) {
+                return Collections.emptyList();
+            }
+
+            return groupRepository.findAllById(accessibleGroupIds).stream()
+                    .map(WhatsAppGroup::getMetaGroupId)
+                    .filter(id -> id != null && !id.isBlank())
+                    .toList();
+        }
+
+        return Collections.emptyList();
     }
 
     private boolean hasAuthority(Authentication authentication, String authority) {

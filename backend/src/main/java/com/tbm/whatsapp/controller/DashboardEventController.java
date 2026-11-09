@@ -3,6 +3,7 @@ package com.tbm.whatsapp.controller;
 import com.tbm.whatsapp.repository.BrandRepository;
 import com.tbm.whatsapp.service.DashboardEventHub;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -23,6 +24,7 @@ public class DashboardEventController {
         this.brands = brands;
     }
 
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_C_SUITE', 'TELEMETRY_READ', 'M2M_INTEGRATION')")
     @GetMapping(produces = "text/event-stream")
     public SseEmitter subscribe(@RequestParam UUID brandId) {
         if (!brands.existsById(brandId)) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Brand not found");

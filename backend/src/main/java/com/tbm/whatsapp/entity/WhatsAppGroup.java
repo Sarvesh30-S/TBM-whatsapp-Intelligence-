@@ -10,6 +10,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "whatsapp_groups")
+@org.hibernate.annotations.Check(constraints = "status <> 'ACTIVE' or consent_sent_at is not null")
 public class WhatsAppGroup {
     @Id
     private UUID id;
@@ -25,7 +26,7 @@ public class WhatsAppGroup {
     private String joinApprovalMode;
     @Column(nullable = false, length = 24)
     private String status;
-    @Column(name = "planned_external_seats", nullable = false)
+    @Column(name = "planned_external_seats", nullable = false, columnDefinition = "integer default 7")
     private int plannedExternalSeats;
     @Column(name = "consent_sent_at")
     private Instant consentSentAt;

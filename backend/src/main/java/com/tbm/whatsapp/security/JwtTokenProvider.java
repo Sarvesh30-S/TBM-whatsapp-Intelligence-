@@ -26,10 +26,35 @@ public class JwtTokenProvider {
     private final long accessTokenExpirationMs;
     private final SecureRandom secureRandom = new SecureRandom();
 
+    public static final String INSECURE_DEV_SECRET = "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970";
+
+    public JwtTokenProvider(String secret, long accessTokenExpirationMs) {
+        this(secret, accessTokenExpirationMs, "dev");
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
     public JwtTokenProvider(
-            @Value("${app.jwt.secret:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}") String secret,
-            @Value("${app.jwt.access-token-expiration-ms:900000}") long accessTokenExpirationMs) {
-        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+            @Value("${app.jwt.secret:}") String secret,
+            @Value("${app.jwt.access-token-expiration-ms:900000}") long accessTokenExpirationMs,
+            @Value("${spring.profiles.active:}") String activeProfile) {
+        boolean isProduction = activeProfile != null && (activeProfile.contains("supabase") || activeProfile.contains("prod"));
+        
+        String effectiveSecret = secret;
+        if (effectiveSecret == null || effectiveSecret.isBlank()) {
+            if (isProduction) {
+                throw new IllegalStateException("FATAL: Missing JWT_SECRET in production profile ('" + activeProfile + "'). Startup halted.");
+            }
+            log.warn("JWT_SECRET not set. Falling back to development-only signing secret. FORBIDDEN IN PRODUCTION.");
+            effectiveSecret = INSECURE_DEV_SECRET;
+        } else if (isProduction && INSECURE_DEV_SECRET.equals(effectiveSecret)) {
+            throw new IllegalStateException("FATAL: Insecure default JWT_SECRET detected in production profile ('" + activeProfile + "'). Startup halted.");
+        }
+
+        if (effectiveSecret.getBytes(StandardCharsets.UTF_8).length < 32) {
+            throw new IllegalArgumentException("JWT_SECRET must be at least 256 bits (32 bytes) long.");
+        }
+
+        this.key = Keys.hmacShaKeyFor(effectiveSecret.getBytes(StandardCharsets.UTF_8));
         this.accessTokenExpirationMs = accessTokenExpirationMs;
     }
 

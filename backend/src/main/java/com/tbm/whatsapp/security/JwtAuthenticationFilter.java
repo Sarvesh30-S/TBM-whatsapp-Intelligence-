@@ -38,9 +38,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 Instant issuedAt = tokenProvider.getIssuedAtFromToken(jwt);
                 UserPrincipal principal = (UserPrincipal) userDetailsService.loadUserById(userId);
 
-                // Session Revocation Check: If token was issued before user's tokenInvalidBefore timestamp, reject it
-                if (principal.getTokenInvalidBefore() != null && issuedAt.isBefore(principal.getTokenInvalidBefore())) {
-                    log.warn("Rejected expired session for user {}: issued at {} before invalidation threshold {}",
+                // Session Revocation Check: If token was issued on or before user's tokenInvalidBefore timestamp, reject it
+                if (principal.getTokenInvalidBefore() != null && !issuedAt.isAfter(principal.getTokenInvalidBefore())) {
+                    log.warn("Rejected expired session for user {}: issued at {} on or before invalidation threshold {}",
                             principal.getEmail(), issuedAt, principal.getTokenInvalidBefore());
                 } else if (principal.isEnabled()) {
                     UsernamePasswordAuthenticationToken authentication =

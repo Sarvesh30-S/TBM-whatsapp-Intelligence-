@@ -83,14 +83,20 @@ public class SecurityConfiguration {
                 })
             )
             .authorizeHttpRequests(auth -> auth
-                // Public authentication endpoints
-                .requestMatchers("/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
+                // Public authentication and initial bootstrap endpoints
+                .requestMatchers("/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/bootstrap").permitAll()
                 // WhatsApp Webhook ingestion (verified by MetaWebhookSignatureVerifier / 2Chat signatures)
                 .requestMatchers("/webhook/**", "/api/webhook/**").permitAll()
                 // Public health probes
-                .requestMatchers("/actuator/health", "/actuator/info", "/health").permitAll()
-                // Actuator telemetry gated by TELEMETRY_READ or M2M
-                .requestMatchers("/actuator/**").hasAnyAuthority("TELEMETRY_READ", "M2M_INTEGRATION")
+                .requestMatchers("/actuator/health", "/actuator/info", "/health", "/api/health").permitAll()
+                // Developer telemetry and system health
+                .requestMatchers("/actuator/**", "/api/developer/**").hasAnyAuthority("TELEMETRY_READ", "M2M_INTEGRATION", "ROLE_DEVELOPER")
+                // Admin user & system management strictly require ROLE_ADMIN or USER_MANAGE
+                .requestMatchers("/api/admin/users/**", "/api/admin/roles/**", "/api/admin/departments/**", "/api/admin/settings/**").hasAnyAuthority("ROLE_ADMIN", "USER_MANAGE")
+                // Dashboard event streams gated to authorized roles
+                .requestMatchers("/api/admin/events/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_MANAGER", "ROLE_C_SUITE", "TELEMETRY_READ", "M2M_INTEGRATION")
+                // M2M background operations and campaign intelligence endpoints
+                .requestMatchers("/api/admin/brands/**", "/api/admin/campaigns/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_MANAGER", "M2M_INTEGRATION")
                 // All other API endpoints require authentication
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().permitAll()

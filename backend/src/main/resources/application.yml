@@ -47,7 +47,7 @@ groq:
 app:
   dashboard-admin-key: ${DASHBOARD_ADMIN_API_KEY:}
   jwt:
-    secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+    secret: ${JWT_SECRET:}
     access-token-expiration-ms: ${JWT_ACCESS_EXPIRATION_MS:900000} # 15 minutes
     refresh-token-expiration-days: ${JWT_REFRESH_EXPIRATION_DAYS:7}
   admin:

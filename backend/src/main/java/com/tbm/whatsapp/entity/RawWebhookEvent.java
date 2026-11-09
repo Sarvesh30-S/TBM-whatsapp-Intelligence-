@@ -24,10 +24,10 @@ public class RawWebhookEvent {
     @Column(name = "received_at", nullable = false)
     private Instant receivedAt;
 
-    @Column(name = "normalization_status", nullable = false, length = 16)
+    @Column(name = "normalization_status", nullable = false, length = 16, columnDefinition = "varchar(16) default 'PENDING'")
     private String normalizationStatus = "PENDING";
 
-    @Column(name = "normalization_attempts", nullable = false)
+    @Column(name = "normalization_attempts", nullable = false, columnDefinition = "integer default 0")
     private int normalizationAttempts;
 
     @Column(name = "normalization_error", length = 80)

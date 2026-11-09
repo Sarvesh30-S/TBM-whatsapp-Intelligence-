@@ -12,4 +12,5 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
     List<AuditLog> findTop100ByOrderByCreatedAtDesc();
     List<AuditLog> findByUserIdOrderByCreatedAtDesc(UUID userId);
     List<AuditLog> findByCorrelationId(String correlationId);
+    boolean existsByActionAndStatus(String action, String status);
 }

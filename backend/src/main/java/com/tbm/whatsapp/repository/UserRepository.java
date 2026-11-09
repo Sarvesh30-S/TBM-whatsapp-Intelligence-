@@ -20,4 +20,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     @Query("SELECT COUNT(u) FROM User u JOIN u.roles r WHERE r.name = 'ROLE_ADMIN' AND u.active = true")
     long countActiveAdmins();
+
+    @Query("SELECT COUNT(u) FROM User u JOIN u.roles r WHERE r.name = 'ROLE_ADMIN'")
+    long countTotalAdminsEverCreated();
 }

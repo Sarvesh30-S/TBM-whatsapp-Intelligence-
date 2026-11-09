@@ -16,6 +16,7 @@ import com.tbm.whatsapp.repository.WhatsAppMessageRepository;
 import com.tbm.whatsapp.service.ConversationIntelligenceService;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -60,6 +61,7 @@ public class ConversationSummaryController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('SUMMARY_READ')")
     public List<SummaryView> list(@PathVariable UUID campaignId, @RequestParam(defaultValue = "20") int limit) {
         requireCampaign(campaignId);
         return summaries.findAllByCampaignIdOrderByWindowEndDesc(campaignId, PageRequest.of(0, Math.max(1, Math.min(limit, 100))))
@@ -67,6 +69,7 @@ public class ConversationSummaryController {
     }
 
     @GetMapping("/{summaryId}/sources")
+    @PreAuthorize("hasAuthority('SUMMARY_READ')")
     public List<SourceMessageView> sources(@PathVariable UUID campaignId, @PathVariable UUID summaryId,
                                           @RequestParam(required = false) UUID itemId) {
         requireCampaign(campaignId);
@@ -107,6 +110,7 @@ public class ConversationSummaryController {
     }
 
     @PostMapping("/pods/{podId}/refresh")
+    @PreAuthorize("hasAuthority('SUMMARY_GENERATE')")
     public SummaryView refresh(@PathVariable UUID campaignId, @PathVariable UUID podId) {
         requireCampaign(campaignId);
         try {

@@ -2,9 +2,13 @@ package com.tbm.whatsapp.controller;
 
 import com.tbm.whatsapp.entity.Department;
 import com.tbm.whatsapp.entity.RefreshToken;
+import com.tbm.whatsapp.entity.Role;
 import com.tbm.whatsapp.entity.User;
+import com.tbm.whatsapp.repository.DepartmentRepository;
 import com.tbm.whatsapp.repository.RefreshTokenRepository;
+import com.tbm.whatsapp.repository.RoleRepository;
 import com.tbm.whatsapp.repository.UserRepository;
+import com.tbm.whatsapp.security.AdminBootstrapService;
 import com.tbm.whatsapp.security.AuditLoggingService;
 import com.tbm.whatsapp.security.JwtTokenProvider;
 import com.tbm.whatsapp.security.UserPrincipal;
@@ -25,9 +29,13 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -39,23 +47,78 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider tokenProvider;
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
+    private final DepartmentRepository departmentRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final PasswordEncoder passwordEncoder;
     private final AuditLoggingService auditLoggingService;
     private final long refreshTokenExpirationDays;
+    private final AdminBootstrapService adminBootstrapService;
 
     public AuthController(
             AuthenticationManager authenticationManager,
             JwtTokenProvider tokenProvider,
             UserRepository userRepository,
+            RoleRepository roleRepository,
+            DepartmentRepository departmentRepository,
             RefreshTokenRepository refreshTokenRepository,
+            PasswordEncoder passwordEncoder,
             AuditLoggingService auditLoggingService,
+            AdminBootstrapService adminBootstrapService,
             @Value("${app.jwt.refresh-token-expiration-days:7}") long refreshTokenExpirationDays) {
         this.authenticationManager = authenticationManager;
         this.tokenProvider = tokenProvider;
         this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
+        this.departmentRepository = departmentRepository;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.passwordEncoder = passwordEncoder;
         this.auditLoggingService = auditLoggingService;
+        this.adminBootstrapService = adminBootstrapService;
         this.refreshTokenExpirationDays = refreshTokenExpirationDays;
+    }
+
+    public record BootstrapAdminRequest(
+            @NotBlank(message = "Email is required") @Email(message = "Invalid email format") String email,
+            @NotBlank(message = "Password is required") String password,
+            @NotBlank(message = "Full name is required") String fullName
+    ) {}
+
+    @PostMapping("/bootstrap")
+    public ResponseEntity<?> bootstrapAdmin(
+            @RequestHeader(name = "X-Bootstrap-Token", required = false) String suppliedToken,
+            @Valid @RequestBody BootstrapAdminRequest request,
+            HttpServletRequest servletRequest) {
+        try {
+            User adminUser = adminBootstrapService.bootstrapInitialAdmin(
+                    suppliedToken,
+                    request.email(),
+                    request.password(),
+                    request.fullName(),
+                    servletRequest.getRemoteAddr()
+            );
+
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(Map.of(
+                            "message", "Administrator account bootstrapped successfully",
+                            "userId", adminUser.getId().toString(),
+                            "email", adminUser.getEmail(),
+                            "role", "ROLE_ADMIN"
+                    ));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            if (e.getMessage() != null && e.getMessage().contains("not configured")) {
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                        .body(Map.of("error", e.getMessage()));
+            }
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("error", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", e.getMessage()));
+        }
     }
 
     public record LoginRequest(
@@ -260,6 +323,55 @@ public class AuthController {
 
         User user = userRepository.findById(principal.getId()).orElseThrow();
         return ResponseEntity.ok(buildProfileDto(user, principal));
+    }
+
+    public record ChangePasswordRequest(
+            @NotBlank(message = "Current password is required") String currentPassword,
+            @NotBlank(message = "New password is required") @jakarta.validation.constraints.Size(min = 8, message = "New password must be at least 8 characters") String newPassword
+    ) {}
+
+    @PostMapping("/change-password")
+    @Transactional
+    public ResponseEntity<?> changePassword(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody ChangePasswordRequest request,
+            HttpServletRequest servletRequest,
+            HttpServletResponse servletResponse) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        User user = userRepository.findById(principal.getId()).orElseThrow();
+
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            auditLoggingService.record(user.getId(), "PASSWORD_CHANGE_FAILED", "USER", user.getId().toString(),
+                    servletRequest.getRemoteAddr(), "DENIED", Map.of("reason", "INVALID_CURRENT_PASSWORD"));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "Current password does not match"));
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        user.setMustChangePassword(false);
+        user.setTokenInvalidBefore(Instant.now());
+        userRepository.save(user);
+
+        // Revoke all existing refresh token families for the user
+        refreshTokenRepository.revokeAllForUser(user.getId(), Instant.now());
+
+        // Clear refresh cookie
+        ResponseCookie clearCookie = ResponseCookie.from("refresh_token", "")
+                .httpOnly(true)
+                .secure(servletRequest.isSecure())
+                .path("/api/v1/auth")
+                .maxAge(0)
+                .sameSite("Strict")
+                .build();
+        servletResponse.addHeader(HttpHeaders.SET_COOKIE, clearCookie.toString());
+
+        auditLoggingService.record(user.getId(), "PASSWORD_CHANGED", "USER", user.getId().toString(),
+                servletRequest.getRemoteAddr(), "SUCCESS", Map.of());
+
+        return ResponseEntity.ok(Map.of("message", "Password changed successfully. Please log in again with your new password."));
     }
 
     private UserProfileDto buildProfileDto(User user, UserPrincipal principal) {

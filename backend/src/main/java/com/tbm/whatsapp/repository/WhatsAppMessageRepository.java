@@ -16,6 +16,7 @@ public interface WhatsAppMessageRepository extends JpaRepository<WhatsAppMessage
     boolean existsByProviderMessageId(String providerMessageId);
     Optional<WhatsAppMessage> findByProviderMessageId(String providerMessageId);
     java.util.List<WhatsAppMessage> findAllByOrderByCreatedAtDesc(Pageable pageable);
+    List<WhatsAppMessage> findAllByGroupIdInOrderByCreatedAtDesc(List<String> groupIds, Pageable pageable);
     List<WhatsAppMessage> findAllByGroupIdAndCreatedAtAfterOrderByCreatedAtAsc(String groupId, Instant after, Pageable pageable);
     List<WhatsAppMessage> findAllByGroupIdOrderByCreatedAtAsc(String groupId, Pageable pageable);
 
