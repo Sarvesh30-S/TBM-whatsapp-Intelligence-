@@ -104,7 +104,7 @@ export default function TestMessagesView({
   onClearMessages,
   onNavigateToDeveloper,
 }: TestMessagesViewProps) {
-  const { hasPermission } = useAuth();
+  const { hasPermission, hasRole } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll when active chat or messages change
@@ -412,8 +412,8 @@ export default function TestMessagesView({
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Message Composer / Reply Testing Form - Gated by WHATSAPP_MESSAGE_SEND */}
-              {hasPermission('WHATSAPP_MESSAGE_SEND') ? (
+              {/* Message Composer / Reply Testing Form - Gated by WHATSAPP_MESSAGE_SEND or ADMIN */}
+              {(hasPermission('WHATSAPP_MESSAGE_SEND') || hasRole('ADMIN')) ? (
                 <form className="thread-composer" onSubmit={onSendMessage}>
                   <input
                     type="text"

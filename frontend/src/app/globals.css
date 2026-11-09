@@ -968,20 +968,32 @@ body {
 /* Live Chat Split Window Container */
 .livechat-wrapper {
   display: grid;
-  grid-template-columns: 360px 1fr;
+  grid-template-columns: 320px 1fr 280px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   height: calc(100vh - 270px);
-  min-height: 600px;
+  min-height: 620px;
   background-color: var(--bg-surface);
   overflow: hidden;
   box-shadow: var(--shadow-card);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1200px) {
+  .livechat-wrapper {
+    grid-template-columns: 320px 1fr;
+  }
+  .livechat-info {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
   .livechat-wrapper {
     grid-template-columns: 1fr;
     height: auto;
+  }
+  .livechat-info {
+    display: none;
   }
 }
 
@@ -1328,6 +1340,81 @@ body {
   text-align: center;
   color: var(--text-muted);
   padding: 50px 20px;
+}
+
+/* Right Pane - Chat / Group Details Inspector */
+.livechat-info {
+  border-left: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+  padding: 20px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.info-header {
+  text-align: center;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.info-avatar {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  margin: 0 auto 10px;
+  box-shadow: var(--shadow-sm);
+}
+
+.info-name {
+  font-size: 14px;
+  font-weight: 700;
+  word-break: break-word;
+  color: var(--text-primary);
+  line-height: 1.35;
+}
+
+.info-type {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.info-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.info-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.info-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.info-value {
+  font-size: 12.5px;
+  color: var(--text-primary);
+  word-break: break-all;
 }
 
 .inbox-list-column {

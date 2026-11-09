@@ -21,7 +21,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const hasSendPermission = user.permissions?.includes('WHATSAPP_MESSAGE_SEND');
+    const hasSendPermission =
+      user.permissions?.includes('WHATSAPP_MESSAGE_SEND') ||
+      user.roles?.includes('ROLE_ADMIN');
     if (!hasSendPermission) {
       return NextResponse.json(
         { error: 'Forbidden: You do not have permission to send WhatsApp messages' },
