@@ -19,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -219,5 +220,70 @@ class AdminBootstrapTest {
 
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
         verify(userRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("7. First user self-registration automatically grants ROLE_ADMIN")
+    void firstUserRegistrationGrantsAdmin() {
+        when(userRepository.existsByEmailIgnoreCase("founder@tbm.internal")).thenReturn(false);
+        when(userRepository.countTotalAdminsEverCreated()).thenReturn(0L);
+
+        Role adminRole = new Role(UUID.randomUUID(), "ROLE_ADMIN", "Admin", true);
+        when(roleRepository.findByName("ROLE_ADMIN")).thenReturn(Optional.of(adminRole));
+        when(departmentRepository.findByCode("EXECUTIVE")).thenReturn(Optional.empty());
+        when(passwordEncoder.encode("SecurePass123!")).thenReturn("hashed-pass");
+        when(tokenProvider.generateAccessToken(any())).thenReturn("mock-access-token");
+        when(tokenProvider.generateRawRefreshToken()).thenReturn("mock-raw-refresh");
+        when(tokenProvider.hashToken("mock-raw-refresh")).thenReturn("mock-hash");
+
+        AuthController.RegisterRequest request = new AuthController.RegisterRequest(
+                "founder@tbm.internal",
+                "SecurePass123!",
+                "Company Founder"
+        );
+
+        MockHttpServletRequest servletRequest = new MockHttpServletRequest();
+        MockHttpServletResponse servletResponse = new MockHttpServletResponse();
+        ResponseEntity<?> response = authController.register(request, servletRequest, servletResponse);
+
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertTrue(response.getBody() instanceof AuthController.AuthResponse);
+        AuthController.AuthResponse authResponse = (AuthController.AuthResponse) response.getBody();
+        assertEquals("mock-access-token", authResponse.accessToken());
+        assertEquals("founder@tbm.internal", authResponse.user().email());
+        assertTrue(authResponse.user().roles().contains("ROLE_ADMIN"));
+        verify(userRepository).save(any(User.class));
+    }
+
+    @Test
+    @DisplayName("8. Subsequent user self-registration grants ROLE_EMPLOYEE")
+    void subsequentUserRegistrationGrantsEmployee() {
+        when(userRepository.existsByEmailIgnoreCase("employee@tbm.internal")).thenReturn(false);
+        when(userRepository.countTotalAdminsEverCreated()).thenReturn(1L);
+
+        Role employeeRole = new Role(UUID.randomUUID(), "ROLE_EMPLOYEE", "Employee", true);
+        when(roleRepository.findByName("ROLE_EMPLOYEE")).thenReturn(Optional.of(employeeRole));
+        when(departmentRepository.findByCode("OPERATIONS")).thenReturn(Optional.empty());
+        when(passwordEncoder.encode("SecurePass123!")).thenReturn("hashed-pass");
+        when(tokenProvider.generateAccessToken(any())).thenReturn("mock-access-token");
+        when(tokenProvider.generateRawRefreshToken()).thenReturn("mock-raw-refresh");
+        when(tokenProvider.hashToken("mock-raw-refresh")).thenReturn("mock-hash");
+
+        AuthController.RegisterRequest request = new AuthController.RegisterRequest(
+                "employee@tbm.internal",
+                "SecurePass123!",
+                "Operations Employee"
+        );
+
+        MockHttpServletRequest servletRequest = new MockHttpServletRequest();
+        MockHttpServletResponse servletResponse = new MockHttpServletResponse();
+        ResponseEntity<?> response = authController.register(request, servletRequest, servletResponse);
+
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertTrue(response.getBody() instanceof AuthController.AuthResponse);
+        AuthController.AuthResponse authResponse = (AuthController.AuthResponse) response.getBody();
+        assertEquals("employee@tbm.internal", authResponse.user().email());
+        assertTrue(authResponse.user().roles().contains("ROLE_EMPLOYEE"));
+        verify(userRepository).save(any(User.class));
     }
 }

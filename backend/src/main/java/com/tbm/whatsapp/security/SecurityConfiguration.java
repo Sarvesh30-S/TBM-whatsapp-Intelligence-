@@ -83,8 +83,8 @@ public class SecurityConfiguration {
                 })
             )
             .authorizeHttpRequests(auth -> auth
-                // Public authentication and initial bootstrap endpoints
-                .requestMatchers("/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/bootstrap").permitAll()
+                // Public authentication, registration, and initial bootstrap endpoints
+                .requestMatchers("/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/bootstrap", "/api/v1/auth/register").permitAll()
                 // WhatsApp Webhook ingestion (verified by MetaWebhookSignatureVerifier / 2Chat signatures)
                 .requestMatchers("/webhook/**", "/api/webhook/**").permitAll()
                 // Public health probes

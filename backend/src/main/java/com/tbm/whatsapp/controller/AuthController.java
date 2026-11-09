@@ -121,6 +121,12 @@ public class AuthController {
         }
     }
 
+    public record RegisterRequest(
+            @NotBlank(message = "Email is required") @Email(message = "Invalid email format") String email,
+            @NotBlank(message = "Password is required") @jakarta.validation.constraints.Size(min = 8, message = "Password must be at least 8 characters") String password,
+            @NotBlank(message = "Full name is required") String fullName
+    ) {}
+
     public record LoginRequest(
             @NotBlank(message = "Email is required") @Email(message = "Invalid email format") String email,
             @NotBlank(message = "Password is required") String password
@@ -142,6 +148,87 @@ public class AuthController {
             String accessToken,
             UserProfileDto user
     ) {}
+
+    @PostMapping("/register")
+    @Transactional
+    public ResponseEntity<?> register(
+            @Valid @RequestBody RegisterRequest request,
+            HttpServletRequest servletRequest,
+            HttpServletResponse servletResponse) {
+        String cleanEmail = request.email().trim().toLowerCase();
+        if (userRepository.existsByEmailIgnoreCase(cleanEmail)) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("error", "An account with this email already exists."));
+        }
+
+        // If no administrator has ever been created, automatically bootstrap as Primary Administrator
+        boolean isFirstUser = userRepository.countTotalAdminsEverCreated() == 0;
+        String roleName = isFirstUser ? "ROLE_ADMIN" : "ROLE_EMPLOYEE";
+        String jobTitle = isFirstUser ? "System Administrator" : "Operations Associate";
+        String deptCode = isFirstUser ? "EXECUTIVE" : "OPERATIONS";
+
+        Role assignedRole = roleRepository.findByName(roleName)
+                .orElseThrow(() -> new IllegalStateException(roleName + " role not found. Seed migrations may be missing."));
+
+        Department dept = departmentRepository.findByCode(deptCode).orElse(null);
+
+        User user = new User(
+                UUID.randomUUID(),
+                cleanEmail,
+                passwordEncoder.encode(request.password()),
+                request.fullName().trim(),
+                dept
+        );
+        user.getRoles().add(assignedRole);
+        user.setJobTitle(jobTitle);
+        user.setMustChangePassword(false);
+        userRepository.save(user);
+
+        // Record registration in audit log
+        auditLoggingService.record(
+                user.getId(),
+                isFirstUser ? "INITIAL_ADMIN_REGISTERED" : "USER_REGISTERED",
+                "USER",
+                user.getId().toString(),
+                servletRequest.getRemoteAddr(),
+                "SUCCESS",
+                Map.of("email", cleanEmail, "role", roleName, "isFirstUser", isFirstUser)
+        );
+
+        // Establish session tokens and HttpOnly refresh cookie
+        UserPrincipal principal = UserPrincipal.create(user);
+        String accessToken = tokenProvider.generateAccessToken(principal);
+        String rawRefreshToken = tokenProvider.generateRawRefreshToken();
+        String hashedRefreshToken = tokenProvider.hashToken(rawRefreshToken);
+
+        UUID familyId = UUID.randomUUID();
+        Instant expiresAt = Instant.now().plus(refreshTokenExpirationDays, ChronoUnit.DAYS);
+
+        RefreshToken refreshToken = new RefreshToken(
+                UUID.randomUUID(),
+                user,
+                hashedRefreshToken,
+                familyId,
+                1,
+                expiresAt,
+                servletRequest.getRemoteAddr(),
+                servletRequest.getHeader("User-Agent")
+        );
+        refreshTokenRepository.save(refreshToken);
+
+        ResponseCookie cookie = ResponseCookie.from("refresh_token", rawRefreshToken)
+                .httpOnly(true)
+                .secure(servletRequest.isSecure())
+                .path("/api/v1/auth")
+                .maxAge(refreshTokenExpirationDays * 24 * 60 * 60)
+                .sameSite("Strict")
+                .build();
+        servletResponse.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
+        UserProfileDto profile = buildProfileDto(user, principal);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new AuthResponse(accessToken, profile));
+    }
 
     @PostMapping("/login")
     @Transactional

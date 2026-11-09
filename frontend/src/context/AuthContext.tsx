@@ -20,6 +20,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (fullName: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   hasRole: (role: string) => boolean;
   hasPermission: (permission: string) => boolean;
@@ -191,6 +192,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const register = useCallback(async (fullName: string, email: string, password: string) => {
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/v1/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fullName, email, password }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data.user);
+        setToken(data.accessToken);
+        setIsLoading(false);
+        return { success: true };
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        setIsLoading(false);
+        return {
+          success: false,
+          error: errorData.error || errorData.message || 'Registration failed.',
+        };
+      }
+    } catch (err: any) {
+      setIsLoading(false);
+      return {
+        success: false,
+        error: 'Could not connect to authentication server. Please check your network or try again.',
+      };
+    }
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await fetch('/api/v1/auth/logout', {
@@ -261,6 +294,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         isLoading,
         login,
+        register,
         logout,
         hasRole,
         hasPermission,
