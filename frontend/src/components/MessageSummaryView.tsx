@@ -473,6 +473,72 @@ export default function MessageSummaryView({
                 </span>
               </div>
 
+              {/* The Bottom Line: Executive Hook */}
+              <div className="briefing-bottom-line-card">
+                <div className="bottom-line-header">
+                  <div className="bottom-line-badge">
+                    <Sparkles size={13} />
+                    <span>THE BOTTOM LINE</span>
+                  </div>
+                  <div className="bottom-line-metrics">
+                    <span className="metric-tag">
+                      <Clock size={11} /> ~1 min read
+                    </span>
+                    <span className="metric-tag">
+                      <CheckCircle2 size={11} style={{ color: '#059669' }} />{' '}
+                      {briefing?.decisions.filter((d) => d.status === 'CONFIRMED').length || 0} Confirmed
+                    </span>
+                    {briefing?.pendingDiscussions && briefing.pendingDiscussions.length > 0 ? (
+                      <span className="metric-tag tag-warning">
+                        <AlertTriangle size={11} /> {briefing.pendingDiscussions.length} Unresolved
+                      </span>
+                    ) : (
+                      <span className="metric-tag tag-success">
+                        <CheckCircle2 size={11} /> No Active Blockers
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <p className="bottom-line-summary">
+                  {briefing?.executiveBriefing.currentSituation}
+                </p>
+
+                {briefing?.decisions && briefing.decisions.length > 0 && (
+                  <div className="bottom-line-decisions-preview">
+                    <span className="preview-label">Key Milestones:</span>
+                    {briefing.decisions.slice(0, 3).map((d) => (
+                      <button
+                        key={d.id}
+                        type="button"
+                        className={`preview-chip ${d.status === 'SUPERSEDED' ? 'chip-superseded' : ''}`}
+                        onClick={() => setActiveSection('decisions')}
+                        title={`Click to view in Decisions Log (${d.status})`}
+                      >
+                        {d.status === 'CONFIRMED' ? (
+                          <CheckCircle2 size={12} style={{ color: '#059669' }} />
+                        ) : d.status === 'SUPERSEDED' ? (
+                          <Clock size={12} style={{ color: '#64748b' }} />
+                        ) : (
+                          <Compass size={12} style={{ color: '#d97706' }} />
+                        )}
+                        <span>{d.title}</span>
+                      </button>
+                    ))}
+                    {briefing.decisions.length > 3 && (
+                      <button
+                        type="button"
+                        className="preview-chip"
+                        onClick={() => setActiveSection('decisions')}
+                        style={{ color: '#4f46e5', fontWeight: 700 }}
+                      >
+                        +{briefing.decisions.length - 3} more &rarr;
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* Natural Language Multi-Paragraph Overview */}
               <div className="briefing-narrative-text">
                 {briefing?.executiveBriefing.overview.split('\n\n').map((paragraph, idx) => (
