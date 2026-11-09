@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import { loadStoredMessages } from '@/lib/message-store';
-import { analyzeAllMessages, getJevConfig } from '@/lib/jev-client';
+import { analyzeAllMessagesWithGroq, getGroqConfig } from '@/lib/groq-client';
 
 export async function GET() {
   try {
     const messages = await loadStoredMessages();
-    const config = getJevConfig();
-    const result = await analyzeAllMessages(messages, config);
+    const config = getGroqConfig();
+    const result = await analyzeAllMessagesWithGroq(messages, config);
 
     return NextResponse.json({
       success: true,
@@ -29,8 +29,8 @@ export async function POST(req: Request) {
       messages = await loadStoredMessages();
     }
 
-    const config = getJevConfig();
-    const result = await analyzeAllMessages(messages, config);
+    const config = getGroqConfig();
+    const result = await analyzeAllMessagesWithGroq(messages, config);
 
     return NextResponse.json({
       success: true,

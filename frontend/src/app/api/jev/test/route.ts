@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
-import { getJevConfig, setJevConfig, testJevConnection } from '@/lib/jev-client';
+import { getGroqConfig, setGroqConfig, testGroqConnection } from '@/lib/groq-client';
 
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
     let { apiKey, endpoint, model } = body;
 
-    const currentConfig = getJevConfig();
+    const currentConfig = getGroqConfig();
     const keyToUse = apiKey?.trim() || currentConfig.apiKey;
     const endpointToUse = endpoint?.trim() || currentConfig.endpoint;
     const modelToUse = model?.trim() || currentConfig.model;
@@ -14,19 +14,17 @@ export async function POST(req: Request) {
     if (!keyToUse) {
       return NextResponse.json({
         success: false,
-        message: 'No Jev API key provided. Please enter your Jev API key first.',
+        message: 'No API key provided. Please enter your API key first.',
       }, { status: 400 });
     }
 
-    // Save configuration if provided
-    setJevConfig({
+    setGroqConfig({
       apiKey: keyToUse,
       endpoint: endpointToUse,
       model: modelToUse,
     });
 
-    // Test connection from the server
-    const result = await testJevConnection({
+    const result = await testGroqConnection({
       apiKey: keyToUse,
       endpoint: endpointToUse,
       model: modelToUse,
@@ -36,7 +34,7 @@ export async function POST(req: Request) {
   } catch (err: any) {
     return NextResponse.json({
       success: false,
-      message: `Error testing Jev connection: ${err.message}`,
+      message: `Error testing connection: ${err.message}`,
     }, { status: 500 });
   }
 }

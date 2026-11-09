@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import {
   Key,
   Webhook,
-  BrainCircuit,
+  Zap,
   Eye,
   EyeOff,
   Copy,
@@ -43,32 +43,32 @@ export default function DeveloperView({
   const [webhookCopied, setWebhookCopied] = useState<boolean>(false);
   const [webhookSavedFeedback, setWebhookSavedFeedback] = useState<string>('');
 
-  // Jev AI Card State
-  // SECURITY: Never hardcode keys, never save Jev key to localStorage/sessionStorage.
-  const [jevApiKey, setJevApiKey] = useState<string>('');
-  const [showJevKey, setShowJevKey] = useState<boolean>(false);
-  const [jevKeyCopied, setJevKeyCopied] = useState<boolean>(false);
-  const [jevEndpoint, setJevEndpoint] = useState<string>('https://jev-ai.org/api/v1/systemone/');
-  const [jevModel, setJevModel] = useState<string>('jev-1.13');
-  const [jevStatus, setJevStatus] = useState<'Not Configured' | 'Connected' | 'Connection Failed'>('Not Configured');
-  const [jevNotice, setJevNotice] = useState<string>('');
-  const [testingJev, setTestingJev] = useState<boolean>(false);
+  // Groq AI Card State
+  // SECURITY: Never hardcode keys, never save Groq key to localStorage/sessionStorage.
+  const [groqApiKey, setGroqApiKey] = useState<string>('');
+  const [showGroqKey, setShowGroqKey] = useState<boolean>(false);
+  const [groqKeyCopied, setGroqKeyCopied] = useState<boolean>(false);
+  const [groqEndpoint, setGroqEndpoint] = useState<string>('https://api.groq.com/openai/v1/chat/completions');
+  const [groqModel, setGroqModel] = useState<string>('llama-3.3-70b-versatile');
+  const [groqStatus, setGroqStatus] = useState<'Not Configured' | 'Connected' | 'Connection Failed'>('Not Configured');
+  const [groqNotice, setGroqNotice] = useState<string>('');
+  const [testingGroq, setTestingGroq] = useState<boolean>(false);
 
-  // Sync apiKey prop & fetch current Jev server config
+  // Sync apiKey prop & fetch current Groq server config
   React.useEffect(() => {
     if (apiKey) {
       setApiKeyInput(apiKey);
     }
 
-    fetch('/api/jev/config')
+    fetch('/api/groq/config')
       .then((res) => res.json())
       .then((data) => {
         if (data.isConfigured) {
-          setJevStatus('Connected');
-          setJevNotice(`Jev AI model (${data.model}) configured on server.`);
+          setGroqStatus('Connected');
+          setGroqNotice(`Groq AI model (${data.model}) configured on server.`);
         }
-        if (data.endpoint) setJevEndpoint(data.endpoint);
-        if (data.model) setJevModel(data.model);
+        if (data.endpoint) setGroqEndpoint(data.endpoint);
+        if (data.model) setGroqModel(data.model);
       })
       .catch(() => {});
   }, [apiKey]);
@@ -112,70 +112,70 @@ export default function DeveloperView({
     setTimeout(() => setWebhookSavedFeedback(''), 3000);
   };
 
-  // Handle Jev AI Configuration Save
-  const handleSaveJev = async () => {
-    if (!jevApiKey.trim()) {
-      alert('Please provide a Jev API key.');
+  // Handle Groq AI Configuration Save
+  const handleSaveGroq = async () => {
+    if (!groqApiKey.trim()) {
+      alert('Please provide a Groq API key.');
       return;
     }
-    setJevNotice('Saving configuration on server...');
+    setGroqNotice('Saving configuration on server...');
     try {
-      const res = await fetch('/api/jev/config', {
+      const res = await fetch('/api/groq/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          apiKey: jevApiKey.trim(),
-          endpoint: jevEndpoint.trim(),
-          model: jevModel.trim(),
+          apiKey: groqApiKey.trim(),
+          endpoint: groqEndpoint.trim(),
+          model: groqModel.trim(),
         }),
       });
       const data = await res.json();
       if (data.success) {
-        setJevNotice('Jev AI configuration saved securely on server.');
-        await handleTestJevConnection();
+        setGroqNotice('Groq AI configuration saved securely on server.');
+        await handleTestGroqConnection();
       } else {
-        setJevNotice(`Error saving: ${data.error || 'Failed'}`);
+        setGroqNotice(`Error saving: ${data.error || 'Failed'}`);
       }
     } catch (err: any) {
-      setJevNotice(`Error saving: ${err.message}`);
+      setGroqNotice(`Error saving: ${err.message}`);
     }
   };
 
-  // Handle Jev AI Connection Test
-  const handleTestJevConnection = async () => {
-    setTestingJev(true);
-    setJevNotice('Testing connection to Jev AI endpoint...');
+  // Handle Groq AI Connection Test
+  const handleTestGroqConnection = async () => {
+    setTestingGroq(true);
+    setGroqNotice('Testing connection to Groq LPU endpoint...');
     try {
-      const res = await fetch('/api/jev/test', {
+      const res = await fetch('/api/groq/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          apiKey: jevApiKey.trim() || undefined,
-          endpoint: jevEndpoint.trim(),
-          model: jevModel.trim(),
+          apiKey: groqApiKey.trim() || undefined,
+          endpoint: groqEndpoint.trim(),
+          model: groqModel.trim(),
         }),
       });
       const data = await res.json();
       if (data.success) {
-        setJevStatus('Connected');
-        setJevNotice(data.message || 'Connected to Jev AI successfully.');
+        setGroqStatus('Connected');
+        setGroqNotice(data.message || 'Connected to Groq AI successfully.');
       } else {
-        setJevStatus('Connection Failed');
-        setJevNotice(data.message || 'Connection failed.');
+        setGroqStatus('Connection Failed');
+        setGroqNotice(data.message || 'Connection failed.');
       }
     } catch (err: any) {
-      setJevStatus('Connection Failed');
-      setJevNotice(`Network error: ${err.message}`);
+      setGroqStatus('Connection Failed');
+      setGroqNotice(`Network error: ${err.message}`);
     } finally {
-      setTestingJev(false);
+      setTestingGroq(false);
     }
   };
 
-  const handleCopyJevKey = () => {
-    if (!jevApiKey) return;
-    navigator.clipboard.writeText(jevApiKey);
-    setJevKeyCopied(true);
-    setTimeout(() => setJevKeyCopied(false), 2000);
+  const handleCopyGroqKey = () => {
+    if (!groqApiKey) return;
+    navigator.clipboard.writeText(groqApiKey);
+    setGroqKeyCopied(true);
+    setTimeout(() => setGroqKeyCopied(false), 2000);
   };
 
   return (
@@ -340,21 +340,21 @@ export default function DeveloperView({
           </div>
         </div>
 
-        {/* Card C: Jev AI Integration (NEW) */}
+        {/* Card C: Groq AI Integration */}
         <div className="settings-card">
           <div className="settings-card-header">
-            <div className="settings-card-icon-wrap jev-accent">
-              <BrainCircuit size={18} />
+            <div className="settings-card-icon-wrap groq-accent">
+              <Zap size={18} />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <h3 className="settings-card-title">Jev AI Integration</h3>
-                <span className="pending-badge">
-                  <Sparkles size={11} /> Spring Boot Ready
+                <h3 className="settings-card-title">Groq AI Integration</h3>
+                <span className="pending-badge groq">
+                  <Sparkles size={11} /> LPU Inference Engine
                 </span>
               </div>
               <p className="settings-card-desc">
-                Connect the Jev decision intelligence API for automated message analysis, categorization, and actionable insights.
+                Connect the Groq API (Llama 3.3 70B Versatile) for ultra-fast, high-accuracy message summarization, actionable triage, and intelligence extraction.
               </p>
             </div>
           </div>
@@ -365,55 +365,55 @@ export default function DeveloperView({
               <span className="status-label">Connection Status:</span>
               <span
                 className={`connection-pill ${
-                  jevStatus === 'Connected'
+                  groqStatus === 'Connected'
                     ? 'connected'
-                    : jevStatus === 'Connection Failed'
+                    : groqStatus === 'Connection Failed'
                     ? 'failed'
                     : 'not-configured'
                 }`}
               >
-                {jevStatus === 'Connected' ? (
+                {groqStatus === 'Connected' ? (
                   <CheckCircle2 size={13} />
-                ) : jevStatus === 'Connection Failed' ? (
+                ) : groqStatus === 'Connection Failed' ? (
                   <AlertTriangle size={13} />
                 ) : (
                   <Clock size={13} />
                 )}
-                <span>{jevStatus}</span>
+                <span>{groqStatus}</span>
               </span>
             </div>
 
-            {/* Jev API Key */}
+            {/* Groq API Key */}
             <div className="input-group">
-              <label className="input-label" htmlFor="jev-key">
-                Jev API Key
+              <label className="input-label" htmlFor="groq-key">
+                Groq API Key
               </label>
               <div className="input-with-actions">
                 <input
-                  id="jev-key"
-                  type={showJevKey ? 'text' : 'password'}
+                  id="groq-key"
+                  type={showGroqKey ? 'text' : 'password'}
                   className="settings-text-input"
-                  placeholder="Enter Jev Decision Intelligence API Key..."
-                  value={jevApiKey}
-                  onChange={(e) => setJevApiKey(e.target.value)}
+                  placeholder="Paste your Groq API Key (gsk_...)"
+                  value={groqApiKey}
+                  onChange={(e) => setGroqApiKey(e.target.value)}
                   autoComplete="off"
                   spellCheck={false}
                 />
                 <button
                   type="button"
                   className="icon-action-btn"
-                  onClick={() => setShowJevKey(!showJevKey)}
-                  title={showJevKey ? 'Hide Key' : 'Show Key'}
+                  onClick={() => setShowGroqKey(!showGroqKey)}
+                  title={showGroqKey ? 'Hide Key' : 'Show Key'}
                 >
-                  {showJevKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showGroqKey ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
                 <button
                   type="button"
                   className="icon-action-btn"
-                  onClick={handleCopyJevKey}
+                  onClick={handleCopyGroqKey}
                   title="Copy Key"
                 >
-                  {jevKeyCopied ? <Check size={16} className="text-green" /> : <Copy size={16} />}
+                  {groqKeyCopied ? <Check size={16} className="text-green" /> : <Copy size={16} />}
                 </button>
               </div>
             </div>
@@ -421,37 +421,37 @@ export default function DeveloperView({
             {/* API Endpoint & Model Name in 2 columns */}
             <div className="form-grid-2">
               <div className="input-group">
-                <label className="input-label" htmlFor="jev-endpoint">
+                <label className="input-label" htmlFor="groq-endpoint">
                   API Endpoint
                 </label>
                 <input
-                  id="jev-endpoint"
+                  id="groq-endpoint"
                   type="text"
                   className="settings-text-input"
-                  value={jevEndpoint}
-                  onChange={(e) => setJevEndpoint(e.target.value)}
+                  value={groqEndpoint}
+                  onChange={(e) => setGroqEndpoint(e.target.value)}
                 />
               </div>
 
               <div className="input-group">
-                <label className="input-label" htmlFor="jev-model">
+                <label className="input-label" htmlFor="groq-model">
                   Model Name
                 </label>
                 <input
-                  id="jev-model"
+                  id="groq-model"
                   type="text"
                   className="settings-text-input"
-                  value={jevModel}
-                  onChange={(e) => setJevModel(e.target.value)}
+                  value={groqModel}
+                  onChange={(e) => setGroqModel(e.target.value)}
                 />
               </div>
             </div>
 
             {/* Notice / Security Info Box */}
-            {jevNotice && (
+            {groqNotice && (
               <div className="info-banner">
                 <Info size={16} className="info-icon" />
-                <div className="info-text">{jevNotice}</div>
+                <div className="info-text">{groqNotice}</div>
               </div>
             )}
 
@@ -459,19 +459,19 @@ export default function DeveloperView({
               <button
                 type="button"
                 className="btn-primary"
-                onClick={handleSaveJev}
+                onClick={handleSaveGroq}
               >
                 <Save size={15} />
-                <span>Save Jev Configuration</span>
+                <span>Save Groq Configuration</span>
               </button>
               <button
                 type="button"
                 className="btn-secondary"
-                onClick={handleTestJevConnection}
-                disabled={testingJev}
+                onClick={handleTestGroqConnection}
+                disabled={testingGroq}
               >
                 <Radio size={15} />
-                <span>{testingJev ? 'Testing Connection...' : 'Test Jev Connection'}</span>
+                <span>{testingGroq ? 'Testing Connection...' : 'Test Groq Connection'}</span>
               </button>
             </div>
           </div>

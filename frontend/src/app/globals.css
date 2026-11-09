@@ -876,6 +876,12 @@ button.secondary:hover {
   font-weight: 700;
 }
 
+.ai-badge.groq {
+  background-color: #fff7ed;
+  color: #ea580c;
+  border: 1px solid #fed7aa;
+}
+
 .summary-kpi-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -1629,6 +1635,12 @@ button.secondary:hover {
   color: #7e22ce;
 }
 
+.settings-card-icon-wrap.groq-accent {
+  background-color: #fff7ed;
+  color: #ea580c;
+  border: 1px solid #fed7aa;
+}
+
 .settings-card-title {
   font-size: 15px;
   font-weight: 700;
@@ -1652,6 +1664,12 @@ button.secondary:hover {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+}
+
+.pending-badge.groq {
+  color: #ea580c;
+  background-color: #fff7ed;
+  border-color: #fed7aa;
 }
 
 .settings-card-body {

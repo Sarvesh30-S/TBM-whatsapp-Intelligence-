@@ -24,7 +24,7 @@ import {
   Check,
 } from 'lucide-react';
 import { TwoChatMessage, TwoChatConversation } from '@/lib/types';
-import { JevActionableItem, JevGroupSummary, JevAnalysisResult } from '@/lib/jev-client';
+import { GroqActionableItem, GroqGroupSummary, GroqAnalysisResult } from '@/lib/groq-client';
 
 interface MessageSummaryViewProps {
   totalMessagesCount: number;
@@ -46,7 +46,7 @@ export default function MessageSummaryView({
 
   // Analysis State
   const [analyzing, setAnalyzing] = useState<boolean>(false);
-  const [analysisResult, setAnalysisResult] = useState<JevAnalysisResult | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<GroqAnalysisResult | null>(null);
   const [analysisError, setAnalysisError] = useState<string>('');
 
   // Actionable Filter State
@@ -61,7 +61,7 @@ export default function MessageSummaryView({
     setAnalyzing(true);
     setAnalysisError('');
     try {
-      const res = await fetch('/api/jev/analyze', {
+      const res = await fetch('/api/groq/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: allMessages }),
@@ -73,7 +73,7 @@ export default function MessageSummaryView({
         setAnalysisError(data.error || 'Failed to complete analysis');
       }
     } catch (err: any) {
-      setAnalysisError(err.message || 'Error running Jev AI analysis');
+      setAnalysisError(err.message || 'Error running Groq AI analysis');
     } finally {
       setAnalyzing(false);
     }
@@ -119,12 +119,12 @@ export default function MessageSummaryView({
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <h2 className="section-title">Message Summary &amp; Intelligence</h2>
-            <span className="ai-badge">
-              <Sparkles size={12} /> Jev AI Engine
+            <span className="ai-badge groq">
+              <Sparkles size={12} /> Groq AI Engine
             </span>
           </div>
           <p className="section-subtitle">
-            Automated intelligence overview, executive conversation summaries, and real-time actionable triage.
+            Automated intelligence overview, executive conversation summaries, and real-time actionable triage powered by Groq LPU.
           </p>
         </div>
         <div className="header-actions">
@@ -135,7 +135,7 @@ export default function MessageSummaryView({
             disabled={analyzing}
           >
             <RotateCw size={14} className={analyzing ? 'animate-spin' : ''} />
-            <span>{analyzing ? 'Analyzing with Jev...' : '⚡ Run Jev AI Analysis'}</span>
+            <span>{analyzing ? 'Analyzing with Groq...' : '⚡ Run Groq AI Analysis'}</span>
           </button>
         </div>
       </div>
@@ -168,7 +168,7 @@ export default function MessageSummaryView({
             </div>
           </div>
           <div className="kpi-value">{totalAnalyzed}</div>
-          <div className="kpi-subtext">Processed by Jev decision model</div>
+          <div className="kpi-subtext">Processed by Groq LPU engine</div>
         </div>
 
         <div className="summary-kpi-card">
@@ -297,8 +297,8 @@ export default function MessageSummaryView({
               </h3>
               <p className="empty-description">
                 {allMessages.length === 0
-                  ? 'Once connected to WhatsApp via 2Chat, all incoming messages will be continuously analyzed by Jev AI for urgent payments, schedule updates, and action items.'
-                  : 'Jev AI evaluated your WhatsApp discussions. Messages containing urgent payments, changes in office arrival times, or critical tasks will appear here automatically.'}
+                  ? 'Once connected to WhatsApp via 2Chat, all incoming messages will be continuously analyzed by Groq AI for urgent payments, schedule updates, and action items.'
+                  : 'Groq AI evaluated your WhatsApp discussions. Messages containing urgent payments, changes in office arrival times, or critical tasks will appear here automatically.'}
               </p>
               <div className="empty-actions">
                 <button
@@ -314,7 +314,7 @@ export default function MessageSummaryView({
                   className="btn-secondary"
                   onClick={onNavigateToDeveloper}
                 >
-                  <span>Configure Jev AI Key</span>
+                  <span>Configure Groq AI Key</span>
                   <ArrowRight size={15} />
                 </button>
               </div>
@@ -463,10 +463,10 @@ export default function MessageSummaryView({
                 <FileQuestion size={36} />
               </div>
               <h3 className="empty-title">
-                No group summaries available yet. Click "Run Jev AI Analysis" to summarize.
+                No group summaries available yet. Click "Run Groq AI Analysis" to summarize.
               </h3>
               <p className="empty-description">
-                Jev AI analyzes conversation threads, identifies topic themes, and generates an executive overview for each WhatsApp group.
+                Groq AI analyzes conversation threads, identifies topic themes, and generates an executive overview for each WhatsApp group.
               </p>
               <button
                 type="button"
@@ -474,7 +474,7 @@ export default function MessageSummaryView({
                 onClick={runAnalysis}
                 disabled={analyzing}
               >
-                <span>{analyzing ? 'Analyzing...' : '⚡ Run Jev AI Analysis'}</span>
+                <span>{analyzing ? 'Analyzing...' : '⚡ Run Groq AI Analysis'}</span>
               </button>
             </div>
           ) : (

@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { getJevConfig, setJevConfig } from '@/lib/jev-client';
+import { getGroqConfig, setGroqConfig } from '@/lib/groq-client';
 
 export async function GET() {
-  const conf = getJevConfig();
+  const conf = getGroqConfig();
   const isConfigured = Boolean(conf.apiKey && conf.apiKey.trim().length > 0);
   const maskedKey = isConfigured
     ? `${conf.apiKey.slice(0, 4)}••••••••${conf.apiKey.slice(-4)}`
@@ -23,10 +23,10 @@ export async function POST(req: Request) {
     const { apiKey, endpoint, model } = body;
 
     if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
-      return NextResponse.json({ error: 'Jev API key is required.' }, { status: 400 });
+      return NextResponse.json({ error: 'API key is required.' }, { status: 400 });
     }
 
-    const updated = setJevConfig({
+    const updated = setGroqConfig({
       apiKey: apiKey.trim(),
       endpoint: endpoint ? String(endpoint).trim() : undefined,
       model: model ? String(model).trim() : undefined,
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      message: 'Jev AI configuration saved securely on server.',
+      message: 'Groq configuration saved securely on server.',
       model: updated.model,
       endpoint: updated.endpoint,
     });
