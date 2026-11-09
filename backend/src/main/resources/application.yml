@@ -38,6 +38,12 @@ meta:
   app-secret: ${META_APP_SECRET:}
   webhook-verify-token: ${META_WEBHOOK_VERIFY_TOKEN:}
 
+groq:
+  api:
+    model: ${GROQ_MODEL:openai/gpt-oss-120b}
+    endpoint: ${GROQ_ENDPOINT:https://api.groq.com/openai/v1/chat/completions}
+    key: ${GROQ_API_KEY:}
+
 app:
   dashboard-admin-key: ${DASHBOARD_ADMIN_API_KEY:}
   media:

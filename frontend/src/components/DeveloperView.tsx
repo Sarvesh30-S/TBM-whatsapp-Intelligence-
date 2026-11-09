@@ -49,7 +49,7 @@ export default function DeveloperView({
   const [showGroqKey, setShowGroqKey] = useState<boolean>(false);
   const [groqKeyCopied, setGroqKeyCopied] = useState<boolean>(false);
   const [groqEndpoint, setGroqEndpoint] = useState<string>('https://api.groq.com/openai/v1/chat/completions');
-  const [groqModel, setGroqModel] = useState<string>('llama-3.3-70b-versatile');
+  const [groqModel, setGroqModel] = useState<string>('openai/gpt-oss-120b');
   const [groqStatus, setGroqStatus] = useState<'Not Configured' | 'Connected' | 'Connection Failed'>('Not Configured');
   const [groqNotice, setGroqNotice] = useState<string>('');
   const [testingGroq, setTestingGroq] = useState<boolean>(false);
@@ -354,7 +354,7 @@ export default function DeveloperView({
                 </span>
               </div>
               <p className="settings-card-desc">
-                Connect the Groq API (Llama 3.3 70B Versatile) for ultra-fast, high-accuracy message summarization, actionable triage, and intelligence extraction.
+                Connect the Groq API (openai/gpt-oss-120b) for ultra-fast, high-accuracy message summarization, actionable triage, and intelligence extraction.
               </p>
             </div>
           </div>

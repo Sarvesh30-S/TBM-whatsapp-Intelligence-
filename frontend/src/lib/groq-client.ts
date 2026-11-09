@@ -2,7 +2,7 @@
  * Groq AI Intelligence Client & Message Summarizer
  *
  * Powered by Groq's ultra-low latency LPU inference engine
- * using state-of-the-art models (e.g. Llama 3.3 70B Versatile).
+ * using state-of-the-art models (e.g. openai/gpt-oss-120b).
  */
 
 export interface GroqConfig {
@@ -58,7 +58,7 @@ export interface GroqAnalysisResult {
 let globalGroqConfig: GroqConfig = {
   apiKey: process.env.GROQ_API_KEY || '',
   endpoint: process.env.GROQ_API_ENDPOINT || 'https://api.groq.com/openai/v1/chat/completions',
-  model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+  model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
 };
 
 export function getGroqConfig(): GroqConfig {
@@ -76,19 +76,82 @@ export function setGroqConfig(conf: Partial<GroqConfig>): GroqConfig {
 }
 
 /**
- * Test Groq AI API Connection
+ * Check whether a model is available to the user's Groq account (Task 8)
  */
-export async function testGroqConnection(config: GroqConfig): Promise<{ success: boolean; message: string; latencyMs?: number }> {
+export async function checkGroqModelAvailability(apiKey: string, targetModel: string): Promise<{
+  available: boolean;
+  models: string[];
+  message: string;
+}> {
+  if (!apiKey || !apiKey.trim()) {
+    return { available: false, models: [], message: 'Groq API key is empty.' };
+  }
+
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/models', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${apiKey.trim()}`,
+      },
+      signal: AbortSignal.timeout(6000),
+    });
+
+    if (res.status === 401) {
+      return {
+        available: false,
+        models: [],
+        message: 'Authentication failed (HTTP 401): Invalid Groq API Key.',
+      };
+    }
+
+    if (!res.ok) {
+      return {
+        available: false,
+        models: [],
+        message: `Failed to query Groq models (HTTP ${res.status}).`,
+      };
+    }
+
+    const data = await res.json();
+    const modelList: string[] = Array.isArray(data.data) ? data.data.map((m: any) => m.id) : [];
+    const isAvailable = modelList.includes(targetModel.trim());
+
+    return {
+      available: isAvailable,
+      models: modelList,
+      message: isAvailable
+        ? `Model '${targetModel}' is verified and available on your Groq account.`
+        : `Model '${targetModel}' is not in your Groq account's active model list. Available models: ${modelList.slice(0, 8).join(', ')}`,
+    };
+  } catch (err: any) {
+    return {
+      available: false,
+      models: [],
+      message: `Could not reach Groq models endpoint: ${err.message}`,
+    };
+  }
+}
+
+/**
+ * Test Groq AI API Connection with robust HTTP 401, 404, 429, 5xx handling
+ */
+export async function testGroqConnection(config: GroqConfig): Promise<{
+  success: boolean;
+  message: string;
+  latencyMs?: number;
+  availableModels?: string[];
+}> {
   if (!config.apiKey || !config.apiKey.trim()) {
     return { success: false, message: 'Groq API key is empty. Please enter your Groq API key.' };
   }
 
   const endpoint = config.endpoint.trim();
+  const targetModel = config.model?.trim() || 'openai/gpt-oss-120b';
   const startTime = Date.now();
 
   try {
     const payload = {
-      model: config.model || 'llama-3.3-70b-versatile',
+      model: targetModel,
       messages: [
         {
           role: 'user',
@@ -118,14 +181,47 @@ export async function testGroqConnection(config: GroqConfig): Promise<{ success:
     if (res.ok) {
       return {
         success: true,
-        message: `Connected to Groq AI (${config.model}) successfully in ${latencyMs}ms.`,
+        message: `Connected to Groq AI (${targetModel}) successfully in ${latencyMs}ms.`,
         latencyMs,
       };
     }
 
     const errBody = await res.text().catch(() => '');
+
+    // Handle HTTP 401, 404, 429, and 5xx errors specifically
     if (res.status === 401) {
-      return { success: false, message: 'Authentication failed (HTTP 401): Invalid Groq API Key.' };
+      return {
+        success: false,
+        message: 'Authentication failed (HTTP 401): Invalid Groq API Key. Please verify your API key in the Groq Console.',
+        latencyMs,
+      };
+    }
+
+    if (res.status === 404) {
+      // Check availability against account's model list
+      const check = await checkGroqModelAvailability(config.apiKey, targetModel);
+      return {
+        success: false,
+        message: `Groq API returned status 404: The model \`${targetModel}\` does not exist or your Groq account does not have access to it. ${check.message}`,
+        latencyMs,
+        availableModels: check.models,
+      };
+    }
+
+    if (res.status === 429) {
+      return {
+        success: false,
+        message: 'Groq API rate limit or TPM/RPM quota reached (HTTP 429). Please retry after a brief delay or upgrade tier in Groq Console.',
+        latencyMs,
+      };
+    }
+
+    if (res.status >= 500) {
+      return {
+        success: false,
+        message: `Groq inference server error (HTTP ${res.status}): ${errBody.slice(0, 180) || res.statusText}`,
+        latencyMs,
+      };
     }
 
     return {
@@ -321,7 +417,7 @@ Respond strictly in valid JSON matching this schema:
         Authorization: `Bearer ${config.apiKey.trim()}`,
       },
       body: JSON.stringify({
-        model: config.model || 'llama-3.3-70b-versatile',
+        model: config.model || 'openai/gpt-oss-120b',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: JSON.stringify(formattedMessages) },
@@ -551,6 +647,6 @@ export async function analyzeAllMessagesWithGroq(
     actionableItems,
     groupSummaries,
     analyzedAt: new Date().toISOString(),
-    modelUsed: config.apiKey ? (config.model || 'llama-3.3-70b-versatile') : 'Groq Hybrid Engine',
+    modelUsed: config.apiKey ? (config.model || 'openai/gpt-oss-120b') : 'Groq Hybrid Engine',
   };
 }

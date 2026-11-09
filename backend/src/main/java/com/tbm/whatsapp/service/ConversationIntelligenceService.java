@@ -36,6 +36,7 @@ public class ConversationIntelligenceService {
     private final ConversationSummaryRepository summaries;
     private final ImportantMessageInsightRepository insights;
     private final OpenAiContentService openAi;
+    private final GroqContentService groq;
     private final ObjectMapper objectMapper;
     private final double confidenceThreshold;
     private final ApplicationEventPublisher eventPublisher;
@@ -46,6 +47,7 @@ public class ConversationIntelligenceService {
                                           ConversationSummaryRepository summaries,
                                           ImportantMessageInsightRepository insights,
                                           OpenAiContentService openAi,
+                                          GroqContentService groq,
                                           ObjectMapper objectMapper,
                                           ApplicationEventPublisher eventPublisher,
                                           @Value("${app.ai.confidence-threshold:0.75}") double confidenceThreshold) {
@@ -55,6 +57,7 @@ public class ConversationIntelligenceService {
         this.summaries = summaries;
         this.insights = insights;
         this.openAi = openAi;
+        this.groq = groq;
         this.objectMapper = objectMapper;
         this.eventPublisher = eventPublisher;
         this.confidenceThreshold = Math.max(0, Math.min(1, confidenceThreshold));
@@ -86,7 +89,25 @@ public class ConversationIntelligenceService {
 
         List<OpenAiContentService.MessageForSummary> analyzable = attachMediaText(batch);
         if (analyzable == null || analyzable.isEmpty()) return previous;
-        OpenAiContentService.SummaryResult result = openAi.summarize(pod.getMetaGroupId(), analyzable);
+
+        OpenAiContentService.SummaryResult result;
+        String provider;
+        String modelName;
+
+        if (groq != null && groq.isConfigured()) {
+            result = groq.summarize(pod.getMetaGroupId(), analyzable);
+            provider = "groq";
+            modelName = groq.modelName();
+        } else if (openAi != null && openAi.isConfigured()) {
+            result = openAi.summarize(pod.getMetaGroupId(), analyzable);
+            provider = "openai";
+            modelName = openAi.modelName();
+        } else {
+            result = groq != null ? groq.summarize(pod.getMetaGroupId(), analyzable) : openAi.summarize(pod.getMetaGroupId(), analyzable);
+            provider = "heuristic";
+            modelName = "rules-engine";
+        }
+
         List<String> sourceIds = analyzable.stream().map(message -> message.id().toString()).toList();
         Instant windowStart = analyzable.getFirst().receivedAt();
         Instant windowEnd = analyzable.getLast().receivedAt();
@@ -95,8 +116,7 @@ public class ConversationIntelligenceService {
         ConversationSummary stored = summaries.saveAndFlush(new ConversationSummary(UUID.randomUUID(),
                 pod.getCampaignId(), podId, windowStart, windowEnd, result.summary(), result.confidence(),
                 summaryReviewStatus, objectMapper.writeValueAsString(sourceIds),
-                openAi.isConfigured() ? "openai" : "heuristic",
-                openAi.isConfigured() ? openAi.modelName() : "rules-engine", now));
+                provider, modelName, now));
         for (OpenAiContentService.InsightResult item : result.items()) {
             List<String> validSourceIds = item.sourceMessageIds().stream().filter(sourceIds::contains).distinct().toList();
             if (validSourceIds.isEmpty()) continue;

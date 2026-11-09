@@ -28,3 +28,9 @@ services:
         value: "Sarvesh@30"
       - key: DASHBOARD_ADMIN_API_KEY
         value: "fNA3ZlwPK1YlRLSgcKrfNyjws4bJx9XoG445T0xbDD0"
+      - key: GROQ_MODEL
+        value: "openai/gpt-oss-120b"
+      - key: GROQ_ENDPOINT
+        value: "https://api.groq.com/openai/v1/chat/completions"
+      - key: GROQ_API_KEY
+        sync: false
