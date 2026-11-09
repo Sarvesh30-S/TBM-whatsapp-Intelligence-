@@ -9,6 +9,7 @@ import MessageSummaryView from '@/components/MessageSummaryView';
 import PriorityInboxView from '@/components/PriorityInboxView';
 import DeveloperView from '@/components/DeveloperView';
 import AdminManagementView from '@/components/AdminManagementView';
+import LoginView from '@/components/LoginView';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { TwoChatConversation, TwoChatMessage } from '@/lib/types';
 
@@ -65,7 +66,7 @@ function deduplicateList(messages: TwoChatMessage[]): TwoChatMessage[] {
 }
 
 function DashboardContent() {
-  const { user, canAccessSection } = useAuth();
+  const { user, canAccessSection, isAuthenticated, isLoading } = useAuth();
   const [currentSection, setCurrentSection] = useState<DashboardSection>('overview');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
 
@@ -86,6 +87,7 @@ function DashboardContent() {
   const [apiErrors, setApiErrors] = useState<string[]>([]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     let keyToUse = '';
     if (typeof window !== 'undefined') {
       const savedKey = localStorage.getItem('2chat_api_key') || '';
@@ -123,7 +125,7 @@ function DashboardContent() {
     }
 
     loadData(keyToUse);
-  }, []);
+  }, [isAuthenticated]);
 
   const loadData = async (key?: string, specificChatId?: string, isGroup?: boolean, groupUuid?: string) => {
     setLoading(true);
@@ -313,6 +315,21 @@ function DashboardContent() {
     developer: 'Developer & Telemetry Console',
     admin: 'Access Control & Administration',
   };
+
+  if (isLoading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-canvas)' }}>
+        <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+          <div style={{ width: 36, height: 36, borderRadius: '50%', border: '3px solid var(--accent-primary)', borderTopColor: 'transparent', margin: '0 auto 16px', animation: 'spin 0.8s linear infinite' }} />
+          <p style={{ fontSize: 14, fontWeight: 500 }}>Initializing secure enterprise session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !user) {
+    return <LoginView />;
+  }
 
   return (
     <div className="saas-app-layout">

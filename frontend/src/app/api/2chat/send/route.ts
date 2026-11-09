@@ -2,11 +2,37 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sendTwoChatMessage } from '@/lib/twochat-api';
 import { addStoredMessage } from '@/lib/message-store';
 import { TwoChatMessage } from '@/lib/types';
+import { getAuthenticatedUser } from '@/lib/backend-proxy';
 
 export async function POST(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Authentication required to send messages' },
+        { status: 401 }
+      );
+    }
+
+    if (user.roles?.includes('ROLE_DEVELOPER')) {
+      return NextResponse.json(
+        { error: 'Forbidden: Developer role is strictly prohibited from sending WhatsApp messages' },
+        { status: 403 }
+      );
+    }
+
+    const hasSendPermission = user.permissions?.includes('WHATSAPP_MESSAGE_SEND');
+    if (!hasSendPermission) {
+      return NextResponse.json(
+        { error: 'Forbidden: You do not have permission to send WhatsApp messages' },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
-    const apiKey = body.apiKey || process.env.TWOCHAT_API_KEY;
+    // Only ADMIN can override API key from client body; otherwise use server environment
+    const isAdmin = user.roles?.includes('ROLE_ADMIN');
+    const apiKey = (isAdmin && body.apiKey) ? body.apiKey : process.env.TWOCHAT_API_KEY;
     const { fromNumber, toNumber, toGroupUuid, text, groupName } = body;
 
     if (!apiKey) {

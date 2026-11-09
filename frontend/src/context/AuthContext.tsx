@@ -29,12 +29,14 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Standard mock demo profiles for paired frontend testing when backend is offline
-const DEMO_PROFILES: Record<string, UserProfile> = {
+const IS_DEMO_ENABLED = process.env.NEXT_PUBLIC_ENABLE_DEMO_MODE === 'true';
+
+// Optional demo profiles for isolated development UI inspection only (requires NEXT_PUBLIC_ENABLE_DEMO_MODE=true)
+const DEV_DEMO_PROFILES: Record<string, UserProfile> = {
   ADMIN: {
     id: 'u-admin-001',
     email: 'admin@tbm.internal',
-    fullName: 'System Administrator',
+    fullName: 'System Administrator (Dev)',
     jobTitle: 'Head of Infrastructure',
     departmentCode: 'EXECUTIVE',
     departmentName: 'Executive Management',
@@ -52,7 +54,7 @@ const DEMO_PROFILES: Record<string, UserProfile> = {
   MANAGER: {
     id: 'u-mgr-002',
     email: 'sarvesh.manager@tbm.internal',
-    fullName: 'Sarvesh Deshpande',
+    fullName: 'Sarvesh Deshpande (Dev)',
     jobTitle: 'Fleet Operations Manager',
     departmentCode: 'OPERATIONS',
     departmentName: 'Fleet & General Operations',
@@ -73,7 +75,7 @@ const DEMO_PROFILES: Record<string, UserProfile> = {
   C_SUITE: {
     id: 'u-csuite-003',
     email: 'executive@tbm.internal',
-    fullName: 'Executive Leadership',
+    fullName: 'Executive Leadership (Dev)',
     jobTitle: 'Chief Operations Officer',
     departmentCode: 'EXECUTIVE',
     departmentName: 'Executive Management',
@@ -89,7 +91,7 @@ const DEMO_PROFILES: Record<string, UserProfile> = {
   DEVELOPER: {
     id: 'u-dev-004',
     email: 'dev@tbm.internal',
-    fullName: 'DevOps Engineer',
+    fullName: 'DevOps Engineer (Dev)',
     jobTitle: 'Systems Architect',
     departmentCode: 'ENGINEERING',
     departmentName: 'Engineering & Technology',
@@ -105,7 +107,7 @@ const DEMO_PROFILES: Record<string, UserProfile> = {
   EMPLOYEE: {
     id: 'u-emp-005',
     email: 'employee@tbm.internal',
-    fullName: 'Operations Associate',
+    fullName: 'Operations Associate (Dev)',
     jobTitle: 'Fleet Specialist',
     departmentCode: 'OPERATIONS',
     departmentName: 'Fleet & General Operations',
@@ -120,26 +122,41 @@ const DEMO_PROFILES: Record<string, UserProfile> = {
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<UserProfile | null>(() => DEMO_PROFILES.MANAGER);
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Attempt to restore session via refresh token on mount
+  // Restore session via refresh token on mount
   useEffect(() => {
     let isMounted = true;
     async function restoreSession() {
       try {
-        const res = await fetch('/api/v1/auth/me');
-        if (res.ok && isMounted) {
-          const profile: UserProfile = await res.json();
-          setUser(profile);
+        // 1. Exchange HttpOnly refresh cookie for a short-lived access token
+        const refreshRes = await fetch('/api/v1/auth/refresh', { method: 'POST' });
+        if (refreshRes.ok) {
+          const refreshData = await refreshRes.json();
+          const freshToken: string = refreshData.accessToken;
+          if (isMounted) setToken(freshToken);
+
+          // 2. Fetch authenticated profile
+          const meRes = await fetch('/api/v1/auth/me', {
+            headers: { Authorization: `Bearer ${freshToken}` },
+          });
+          if (meRes.ok && isMounted) {
+            const profile: UserProfile = await meRes.json();
+            setUser(profile);
+          }
         }
       } catch {
-        // Fallback to active demo state if running detached
+        // Session cannot be restored; remains unauthenticated
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
     }
     restoreSession();
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
@@ -160,66 +177,81 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         const errorData = await res.json().catch(() => ({}));
         setIsLoading(false);
-        return { success: false, error: errorData.error || errorData.message || 'Login failed' };
+        return {
+          success: false,
+          error: errorData.error || errorData.message || 'Invalid email or password.',
+        };
       }
-    } catch {
-      // Local fallback for dev/preview
-      const matched = Object.values(DEMO_PROFILES).find((p) => p.email.toLowerCase() === email.toLowerCase());
-      if (matched) {
-        setUser(matched);
-        setIsLoading(false);
-        return { success: true };
-      }
+    } catch (err: any) {
       setIsLoading(false);
-      return { success: false, error: 'Could not connect to authentication server' };
+      return {
+        success: false,
+        error: 'Could not connect to authentication server. Please check your network or try again.',
+      };
     }
   }, []);
 
   const logout = useCallback(async () => {
     try {
-      await fetch('/api/v1/auth/logout', { method: 'POST' });
+      await fetch('/api/v1/auth/logout', {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
     } catch {
       // Ignore network errors on logout
     }
     setUser(null);
     setToken(null);
-  }, []);
+  }, [token]);
 
-  const hasRole = useCallback((role: string) => {
-    if (!user) return false;
-    return user.roles.some((r) => r === role || r === `ROLE_${role}`);
-  }, [user]);
+  const hasRole = useCallback(
+    (role: string) => {
+      if (!user) return false;
+      return user.roles.some((r) => r === role || r === `ROLE_${role}`);
+    },
+    [user]
+  );
 
-  const hasPermission = useCallback((permission: string) => {
-    if (!user) return false;
-    return user.permissions.includes(permission);
-  }, [user]);
+  const hasPermission = useCallback(
+    (permission: string) => {
+      if (!user) return false;
+      return user.permissions.includes(permission);
+    },
+    [user]
+  );
 
-  const canAccessSection = useCallback((section: string) => {
-    if (!user) return false;
-    switch (section) {
-      case 'overview':
-        return true;
-      case 'test-messages':
-        return true; // Read-only viewing permitted; send action is gated by WHATSAPP_MESSAGE_SEND
-      case 'message-summary':
-        return hasPermission('SUMMARY_READ') || hasPermission('EXECUTIVE_BI_READ');
-      case 'priority-inbox':
-        return hasPermission('PRIORITY_INBOX_READ');
-      case 'developer':
-        return hasPermission('TELEMETRY_READ') || hasRole('DEVELOPER') || hasRole('ADMIN');
-      case 'admin':
-        return hasPermission('USER_MANAGE') || hasRole('ADMIN');
-      default:
-        return false;
-    }
-  }, [user, hasPermission, hasRole]);
+  const canAccessSection = useCallback(
+    (section: string) => {
+      if (!user) return false;
+      switch (section) {
+        case 'overview':
+          return true;
+        case 'test-messages':
+          return true; // Read-only viewing permitted; send action is strictly gated on backend
+        case 'message-summary':
+          return hasPermission('SUMMARY_READ') || hasPermission('EXECUTIVE_BI_READ');
+        case 'priority-inbox':
+          return hasPermission('PRIORITY_INBOX_READ');
+        case 'developer':
+          return hasPermission('TELEMETRY_READ') || hasRole('DEVELOPER') || hasRole('ADMIN');
+        case 'admin':
+          return hasPermission('USER_MANAGE') || hasRole('ADMIN');
+        default:
+          return false;
+      }
+    },
+    [user, hasPermission, hasRole]
+  );
 
-  const switchDemoRole = useCallback((roleKey: string) => {
-    if (DEMO_PROFILES[roleKey]) {
-      setUser(DEMO_PROFILES[roleKey]);
-    }
-  }, []);
+  const switchDemoRole = useCallback(
+    (roleKey: string) => {
+      if (IS_DEMO_ENABLED && DEV_DEMO_PROFILES[roleKey]) {
+        setUser(DEV_DEMO_PROFILES[roleKey]);
+        setToken('dev-demo-token');
+      }
+    },
+    []
+  );
 
   return (
     <AuthContext.Provider
@@ -233,7 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         hasRole,
         hasPermission,
         canAccessSection,
-        switchDemoRole,
+        switchDemoRole: IS_DEMO_ENABLED ? switchDemoRole : undefined,
       }}
     >
       {children}

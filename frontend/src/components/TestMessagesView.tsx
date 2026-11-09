@@ -11,8 +11,10 @@ import {
   ExternalLink,
   ChevronRight,
   Key,
+  Lock,
 } from 'lucide-react';
 import { TwoChatConversation, TwoChatMessage } from '@/lib/types';
+import { useAuth } from '@/context/AuthContext';
 
 interface TestMessagesViewProps {
   apiKey: string;
@@ -102,6 +104,7 @@ export default function TestMessagesView({
   onClearMessages,
   onNavigateToDeveloper,
 }: TestMessagesViewProps) {
+  const { hasPermission } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll when active chat or messages change
@@ -409,25 +412,32 @@ export default function TestMessagesView({
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Message Composer / Reply Testing Form */}
-              <form className="thread-composer" onSubmit={onSendMessage}>
-                <input
-                  type="text"
-                  className="composer-input"
-                  placeholder={`Write a test message or reply to ${selectedChat.name}...`}
-                  value={replyText}
-                  onChange={(e) => onSetReplyText(e.target.value)}
-                  disabled={sending}
-                />
-                <button
-                  type="submit"
-                  disabled={sending || !replyText.trim()}
-                  style={{ minWidth: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-                >
-                  <Send size={13} />
-                  <span>{sending ? '...' : 'Send'}</span>
-                </button>
-              </form>
+              {/* Message Composer / Reply Testing Form - Gated by WHATSAPP_MESSAGE_SEND */}
+              {hasPermission('WHATSAPP_MESSAGE_SEND') ? (
+                <form className="thread-composer" onSubmit={onSendMessage}>
+                  <input
+                    type="text"
+                    className="composer-input"
+                    placeholder={`Write a test message or reply to ${selectedChat.name}...`}
+                    value={replyText}
+                    onChange={(e) => onSetReplyText(e.target.value)}
+                    disabled={sending}
+                  />
+                  <button
+                    type="submit"
+                    disabled={sending || !replyText.trim()}
+                    style={{ minWidth: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                  >
+                    <Send size={13} />
+                    <span>{sending ? '...' : 'Send'}</span>
+                  </button>
+                </form>
+              ) : (
+                <div style={{ padding: '12px 16px', backgroundColor: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#64748b' }}>
+                  <Lock size={15} style={{ color: '#94a3b8' }} />
+                  <span>Outbound messaging disabled: Requires <strong>WHATSAPP_MESSAGE_SEND</strong> permission. Contact an Administrator to request sending privileges.</span>
+                </div>
+              )}
             </>
           ) : (
             <div className="empty-chat-state">

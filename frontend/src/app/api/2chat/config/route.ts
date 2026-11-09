@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { getAuthenticatedUser } from '@/lib/backend-proxy';
 import {
   clearTwoChatCache,
   fetchTwoChatChannels,
@@ -9,6 +10,18 @@ import {
 
 export async function POST(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized: Authentication required' }, { status: 401 });
+    }
+    const isAuthorized = user.roles?.includes('ROLE_ADMIN') || user.permissions?.includes('SYSTEM_CONFIG_MANAGE');
+    if (!isAuthorized) {
+      return NextResponse.json(
+        { error: 'Forbidden: Admin access required to update 2Chat configuration' },
+        { status: 403 }
+      );
+    }
+
     const { apiKey, webhookUrl } = await req.json();
     if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
       return NextResponse.json({ error: 'API key is required' }, { status: 400 });

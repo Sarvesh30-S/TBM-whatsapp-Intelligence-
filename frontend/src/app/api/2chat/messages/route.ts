@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addStoredMessages, loadStoredMessages } from '@/lib/message-store';
+import { getAuthenticatedUser } from '@/lib/backend-proxy';
 import {
   cleanDigits,
   fetchTwoChatChannels,
@@ -19,9 +20,28 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Authentication required to view messages' },
+        { status: 401 }
+      );
+    }
+
+    const hasReadPermission =
+      user.permissions?.includes('WHATSAPP_CONTENT_READ') ||
+      user.roles?.includes('ROLE_ADMIN');
+    if (!hasReadPermission) {
+      return NextResponse.json(
+        { error: 'Forbidden: You do not have permission to access WhatsApp messages' },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
-    const queryKey = searchParams.get('apiKey');
-    const headerKey = req.headers.get('x-user-api-key');
+    const isAdmin = user.roles?.includes('ROLE_ADMIN');
+    const queryKey = isAdmin ? searchParams.get('apiKey') : null;
+    const headerKey = isAdmin ? req.headers.get('x-user-api-key') : null;
     const envKey = process.env.TWOCHAT_API_KEY;
     const apiKey = (queryKey || headerKey || envKey || '').trim();
 
@@ -315,7 +335,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       apiKeyConfigured: Boolean(apiKey),
-      apiKey: apiKey || undefined,
       channels,
       activeChannel,
       groups,
