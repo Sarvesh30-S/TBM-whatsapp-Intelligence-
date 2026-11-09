@@ -21,6 +21,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   register: (fullName: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  loginAsDemo: (role?: string) => void;
   logout: () => Promise<void>;
   hasRole: (role: string) => boolean;
   hasPermission: (permission: string) => boolean;
@@ -127,10 +128,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Restore session via refresh token on mount
+  // Restore session via refresh token or demo session on mount
   useEffect(() => {
     let isMounted = true;
     async function restoreSession() {
+      // 0. Check for instant active demo session
+      if (typeof window !== 'undefined') {
+        const storedDemo = sessionStorage.getItem('tbm_demo_user');
+        if (storedDemo) {
+          try {
+            const parsed = JSON.parse(storedDemo);
+            if (parsed && parsed.id) {
+              if (isMounted) {
+                setUser(parsed);
+                setToken('demo-jwt-token');
+                setIsLoading(false);
+              }
+              return;
+            }
+          } catch {}
+        }
+      }
+
       try {
         // 1. Exchange HttpOnly refresh cookie for a short-lived access token
         const refreshRes = await fetch('/api/v1/auth/refresh', { method: 'POST' });
@@ -224,7 +243,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const loginAsDemo = useCallback((roleKey: string = 'ADMIN') => {
+    const profile = DEV_DEMO_PROFILES[roleKey] || DEV_DEMO_PROFILES.ADMIN;
+    setUser(profile);
+    setToken('demo-jwt-token');
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('tbm_demo_user', JSON.stringify(profile));
+    }
+  }, []);
+
   const logout = useCallback(async () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('tbm_demo_user');
+    }
     try {
       await fetch('/api/v1/auth/logout', {
         method: 'POST',
@@ -298,6 +329,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         login,
         register,
+        loginAsDemo,
         logout,
         hasRole,
         hasPermission,

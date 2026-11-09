@@ -11,6 +11,7 @@ import {
   User as UserIcon,
   UserPlus,
   LogIn,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -19,7 +20,7 @@ interface LoginViewProps {
 }
 
 export default function LoginView({ onSuccess }: LoginViewProps) {
-  const { login, register, user } = useAuth();
+  const { login, register, loginAsDemo, user } = useAuth();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -361,6 +362,42 @@ export default function LoginView({ onSuccess }: LoginViewProps) {
             {!loading && <ArrowRight size={16} />}
           </button>
         </form>
+
+        {/* Instant 1-Click Access for Live Testing */}
+        <div style={{ marginTop: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <div style={{ flex: 1, height: 1, backgroundColor: 'var(--border-subtle)' }} />
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Instant Portal Preview</span>
+            <div style={{ flex: 1, height: 1, backgroundColor: 'var(--border-subtle)' }} />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              loginAsDemo('ADMIN');
+              if (onSuccess) onSuccess();
+            }}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              padding: '10px 14px',
+              borderRadius: 8,
+              backgroundColor: 'var(--bg-canvas)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border-subtle)',
+              fontWeight: 600,
+              fontSize: 13,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Sparkles size={16} style={{ color: '#4f46e5' }} />
+            <span>Enter as Administrator (Instant 1-Click Access)</span>
+          </button>
+        </div>
 
         {/* Informational badge */}
         {mode === 'signup' && (
