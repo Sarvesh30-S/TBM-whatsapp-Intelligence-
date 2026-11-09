@@ -21,6 +21,7 @@ import {
   MessageSquare,
   Search,
   Filter,
+  Cpu,
 } from 'lucide-react';
 import { TwoChatMessage, TwoChatConversation } from '@/lib/types';
 import {
@@ -132,6 +133,7 @@ export default function MessageSummaryView({
         body: JSON.stringify({
           mode: 'group_intelligence',
           groupName: selectedGroup,
+          dateRange,
           messages: currentGroupMessages.length > 0 ? currentGroupMessages : allMessages,
         }),
       });
@@ -216,16 +218,23 @@ export default function MessageSummaryView({
             <div>
               <div className="group-headline-row">
                 <h1 className="group-main-title">{selectedGroup}</h1>
-                <span className="coverage-pill verified">
-                  <CheckCircle2 size={12} />
+                <span className={`coverage-pill ${briefing?.isCompleteCoverage ? 'verified' : 'partial'}`}>
+                  {briefing?.isCompleteCoverage ? <CheckCircle2 size={12} /> : <AlertTriangle size={12} />}
                   <span>
                     {briefing?.messagesIncluded ?? currentGroupMessages.length} /{' '}
-                    {briefing?.totalMessagesCount ?? currentGroupMessages.length} Messages (100% Complete)
+                    {briefing?.totalMessagesCount ?? currentGroupMessages.length} Messages
+                    {briefing?.isCompleteCoverage
+                      ? ' (100% Database Coverage)'
+                      : ` (${briefing?.messagesExcluded || 0} Excluded)`}
                   </span>
                 </span>
-                <span className="engine-meta-pill">
-                  <Sparkles size={11} />
-                  <span>Groq LPU (openai/gpt-oss-120b)</span>
+                <span className={`engine-meta-pill ${briefing?.metadata?.isLiveAI ? 'live' : 'fallback'}`}>
+                  {briefing?.metadata?.isLiveAI ? <Sparkles size={11} /> : <Cpu size={11} />}
+                  <span>
+                    {briefing?.metadata?.isLiveAI
+                      ? `Groq LPU (${briefing.metadata.model})`
+                      : 'Deterministic Rule Engine (Fallback)'}
+                  </span>
                 </span>
               </div>
               <p className="group-desc-subtext">
@@ -428,12 +437,24 @@ export default function MessageSummaryView({
               <span className="stat-val">{briefing?.isCompleteCoverage ? '100% Complete' : 'Partial'}</span>
             </div>
             <div className="info-card-stat">
-              <span className="stat-label">Messages</span>
-              <span className="stat-val">{briefing?.messagesIncluded ?? currentGroupMessages.length} Analyzed</span>
+              <span className="stat-label">Database Records</span>
+              <span className="stat-val">{briefing?.totalMessagesCount ?? currentGroupMessages.length} Stored</span>
             </div>
             <div className="info-card-stat">
+              <span className="stat-label">Analyzed</span>
+              <span className="stat-val">{briefing?.messagesIncluded ?? currentGroupMessages.length} Messages</span>
+            </div>
+            {Boolean(briefing?.messagesExcluded && briefing.messagesExcluded > 0) && (
+              <div className="info-card-stat">
+                <span className="stat-label">Excluded</span>
+                <span className="stat-val" style={{ color: '#e11d48' }}>{briefing?.messagesExcluded} Messages</span>
+              </div>
+            )}
+            <div className="info-card-stat">
               <span className="stat-label">AI Engine</span>
-              <span className="stat-val">Groq LPU</span>
+              <span className="stat-val" style={{ fontSize: 10.5 }}>
+                {briefing?.metadata?.isLiveAI ? 'Groq LPU (Live)' : 'Deterministic Engine'}
+              </span>
             </div>
           </div>
         </aside>
@@ -445,7 +466,7 @@ export default function MessageSummaryView({
           <div className="editorial-briefing-pane">
             <div className="briefing-paper-card">
               <div className="briefing-title-meta">
-                <span className="document-tag">EXECUTIVE INTELLIGENCE BRIEFING</span>
+                <span className="document-tag">OVERALL CONVERSATION SUMMARY</span>
                 <span className="document-timestamp">
                   Coverage: {new Date(briefing?.dateRange.start || Date.now()).toLocaleDateString()} &mdash;{' '}
                   {new Date(briefing?.dateRange.end || Date.now()).toLocaleDateString()}
@@ -490,9 +511,9 @@ export default function MessageSummaryView({
                   <strong>Processing Integrity:</strong> {briefing?.coverageNote}
                 </div>
                 <div className="audit-provenance">
-                  <span>Provider: Groq LPU</span> &bull; 
-                  <span>Model: {briefing?.metadata.model}</span> &bull; 
-                  <span>Generated: {new Date(briefing?.metadata.generatedAt || Date.now()).toLocaleTimeString()}</span>
+                  <span>Provider: {briefing?.metadata?.provenance || (briefing?.metadata?.isLiveAI ? 'Groq LPU' : 'Deterministic Rule Engine (Fallback)')}</span> &bull; 
+                  <span>Model: {briefing?.metadata?.model}</span> &bull; 
+                  <span>Generated: {new Date(briefing?.metadata?.generatedAt || Date.now()).toLocaleTimeString()}</span>
                 </div>
               </div>
             </div>

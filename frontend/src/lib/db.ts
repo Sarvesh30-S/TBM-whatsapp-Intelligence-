@@ -257,3 +257,95 @@ export async function clearMessagesFromDb(channelNumber?: string): Promise<void>
     await p.query('TRUNCATE TABLE twochat_messages');
   }
 }
+
+export interface GroupHistoryQueryResult {
+  messages: TwoChatMessage[];
+  totalInDb: number;
+  excludedCount: number;
+  excludedDetails: Array<{ id: string; reason: string }>;
+  dateRange: {
+    start: string;
+    end: string;
+  };
+}
+
+/**
+ * Fetch 100% of available messages for a specific group directly from Postgres in strict chronological order.
+ */
+export async function getGroupHistoryFromDb(
+  groupIdentifier: string,
+  dateRangeFilter: 'all' | '24h' | '7d' = 'all'
+): Promise<GroupHistoryQueryResult> {
+  await initDb();
+  const p = getPool();
+  const normalized = (groupIdentifier || '').trim();
+
+  const res = await p.query(
+    `
+    SELECT
+      id, source, channel_number AS "channelNumber", is_group AS "isGroup", group_uuid AS "groupUuid",
+      group_name AS "groupName", chat_name AS "chatName",
+      sender_name AS "senderName", sender_number AS "senderNumber",
+      receiver_name AS "receiverName", receiver_number AS "receiverNumber",
+      from_number AS "fromNumber", to_number AS "toNumber",
+      remote_number AS "remoteNumber", text, quoted_message AS "quotedMessage",
+      sent_by AS "sentBy", timestamp, event, media_url AS "mediaUrl"
+    FROM twochat_messages
+    WHERE (
+      group_name ILIKE $1
+      OR group_uuid = $1
+      OR remote_number = $1
+      OR chat_name ILIKE $1
+    )
+    ORDER BY timestamp ASC
+    `,
+    [normalized]
+  );
+
+  const rawRows = res.rows;
+  const totalInDb = rawRows.length;
+  const excludedDetails: Array<{ id: string; reason: string }> = [];
+
+  const now = Date.now();
+  const validMessages: TwoChatMessage[] = [];
+
+  for (const row of rawRows) {
+    const text = (row.text || '').trim();
+    const media = row.mediaUrl;
+    if (!text && !media) {
+      excludedDetails.push({ id: row.id, reason: 'Empty message text without media attachment' });
+      continue;
+    }
+
+    const ts = row.timestamp ? new Date(row.timestamp).getTime() : 0;
+    if (dateRangeFilter === '24h' && now - ts > 24 * 3600 * 1000) {
+      continue;
+    }
+    if (dateRangeFilter === '7d' && now - ts > 7 * 24 * 3600 * 1000) {
+      continue;
+    }
+
+    validMessages.push({
+      ...row,
+      groupUuid: row.groupUuid || undefined,
+      groupName: row.groupName || undefined,
+      quotedMessage: row.quotedMessage || undefined,
+      mediaUrl: row.mediaUrl || undefined,
+      event: row.event || undefined,
+      channelNumber: row.channelNumber || undefined,
+      timestamp: row.timestamp ? new Date(row.timestamp).toISOString() : new Date().toISOString(),
+    });
+  }
+
+  const deduped = deduplicateMessages(validMessages);
+  const start = deduped[0]?.timestamp || (totalInDb > 0 && rawRows[0]?.timestamp ? new Date(rawRows[0].timestamp).toISOString() : new Date().toISOString());
+  const end = deduped[deduped.length - 1]?.timestamp || start;
+
+  return {
+    messages: deduped,
+    totalInDb,
+    excludedCount: excludedDetails.length,
+    excludedDetails,
+    dateRange: { start, end },
+  };
+}

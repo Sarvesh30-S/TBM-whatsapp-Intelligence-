@@ -1,7 +1,13 @@
 import fs from 'fs';
 import path from 'path';
 import { TwoChatMessage } from './types';
-import { clearMessagesFromDb, getMessagesFromDb, saveMessagesToDb } from './db';
+import {
+  clearMessagesFromDb,
+  getGroupHistoryFromDb,
+  getMessagesFromDb,
+  GroupHistoryQueryResult,
+  saveMessagesToDb,
+} from './db';
 
 /**
  * Supabase Postgres is the single source of truth.
@@ -44,6 +50,34 @@ export async function loadStoredMessages(channelNumber?: string): Promise<TwoCha
     console.warn('Postgres read failed, falling back to file:', err);
     const all = readFallbackFile();
     return channelNumber ? all.filter((m) => !m.channelNumber || m.channelNumber === channelNumber) : all;
+  }
+}
+
+export async function loadGroupHistory(
+  groupIdentifier: string,
+  dateRangeFilter: 'all' | '24h' | '7d' = 'all'
+): Promise<GroupHistoryQueryResult> {
+  try {
+    return await getGroupHistoryFromDb(groupIdentifier, dateRangeFilter);
+  } catch (err) {
+    console.warn('Postgres group history read failed, falling back to file:', err);
+    const all = readFallbackFile();
+    const normalized = (groupIdentifier || '').trim().toLowerCase();
+    const groupMsgs = all.filter((m) => {
+      const g = (m.groupName || m.groupUuid || m.remoteNumber || m.chatName || '').toLowerCase();
+      return g.includes(normalized) || normalized.includes(g);
+    });
+    const sorted = groupMsgs.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    return {
+      messages: sorted,
+      totalInDb: sorted.length,
+      excludedCount: 0,
+      excludedDetails: [],
+      dateRange: {
+        start: sorted[0]?.timestamp || new Date().toISOString(),
+        end: sorted[sorted.length - 1]?.timestamp || new Date().toISOString(),
+      },
+    };
   }
 }
 
