@@ -85,6 +85,7 @@ function DashboardContent() {
   const [webhookUrl, setWebhookUrl] = useState<string>('https://tbm-whatsapp-intelligence.vercel.app/api/webhook/2chat');
   const [statusText, setStatusText] = useState<string>('');
   const [apiErrors, setApiErrors] = useState<string[]>([]);
+  const [targetMessageId, setTargetMessageId] = useState<string>('');
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -407,6 +408,7 @@ function DashboardContent() {
               onSendMessage={handleSendMessage}
               onClearMessages={handleClearMessages}
               onNavigateToDeveloper={() => setCurrentSection('developer')}
+              targetMessageId={targetMessageId}
             />
           )}
 
@@ -415,8 +417,12 @@ function DashboardContent() {
               totalMessagesCount={allMessages.length || 148}
               conversations={conversations}
               allMessages={allMessages}
-              onNavigateToTestMessages={(chatId) => {
+              onNavigateToTestMessages={(chatId, messageId) => {
                 setCurrentSection('test-messages');
+                if (messageId) {
+                  setTargetMessageId(messageId);
+                  setTimeout(() => setTargetMessageId(''), 5000);
+                }
                 if (chatId) {
                   const target = conversations.find(
                     (c) => c.id === chatId || c.groupUuid === chatId || c.phoneOrId === chatId || c.name === chatId

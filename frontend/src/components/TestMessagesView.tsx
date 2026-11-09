@@ -38,6 +38,7 @@ interface TestMessagesViewProps {
   onSendMessage: (e?: React.FormEvent) => Promise<void>;
   onClearMessages: () => Promise<void>;
   onNavigateToDeveloper: () => void;
+  targetMessageId?: string;
 }
 
 function cleanDigits(val: string): string {
@@ -103,14 +104,22 @@ export default function TestMessagesView({
   onSendMessage,
   onClearMessages,
   onNavigateToDeveloper,
+  targetMessageId,
 }: TestMessagesViewProps) {
   const { hasPermission, hasRole } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll when active chat or messages change
+  // Auto-scroll when active chat or messages change, or scroll to targeted message
   useEffect(() => {
+    if (targetMessageId) {
+      const el = document.getElementById(`msg-${targetMessageId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+    }
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [selectedChat, currentChatMessages]);
+  }, [selectedChat, currentChatMessages, targetMessageId]);
 
   const sentCount = allMessages.filter((m) => m.sentBy === 'agent').length;
   const receivedCount = allMessages.filter((m) => m.sentBy === 'customer').length;
@@ -379,7 +388,11 @@ export default function TestMessagesView({
                     const senderDisplay = formatSenderDisplay(msg, activeChannel);
 
                     return (
-                      <div key={msg.id} className="message-list-row">
+                      <div
+                        key={msg.id}
+                        id={`msg-${msg.id}`}
+                        className={`message-list-row ${targetMessageId === msg.id ? 'highlight-pulse' : ''}`}
+                      >
                         {/* Header: Sender's name, direction badge, and timestamp */}
                         <div className="message-list-header">
                           <div className="message-sender-info">

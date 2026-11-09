@@ -1,32 +1,56 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
-  MessageSquare,
   Sparkles,
-  AlertTriangle,
   RotateCw,
-  CreditCard,
-  CalendarClock,
-  ShieldAlert,
-  Layers,
-  ArrowRight,
   Clock,
+  ArrowRight,
   CheckCircle2,
-  ExternalLink,
+  AlertTriangle,
+  FileText,
+  Calendar,
+  Layers,
+  HelpCircle,
   Users,
+  Compass,
+  ListTodo,
+  ExternalLink,
+  ChevronRight,
+  Shield,
+  MessageSquare,
   Search,
+  Filter,
 } from 'lucide-react';
 import { TwoChatMessage, TwoChatConversation } from '@/lib/types';
-import { GroqActionableItem, GroqGroupSummary, GroqAnalysisResult } from '@/lib/groq-client';
+import {
+  GroupIntelligenceBriefing,
+  StorylineStep,
+  TopicDossier,
+  DecisionItem,
+  ActionTrackerItem,
+  PendingDiscussion,
+  ImportantDevelopment,
+  ParticipantContribution,
+} from '@/lib/groq-client';
+import { useAuth } from '@/context/AuthContext';
 
 interface MessageSummaryViewProps {
   totalMessagesCount: number;
   conversations: TwoChatConversation[];
   allMessages: TwoChatMessage[];
-  onNavigateToTestMessages: (chatId?: string) => void;
+  onNavigateToTestMessages: (chatId?: string, messageId?: string) => void;
   onNavigateToDeveloper: () => void;
 }
+
+type SubSection =
+  | 'briefing'
+  | 'storyline'
+  | 'topics'
+  | 'decisions'
+  | 'actions'
+  | 'pending'
+  | 'participants';
 
 export default function MessageSummaryView({
   totalMessagesCount,
@@ -35,400 +59,712 @@ export default function MessageSummaryView({
   onNavigateToTestMessages,
   onNavigateToDeveloper,
 }: MessageSummaryViewProps) {
-  // Master 3-Tab Architecture: 'chats' | 'summary' | 'insights'
-  const [activeTab, setActiveTab] = useState<'chats' | 'summary' | 'insights'>('summary');
+  const { hasRole, hasPermission } = useAuth();
+  const canGenerate = hasRole('ADMIN') || hasRole('MANAGER') || hasPermission('SUMMARY_GENERATE');
 
-  // Selected Group Filter for Chats tab
-  const [selectedChatId, setSelectedChatId] = useState<string>(
-    conversations[0]?.id || 'Fleet Ops Pod'
-  );
+  // Discover group names with real messages
+  const availableGroups = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const msg of allMessages) {
+      const gName = msg.groupName || (msg.isGroup ? msg.chatName || 'WhatsApp Group' : null);
+      if (gName) {
+        map.set(gName, (map.get(gName) || 0) + 1);
+      }
+    }
+    // Also include conversation objects that are groups
+    for (const c of conversations) {
+      if (c.isGroup && c.name && !map.has(c.name)) {
+        map.set(c.name, 0);
+      }
+    }
+    return Array.from(map.entries()).map(([name, count]) => ({ name, count }));
+  }, [allMessages, conversations]);
 
-  // Analysis State
+  // Selected Group state (default to first group with messages or first available group)
+  const [selectedGroup, setSelectedGroup] = useState<string>(() => {
+    if (availableGroups.length > 0) {
+      const best = availableGroups.find((g) => g.count > 0) || availableGroups[0];
+      return best.name;
+    }
+    return 'Client || Blue Tyga x TBM || Celeb execution';
+  });
+
+  // Date range filter: 'all' | '7d' | '24h'
+  const [dateRange, setDateRange] = useState<'all' | '7d' | '24h'>('all');
+
+  // Navigation tab inside Group Intelligence
+  const [activeSection, setActiveSection] = useState<SubSection>('briefing');
+
+  // Selected topic for Topic Explorer
+  const [selectedTopicId, setSelectedTopicId] = useState<string>('');
+
+  // Briefing generation state
   const [analyzing, setAnalyzing] = useState<boolean>(false);
-  const [analysisResult, setAnalysisResult] = useState<GroqAnalysisResult | null>(null);
-  const [analysisError, setAnalysisError] = useState<string>('');
+  const [briefing, setBriefing] = useState<GroupIntelligenceBriefing | null>(null);
+  const [briefingError, setBriefingError] = useState<string>('');
 
-  // Actionable Filter State
-  const [insightCategoryFilter, setInsightCategoryFilter] = useState<
-    'all' | 'payment' | 'time_change' | 'urgent_attention' | 'recruitment'
-  >('all');
+  // Filter messages for current group and date range
+  const currentGroupMessages = useMemo(() => {
+    const now = Date.now();
+    return allMessages
+      .filter((m) => {
+        const mGroup = m.groupName || (m.isGroup ? m.chatName : '');
+        return mGroup && mGroup.toLowerCase() === selectedGroup.toLowerCase();
+      })
+      .filter((m) => {
+        if (dateRange === 'all') return true;
+        const msgTime = new Date(m.timestamp).getTime();
+        if (dateRange === '24h') return now - msgTime <= 24 * 3600 * 1000;
+        if (dateRange === '7d') return now - msgTime <= 7 * 24 * 3600 * 1000;
+        return true;
+      })
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  }, [allMessages, selectedGroup, dateRange]);
 
-  const [selectedUrgency, setSelectedUrgency] = useState<string>('all');
-
-  // Run analysis function
-  const runAnalysis = async () => {
+  // Request new briefing from API
+  const generateGroupBriefing = async () => {
     setAnalyzing(true);
-    setAnalysisError('');
+    setBriefingError('');
     try {
       const res = await fetch('/api/groq/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: allMessages }),
+        body: JSON.stringify({
+          mode: 'group_intelligence',
+          groupName: selectedGroup,
+          messages: currentGroupMessages.length > 0 ? currentGroupMessages : allMessages,
+        }),
       });
-      const data = await res.json();
-      if (data.success && data.data) {
-        setAnalysisResult(data.data);
+
+      const json = await res.json();
+      if (json.success && json.data) {
+        setBriefing(json.data);
+        if (json.data.topics && json.data.topics.length > 0) {
+          setSelectedTopicId(json.data.topics[0].id);
+        }
       } else {
-        setAnalysisError(data.error || 'Failed to complete analysis');
+        setBriefingError(json.error || 'Failed to generate briefing');
       }
     } catch (err: any) {
-      setAnalysisError(err.message || 'Error running Groq AI analysis');
+      setBriefingError(err.message || 'Network error communicating with Groq intelligence service.');
     } finally {
       setAnalyzing(false);
     }
   };
 
+  // Auto-generate on first load or when group changes
   useEffect(() => {
-    if (allMessages.length > 0 && !analysisResult) {
-      runAnalysis();
+    if (selectedGroup) {
+      generateGroupBriefing();
     }
-  }, [allMessages.length]);
+  }, [selectedGroup, dateRange]);
 
-  const filteredActionables = (analysisResult?.actionableItems || []).filter((item) => {
-    if (insightCategoryFilter === 'payment') return item.category === 'payment';
-    if (insightCategoryFilter === 'time_change') return item.category === 'time_change';
-    if (insightCategoryFilter === 'urgent_attention') return item.category === 'urgent_attention';
-    if (insightCategoryFilter === 'recruitment') return item.category === 'recruitment';
-    return true;
-  });
+  // Render markdown bold text cleanly
+  const renderFormattedText = (text: string) => {
+    if (!text) return null;
+    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return (
+          <strong key={i} style={{ color: '#0f172a', fontWeight: 700 }}>
+            {part.slice(2, -2)}
+          </strong>
+        );
+      }
+      return part;
+    });
+  };
 
-  const filteredSummaries = (analysisResult?.groupSummaries || []).filter((grp) => {
-    if (selectedUrgency === 'high' && grp.highPriorityCount === 0) return false;
-    return true;
-  });
+  // Helper for source citation button
+  const renderCitationBadge = (sourceMessageIds?: string[]) => {
+    if (!sourceMessageIds || sourceMessageIds.length === 0) return null;
+    const firstId = sourceMessageIds[0];
+    const displayId = firstId.length > 12 ? firstId.slice(0, 8) + '...' : firstId;
 
-  const totalAnalyzed = analysisResult?.totalAnalyzed ?? (allMessages.length > 0 ? allMessages.length : 0);
-  const urgentPayments = analysisResult?.urgentPaymentsCount ?? 0;
-  const timeChanges = analysisResult?.timeChangesCount ?? 0;
-  const highPriority = analysisResult?.highPriorityCount ?? 0;
+    return (
+      <button
+        type="button"
+        className="citation-badge-btn"
+        onClick={(e) => {
+          e.stopPropagation();
+          onNavigateToTestMessages(selectedGroup, firstId);
+        }}
+        title={`Jump to original WhatsApp message (${firstId})`}
+      >
+        <MessageSquare size={11} />
+        <span>Source #{displayId}</span>
+        <ArrowRight size={10} />
+      </button>
+    );
+  };
 
-  // Selected chat messages for the CHATS tab
-  const activeConversation = conversations.find((c) => c.id === selectedChatId) || conversations[0];
-  const chatMessages = allMessages.filter((m) => {
-    if (activeConversation?.isGroup) {
-      return m.groupUuid === activeConversation.groupUuid || m.groupName === activeConversation.name;
-    }
-    const otherNumber = m.sentBy === 'user' || m.sentBy === 'agent' || m.sentBy === 'api'
-      ? m.toNumber || m.remoteNumber || m.receiverNumber
-      : m.fromNumber || m.remoteNumber || m.senderNumber;
-    return otherNumber === activeConversation?.phoneOrId || otherNumber === activeConversation?.id;
-  });
+  const activeTopic =
+    briefing?.topics.find((t) => t.id === selectedTopicId) || briefing?.topics[0];
 
   return (
-    <div className="message-summary-container">
-      {/* Page Title & Actions */}
-      <div className="overview-header-card">
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <h1 className="overview-greeting">Group Communication Intelligence</h1>
-            <span className="ai-badge groq">
-              <Sparkles size={12} /> Groq LPU (openai/gpt-oss-120b)
-            </span>
-          </div>
-          <p className="overview-subtitle">
-            Synthesized operational workspace with real-time feeds, verifiable citations, and actionable risk extraction.
-          </p>
-        </div>
-        <div>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={runAnalysis}
-            disabled={analyzing}
-          >
-            <RotateCw size={14} className={analyzing ? 'animate-spin' : ''} />
-            <span>{analyzing ? 'Synthesizing...' : 'Re-Analyze with Groq'}</span>
-          </button>
-        </div>
-      </div>
-
-      {analysisError && (
-        <div className="error-banner" style={{ marginBottom: 18 }}>
-          <AlertTriangle size={18} className="error-icon" />
-          <div>{analysisError}</div>
-        </div>
-      )}
-
-      {/* KPI Cards */}
-      <div className="kpi-grid">
-        <div className="kpi-card">
-          <div className="kpi-card-top">
-            <span className="kpi-title">Messages Collected</span>
-            <div className="kpi-icon-bubble" style={{ backgroundColor: '#eef2ff', color: '#4f46e5' }}>
-              <MessageSquare size={16} />
+    <div className="intelligence-view-container">
+      {/* =========================================================================
+          1. GROUP SELECTION & METADATA HEADER
+          ========================================================================= */}
+      <header className="group-intelligence-header">
+        <div className="header-top-row">
+          {/* Avatar and Group Identity */}
+          <div className="group-identity-meta">
+            <div className="group-avatar-ring">
+              <span>👥</span>
+            </div>
+            <div>
+              <div className="group-headline-row">
+                <h1 className="group-main-title">{selectedGroup}</h1>
+                <span className="coverage-pill verified">
+                  <CheckCircle2 size={12} />
+                  <span>
+                    {briefing?.messagesIncluded ?? currentGroupMessages.length} /{' '}
+                    {briefing?.totalMessagesCount ?? currentGroupMessages.length} Messages (100% Complete)
+                  </span>
+                </span>
+                <span className="engine-meta-pill">
+                  <Sparkles size={11} />
+                  <span>Groq LPU (openai/gpt-oss-120b)</span>
+                </span>
+              </div>
+              <p className="group-desc-subtext">
+                Enterprise AI Group Briefing &bull; Verified timeline and original WhatsApp source citations
+              </p>
             </div>
           </div>
-          <div className="kpi-value">{totalMessagesCount}</div>
-          <div className="kpi-footer-row">100% persisted in Supabase</div>
+
+          {/* Action Button */}
+          <div className="header-actions-group">
+            {canGenerate && (
+              <button
+                type="button"
+                className="btn-intelligence-generate"
+                onClick={generateGroupBriefing}
+                disabled={analyzing}
+              >
+                <RotateCw size={14} className={analyzing ? 'animate-spin' : ''} />
+                <span>{analyzing ? 'Analyzing Context...' : 'Regenerate Briefing'}</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="kpi-card">
-          <div className="kpi-card-top">
-            <span className="kpi-title">Messages Synthesized</span>
-            <div className="kpi-icon-bubble" style={{ backgroundColor: '#ecfeff', color: '#0891b2' }}>
-              <Sparkles size={16} />
+        {/* Group Selector & Date Filter Controls */}
+        <div className="header-controls-row">
+          <div className="controls-left">
+            <label className="selector-label">
+              <Compass size={13} />
+              <span>ACTIVE WHATSAPP GROUP:</span>
+            </label>
+            <select
+              className="group-select-dropdown"
+              value={selectedGroup}
+              onChange={(e) => setSelectedGroup(e.target.value)}
+            >
+              {availableGroups.map((g) => (
+                <option key={g.name} value={g.name}>
+                  {g.name} ({g.count} messages)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="controls-right">
+            <div className="date-filter-group">
+              <span className="filter-label">
+                <Calendar size={12} /> Date Range:
+              </span>
+              <button
+                type="button"
+                className={`filter-range-btn ${dateRange === 'all' ? 'active' : ''}`}
+                onClick={() => setDateRange('all')}
+              >
+                All Messages
+              </button>
+              <button
+                type="button"
+                className={`filter-range-btn ${dateRange === '7d' ? 'active' : ''}`}
+                onClick={() => setDateRange('7d')}
+              >
+                Past 7 Days
+              </button>
+              <button
+                type="button"
+                className={`filter-range-btn ${dateRange === '24h' ? 'active' : ''}`}
+                onClick={() => setDateRange('24h')}
+              >
+                Past 24 Hours
+              </button>
             </div>
           </div>
-          <div className="kpi-value">{totalAnalyzed}</div>
-          <div className="kpi-footer-row">Evidence verified with IDs</div>
         </div>
 
-        <div className="kpi-card kpi-card-alert">
-          <div className="kpi-card-top">
-            <span className="kpi-title">High Priority Alerts</span>
-            <div className="kpi-icon-bubble" style={{ backgroundColor: '#fff1f2', color: '#e11d48' }}>
-              <AlertTriangle size={16} />
-            </div>
+        {briefingError && (
+          <div className="briefing-alert-banner">
+            <AlertTriangle size={16} />
+            <span>{briefingError}</span>
           </div>
-          <div className="kpi-value">{highPriority}</div>
-          <div className="kpi-footer-row">Critical operational flags</div>
-        </div>
+        )}
+      </header>
 
-        <div className="kpi-card">
-          <div className="kpi-card-top">
-            <span className="kpi-title">Payment Requests</span>
-            <div className="kpi-icon-bubble" style={{ backgroundColor: '#faf5ff', color: '#7c3aed' }}>
-              <CreditCard size={16} />
-            </div>
-          </div>
-          <div className="kpi-value">{urgentPayments}</div>
-          <div className="kpi-footer-row">Advances &amp; fuel settlements</div>
-        </div>
-      </div>
-
-      {/* 3 Dedicated Sub-Tabs */}
-      <div className="intelligence-tabs-row" style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+      {/* =========================================================================
+          2. ELEGANT EDITORIAL NAVIGATION (Linear / Notion Style)
+          ========================================================================= */}
+      <nav className="briefing-subnav-strip">
         <button
           type="button"
-          className={`btn ${activeTab === 'chats' ? 'btn-primary' : 'btn-outline'}`}
-          onClick={() => setActiveTab('chats')}
+          className={`subnav-item ${activeSection === 'briefing' ? 'active' : ''}`}
+          onClick={() => setActiveSection('briefing')}
         >
-          <MessageSquare size={16} />
-          <span>CHATS (Live Conversations)</span>
+          <FileText size={14} />
+          <span>Executive Briefing</span>
         </button>
 
         <button
           type="button"
-          className={`btn ${activeTab === 'summary' ? 'btn-primary' : 'btn-outline'}`}
-          onClick={() => setActiveTab('summary')}
+          className={`subnav-item ${activeSection === 'storyline' ? 'active' : ''}`}
+          onClick={() => setActiveSection('storyline')}
         >
-          <Sparkles size={16} />
-          <span>SUMMARY (Evidence-Backed AI Synthesis)</span>
+          <Clock size={14} />
+          <span>Conversation Storyline</span>
+          {briefing?.storyline && briefing.storyline.length > 0 && (
+            <span className="subnav-count-badge">{briefing.storyline.length}</span>
+          )}
         </button>
 
         <button
           type="button"
-          className={`btn ${activeTab === 'insights' ? 'btn-primary' : 'btn-outline'}`}
-          onClick={() => setActiveTab('insights')}
+          className={`subnav-item ${activeSection === 'topics' ? 'active' : ''}`}
+          onClick={() => setActiveSection('topics')}
         >
-          <ShieldAlert size={16} />
-          <span>INSIGHTS (Action Items &amp; Risks)</span>
-          {(analysisResult?.actionableItems.length ?? 0) > 0 && (
-            <span className="status-badge badge-danger">
-              {analysisResult?.actionableItems.length}
+          <Layers size={14} />
+          <span>Topic Explorer</span>
+          {briefing?.topics && briefing.topics.length > 0 && (
+            <span className="subnav-count-badge">{briefing.topics.length}</span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          className={`subnav-item ${activeSection === 'decisions' ? 'active' : ''}`}
+          onClick={() => setActiveSection('decisions')}
+        >
+          <CheckCircle2 size={14} />
+          <span>Decisions &amp; Agreements</span>
+          {briefing?.decisions && briefing.decisions.length > 0 && (
+            <span className="subnav-count-badge">{briefing.decisions.length}</span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          className={`subnav-item ${activeSection === 'actions' ? 'active' : ''}`}
+          onClick={() => setActiveSection('actions')}
+        >
+          <ListTodo size={14} />
+          <span>Action Tracker</span>
+          {briefing?.actionTracker && briefing.actionTracker.length > 0 && (
+            <span className="subnav-count-badge">{briefing.actionTracker.length}</span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          className={`subnav-item ${activeSection === 'pending' ? 'active' : ''}`}
+          onClick={() => setActiveSection('pending')}
+        >
+          <HelpCircle size={14} />
+          <span>Pending Discussions &amp; Risks</span>
+          {briefing?.pendingDiscussions && briefing.pendingDiscussions.length > 0 && (
+            <span className="subnav-count-badge alert">
+              {briefing.pendingDiscussions.length}
             </span>
           )}
         </button>
-      </div>
+
+        <button
+          type="button"
+          className={`subnav-item ${activeSection === 'participants' ? 'active' : ''}`}
+          onClick={() => setActiveSection('participants')}
+        >
+          <Users size={14} />
+          <span>Participant Contributions</span>
+        </button>
+      </nav>
 
       {/* =========================================================================
-          TAB 1: CHATS (Group Conversations Feed)
+          3. CONTENT SECTIONS
           ========================================================================= */}
-      {activeTab === 'chats' && (
-        <div className="overview-split-layout">
-          {/* Conversation List */}
-          <div className="overview-card" style={{ padding: 16 }}>
-            <h3 className="card-title" style={{ marginBottom: 12 }}>Active Groups &amp; Pods</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {conversations.map((c) => (
-                <div
-                  key={c.id}
-                  className={`inbox-card ${selectedChatId === c.id ? 'selected' : ''}`}
-                  onClick={() => setSelectedChatId(c.id)}
-                  style={{ cursor: 'pointer', padding: 12 }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <strong>{c.name}</strong>
-                    <span className="status-badge badge-info">{c.isGroup ? 'GROUP' : 'DIRECT'}</span>
+      <main className="briefing-content-area">
+        {/* SECTION 1: EXECUTIVE BRIEFING (DEFAULT VIEW) */}
+        {activeSection === 'briefing' && (
+          <div className="editorial-briefing-pane">
+            <div className="briefing-paper-card">
+              <div className="briefing-title-meta">
+                <span className="document-tag">EXECUTIVE INTELLIGENCE BRIEFING</span>
+                <span className="document-timestamp">
+                  Coverage: {new Date(briefing?.dateRange.start || Date.now()).toLocaleDateString()} &mdash;{' '}
+                  {new Date(briefing?.dateRange.end || Date.now()).toLocaleDateString()}
+                </span>
+              </div>
+
+              {/* Natural Language Multi-Paragraph Overview */}
+              <div className="briefing-narrative-text">
+                {briefing?.executiveBriefing.overview.split('\n\n').map((paragraph, idx) => (
+                  <p key={idx} className="editorial-paragraph">
+                    {renderFormattedText(paragraph)}
+                  </p>
+                ))}
+              </div>
+
+              {/* Connected Callouts */}
+              <div className="briefing-callouts-grid">
+                <div className="editorial-callout callout-situation">
+                  <div className="callout-header">
+                    <CheckCircle2 size={16} className="callout-icon situation-icon" />
+                    <span className="callout-title">Current Situation &amp; Alignment</span>
                   </div>
-                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
-                    {c.lastMessage?.slice(0, 50)}...
+                  <p className="callout-body">
+                    {briefing?.executiveBriefing.currentSituation}
+                  </p>
+                </div>
+
+                <div className="editorial-callout callout-attention">
+                  <div className="callout-header">
+                    <AlertTriangle size={16} className="callout-icon attention-icon" />
+                    <span className="callout-title">Matters Requiring Attention</span>
                   </div>
+                  <p className="callout-body">
+                    {briefing?.executiveBriefing.attentionRequired}
+                  </p>
+                </div>
+              </div>
+
+              {/* Coverage & Audit Metadata */}
+              <div className="editorial-audit-footer">
+                <div>
+                  <strong>Processing Integrity:</strong> {briefing?.coverageNote}
+                </div>
+                <div className="audit-provenance">
+                  <span>Provider: Groq LPU</span> &bull; 
+                  <span>Model: {briefing?.metadata.model}</span> &bull; 
+                  <span>Generated: {new Date(briefing?.metadata.generatedAt || Date.now()).toLocaleTimeString()}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SECTION 2: CONVERSATION STORYLINE */}
+        {activeSection === 'storyline' && (
+          <div className="storyline-view-pane">
+            <div className="storyline-intro-bar">
+              <h2 className="section-narrative-heading">Chronological Conversation Storyline</h2>
+              <p className="section-narrative-desc">
+                How discussion developed across stages: requests, operational constraints, alternative proposals, and consensus.
+              </p>
+            </div>
+
+            <div className="storyline-timeline-track">
+              {briefing?.storyline.map((step, idx) => {
+                const stageClass = step.stage.toLowerCase().replace('_', '-');
+                return (
+                  <div key={step.id || idx} className={`storyline-event-node node-${stageClass}`}>
+                    <div className="timeline-marker" />
+                    <div className="storyline-card">
+                      <div className="storyline-card-header">
+                        <div className="event-stage-pill">
+                          {step.stage.replace('_', ' ')}
+                        </div>
+                        <div className="event-time-stamp">
+                          <Clock size={12} />
+                          <span>{step.timestamp}</span>
+                        </div>
+                      </div>
+
+                      <h3 className="storyline-event-title">{step.heading}</h3>
+                      <p className="storyline-event-desc">{step.description}</p>
+
+                      <div className="storyline-card-footer">
+                        <div className="event-participants-row">
+                          <Users size={12} />
+                          <span>Participants: {step.participants.join(', ') || 'Team'}</span>
+                        </div>
+                        {renderCitationBadge(step.sourceMessageIds)}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* SECTION 3: TOPIC EXPLORER */}
+        {activeSection === 'topics' && (
+          <div className="topic-explorer-layout">
+            {/* Left: Topic Index */}
+            <div className="topic-index-sidebar">
+              <h3 className="sidebar-section-title">Discussion Topics</h3>
+              <div className="topic-nav-list">
+                {briefing?.topics.map((topic) => (
+                  <button
+                    key={topic.id}
+                    type="button"
+                    className={`topic-index-item ${selectedTopicId === topic.id ? 'selected' : ''}`}
+                    onClick={() => setSelectedTopicId(topic.id)}
+                  >
+                    <div className="topic-item-header">
+                      <span className="topic-item-name">{topic.name}</span>
+                      <ChevronRight size={14} className="chevron" />
+                    </div>
+                    <p className="topic-item-blurb">{topic.summary.slice(0, 75)}...</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Right: Topic Dossier */}
+            <div className="topic-dossier-main">
+              {activeTopic ? (
+                <div className="topic-dossier-card">
+                  <div className="dossier-header">
+                    <div>
+                      <span className="document-tag">TOPIC DOSSIER</span>
+                      <h2 className="dossier-title">{activeTopic.name}</h2>
+                    </div>
+                    {renderCitationBadge(activeTopic.sourceMessageIds)}
+                  </div>
+
+                  <div className="dossier-section">
+                    <h4 className="dossier-subheading">Topic Summary &amp; Context</h4>
+                    <p className="dossier-body">{activeTopic.summary}</p>
+                  </div>
+
+                  <div className="dossier-grid-two">
+                    <div className="dossier-section">
+                      <h4 className="dossier-subheading">How Discussion Started</h4>
+                      <p className="dossier-body">{activeTopic.howStarted}</p>
+                    </div>
+
+                    <div className="dossier-section">
+                      <h4 className="dossier-subheading">Key Contributions</h4>
+                      <p className="dossier-body">{activeTopic.keyContributions}</p>
+                    </div>
+                  </div>
+
+                  <div className="dossier-section">
+                    <h4 className="dossier-subheading">Decisions &amp; Agreements</h4>
+                    <p className="dossier-body">{activeTopic.decisions || 'No explicit formal decisions logged under this topic.'}</p>
+                  </div>
+
+                  <div className="dossier-section">
+                    <h4 className="dossier-subheading">Pending Matters &amp; Recent Developments</h4>
+                    <p className="dossier-body">
+                      {activeTopic.pendingMatters || activeTopic.recentDevelopments || 'Discussions are currently up to date.'}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="empty-topic-dossier">Select a topic from the left to view details.</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* SECTION 4: DECISIONS & AGREEMENTS */}
+        {activeSection === 'decisions' && (
+          <div className="decisions-view-pane">
+            <div className="storyline-intro-bar">
+              <h2 className="section-narrative-heading">Decisions &amp; Agreements Log</h2>
+              <p className="section-narrative-desc">
+                Verifiable record of confirmed agreements, proposed suggestions, and superseded terms.
+              </p>
+            </div>
+
+            <div className="decisions-cards-grid">
+              {briefing?.decisions.map((dec, idx) => {
+                const statusClass = dec.status.toLowerCase();
+                return (
+                  <div key={dec.id || idx} className={`decision-card card-${statusClass}`}>
+                    <div className="decision-top-meta">
+                      <span className={`decision-status-pill pill-${statusClass}`}>
+                        {dec.status.replace('_', ' ')}
+                      </span>
+                      <span className="decision-date">{dec.date}</span>
+                    </div>
+
+                    <h3 className="decision-title">{dec.title}</h3>
+                    <p className="decision-context">{dec.context}</p>
+
+                    <div className="decision-footer">
+                      <span className="decision-participants">
+                        <strong>Participants:</strong> {dec.participants.join(', ') || 'Team'}
+                      </span>
+                      {renderCitationBadge(dec.sourceMessageIds)}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {(!briefing?.decisions || briefing.decisions.length === 0) && (
+                <div className="empty-editorial-card">
+                  <CheckCircle2 size={24} style={{ color: '#059669', marginBottom: 8 }} />
+                  <p>No formal binding decisions recorded in this conversation.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* SECTION 5: ACTION TRACKER */}
+        {activeSection === 'actions' && (
+          <div className="actions-view-pane">
+            <div className="storyline-intro-bar">
+              <h2 className="section-narrative-heading">Action Item Tracker</h2>
+              <p className="section-narrative-desc">
+                Concrete tasks extracted from conversation context. Explicit owners and deadlines only.
+              </p>
+            </div>
+
+            <div className="actions-table-container">
+              <table className="enterprise-action-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '40%' }}>Action / Task</th>
+                    <th style={{ width: '18%' }}>Owner</th>
+                    <th style={{ width: '16%' }}>Deadline</th>
+                    <th style={{ width: '12%' }}>Status</th>
+                    <th style={{ width: '14%' }}>Source</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {briefing?.actionTracker.map((item, idx) => (
+                    <tr key={item.id || idx}>
+                      <td className="cell-action-title">
+                        <strong>{item.action}</strong>
+                      </td>
+                      <td className="cell-owner">
+                        <span className={item.owner === 'Unassigned' ? 'unassigned-pill' : 'owner-pill'}>
+                          {item.owner}
+                        </span>
+                      </td>
+                      <td className="cell-deadline">
+                        <span className="deadline-text">{item.deadline}</span>
+                      </td>
+                      <td>
+                        <span className={`status-tag tag-${item.status.toLowerCase()}`}>
+                          {item.status.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td>{renderCitationBadge(item.sourceMessageIds)}</td>
+                    </tr>
+                  ))}
+
+                  {(!briefing?.actionTracker || briefing.actionTracker.length === 0) && (
+                    <tr>
+                      <td colSpan={5} style={{ textAlign: 'center', padding: '32px', color: '#64748b' }}>
+                        No pending actionable tasks recorded.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* SECTION 6: PENDING DISCUSSIONS & RISKS */}
+        {activeSection === 'pending' && (
+          <div className="pending-view-pane">
+            <div className="storyline-intro-bar">
+              <h2 className="section-narrative-heading">Pending Discussions &amp; Unresolved Matters</h2>
+              <p className="section-narrative-desc">
+                Unanswered questions, pending client replies, and approvals awaiting confirmation.
+              </p>
+            </div>
+
+            <div className="pending-cards-grid">
+              {briefing?.pendingDiscussions.map((item, idx) => (
+                <div key={item.id || idx} className="pending-item-card">
+                  <div className="pending-card-top">
+                    <span className="pending-tag">OPEN DISCUSSION LOOP</span>
+                    {renderCitationBadge(item.sourceMessageIds)}
+                  </div>
+
+                  <h3 className="pending-title">{item.topic}</h3>
+                  <div className="pending-question-quote">
+                    “{item.unresolvedQuestion}”
+                  </div>
+                  <p className="pending-reason">
+                    <strong>Why pending:</strong> {item.reason}
+                  </p>
+
+                  <div className="pending-participants">
+                    <span>Involved: {item.participantsInvolved.join(', ') || 'Team members'}</span>
+                  </div>
+                </div>
+              ))}
+
+              {(!briefing?.pendingDiscussions || briefing.pendingDiscussions.length === 0) && (
+                <div className="empty-editorial-card">
+                  <CheckCircle2 size={24} style={{ color: '#059669', marginBottom: 8 }} />
+                  <p>All questions and discussions have been answered or resolved.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* SECTION 7: PARTICIPANT CONTRIBUTIONS */}
+        {activeSection === 'participants' && (
+          <div className="participants-view-pane">
+            <div className="storyline-intro-bar">
+              <h2 className="section-narrative-heading">Participant Contributions &amp; Roles</h2>
+              <p className="section-narrative-desc">
+                Qualitative overview of meaningful inputs, constraints flagged, and responsibilities taken.
+              </p>
+            </div>
+
+            <div className="participants-cards-grid">
+              {briefing?.participantContributions.map((p, idx) => (
+                <div key={idx} className="participant-dossier-card">
+                  <div className="participant-card-header">
+                    <div className="participant-avatar-initial">
+                      {p.participantName.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <h3 className="participant-name">{p.participantName}</h3>
+                      <span className="participant-role-tag">{p.roleInDiscussion}</span>
+                    </div>
+                  </div>
+
+                  <div className="contributions-list-section">
+                    <span className="list-section-label">KEY CONTRIBUTIONS</span>
+                    <ul className="contributions-bullets">
+                      {p.keyContributions.map((c, i) => (
+                        <li key={i}>{c}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {p.raisedConcerns && p.raisedConcerns.length > 0 && (
+                    <div className="concerns-list-section">
+                      <span className="list-section-label alert">CONSTRAINTS / NOTES RAISED</span>
+                      <ul className="concerns-bullets">
+                        {p.raisedConcerns.map((note, i) => (
+                          <li key={i}>"{note}"</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           </div>
-
-          {/* Conversation Message Stream */}
-          <div className="overview-card" style={{ padding: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <h3 className="card-title">{activeConversation?.name || 'Conversation Stream'}</h3>
-              <span className="status-badge badge-info">{chatMessages.length} Messages</span>
-            </div>
-
-            <div style={{ maxHeight: 520, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {chatMessages.length === 0 ? (
-                <div style={{ textAlign: 'center', color: '#94a3b8', padding: 32 }}>
-                  No messages recorded in this conversation yet.
-                </div>
-              ) : (
-                chatMessages.map((msg) => {
-                  const isSent = msg.sentBy === 'user' || msg.sentBy === 'agent' || msg.sentBy === 'api';
-                  return (
-                    <div
-                      key={msg.id}
-                      style={{
-                        alignSelf: isSent ? 'flex-end' : 'flex-start',
-                        maxWidth: '80%',
-                        backgroundColor: isSent ? '#eef2ff' : '#ffffff',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: 8,
-                        padding: '10px 14px',
-                      }}
-                    >
-                      <div style={{ fontSize: 11, fontWeight: 700, color: isSent ? '#4f46e5' : '#0f172a', marginBottom: 2 }}>
-                        {msg.senderName} ({msg.fromNumber || msg.senderNumber})
-                      </div>
-                      <div style={{ fontSize: 13, color: '#1e293b' }}>{msg.text}</div>
-                      <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 4, textAlign: 'right' }}>
-                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} &bull; ID: {msg.id.slice(0, 8)}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* =========================================================================
-          TAB 2: SUMMARY (Verifiable AI Summaries Citing Message IDs)
-          ========================================================================= */}
-      {activeTab === 'summary' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {filteredSummaries.length === 0 ? (
-            <div className="overview-card" style={{ padding: 32, textAlign: 'center' }}>
-              <Sparkles size={32} style={{ color: '#6366f1', margin: '0 auto 12px' }} />
-              <h3>No Summaries Available Yet</h3>
-              <p style={{ color: '#64748b' }}>Click "Re-Analyze with Groq" above to synthesize active conversations.</p>
-            </div>
-          ) : (
-            filteredSummaries.map((summary, idx) => (
-              <div key={idx} className="overview-card" style={{ padding: 24 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                  <div>
-                    <span className="status-badge badge-info" style={{ marginRight: 8 }}>WHATSAPP POD</span>
-                    <h3 style={{ display: 'inline', fontSize: 18, fontWeight: 700 }}>{summary.groupName}</h3>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <span className="status-badge badge-warning">
-                      Messages: {summary.totalMessagesCount}
-                    </span>
-                    <span className="status-badge badge-danger">
-                      High Priority: {summary.highPriorityCount}
-                    </span>
-                  </div>
-                </div>
-
-                <div style={{ backgroundColor: '#f8fafc', padding: 16, borderRadius: 8, border: '1px solid #e2e8f0', marginBottom: 16 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 4 }}>
-                    Executive AI Synthesis
-                  </div>
-                  <p style={{ fontSize: 14, lineHeight: 1.5, color: '#1e293b' }}>
-                    {summary.summaryText}
-                  </p>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
-                  <div>
-                    <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: '#334155' }}>
-                      Key Topics Discussed
-                    </h4>
-                    <ul style={{ paddingLeft: 18, fontSize: 13, color: '#475569', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      {summary.importantTopics?.map((t, i) => (
-                        <li key={i}>{t}</li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div>
-                    <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: '#334155' }}>
-                      Identified Action Items
-                    </h4>
-                    <ul style={{ paddingLeft: 18, fontSize: 13, color: '#475569', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      {summary.actionItems?.map((a, i) => (
-                        <li key={i}>{a}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-
-                {summary.actionableMessages && summary.actionableMessages.length > 0 && (
-                  <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b' }}>VERIFIED CITATIONS:</span>
-                    {summary.actionableMessages.map((item, i) => (
-                      <span key={i} className="status-badge badge-info" style={{ fontFamily: 'monospace' }}>
-                        ID #{item.messageId?.slice(0, 8) || item.id}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))
-          )}
-        </div>
-      )}
-
-      {/* =========================================================================
-          TAB 3: INSIGHTS (Actionable Matters, Payments & Risks)
-          ========================================================================= */}
-      {activeTab === 'insights' && (
-        <div>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-            {['all', 'payment', 'time_change', 'urgent_attention', 'recruitment'].map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                className={`filter-pill-btn ${insightCategoryFilter === cat ? 'active' : ''}`}
-                onClick={() => setInsightCategoryFilter(cat as any)}
-              >
-                {cat.replace('_', ' ').toUpperCase()}
-              </button>
-            ))}
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
-            {filteredActionables.length === 0 ? (
-              <div className="overview-card" style={{ padding: 24, textAlign: 'center', gridColumn: '1 / -1' }}>
-                <CheckCircle2 size={28} style={{ color: '#059669', margin: '0 auto 8px' }} />
-                <h4>No Actionable Risks in Selected Category</h4>
-              </div>
-            ) : (
-              filteredActionables.map((item, idx) => (
-                <div key={idx} className="inbox-card" style={{ padding: 18 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span className="status-badge badge-danger">
-                      {item.category.replace('_', ' ').toUpperCase()}
-                    </span>
-                    <span className="status-badge badge-warning">
-                      Urgency: {item.urgency.toUpperCase()}
-                    </span>
-                  </div>
-
-                  <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>{item.actionRequired}</h4>
-                  <p style={{ fontSize: 13, color: '#475569', marginBottom: 12 }}>{item.text}</p>
-
-                  <div style={{ fontSize: 11, color: '#64748b', borderTop: '1px solid #f1f5f9', paddingTop: 8, display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Source: {item.senderName} ({item.senderNumber})</span>
-                    <span style={{ fontFamily: 'monospace' }}>ID: {item.messageId?.slice(0, 8) || item.id}</span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
+        )}
+      </main>
     </div>
   );
 }
