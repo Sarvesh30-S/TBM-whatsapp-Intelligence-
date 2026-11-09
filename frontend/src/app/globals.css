@@ -966,7 +966,7 @@ body {
 /* Live Chat Split Window Container */
 .livechat-wrapper {
   display: grid;
-  grid-template-columns: 320px 1fr 280px;
+  grid-template-columns: 360px 1fr;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   height: calc(100vh - 270px);
@@ -976,22 +976,10 @@ body {
   box-shadow: var(--shadow-card);
 }
 
-@media (max-width: 1200px) {
-  .livechat-wrapper {
-    grid-template-columns: 320px 1fr;
-  }
-  .livechat-info {
-    display: none;
-  }
-}
-
-@media (max-width: 768px) {
+@media (max-width: 900px) {
   .livechat-wrapper {
     grid-template-columns: 1fr;
     height: auto;
-  }
-  .livechat-info {
-    display: none;
   }
 }
 

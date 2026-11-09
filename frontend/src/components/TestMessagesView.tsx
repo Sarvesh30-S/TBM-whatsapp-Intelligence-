@@ -8,7 +8,6 @@ import {
   Users,
   MessageSquare,
   AlertCircle,
-  ExternalLink,
   ChevronRight,
   Key,
   Lock,
@@ -462,130 +461,6 @@ export default function TestMessagesView({
             </div>
           )}
         </main>
-
-        {/* Right Details Panel */}
-        <aside className="livechat-info">
-          {selectedChat ? (
-            <>
-              <div className="info-header">
-                <div className="info-avatar">
-                  {selectedChat.isGroup ? '👥' : '👤'}
-                </div>
-                <div className="info-name">{selectedChat.name}</div>
-                <div className="info-type">
-                  {selectedChat.isGroup ? 'WhatsApp Group' : 'Direct WhatsApp Chat'}
-                </div>
-              </div>
-
-              {selectedChat.isGroup && (
-                <>
-                  <div className="info-section">
-                    <span className="info-label">GROUP DATA</span>
-                    {selectedChat.description ? (
-                      <div
-                        style={{
-                          maxHeight: 220,
-                          overflowY: 'auto',
-                          backgroundColor: '#f8fafc',
-                          border: '1px solid #e2e8f0',
-                          borderRadius: 6,
-                          padding: 10,
-                          fontSize: 11.5,
-                          lineHeight: 1.5,
-                          whiteSpace: 'pre-wrap',
-                          wordBreak: 'break-word',
-                          color: '#334155',
-                        }}
-                      >
-                        {selectedChat.description}
-                      </div>
-                    ) : (
-                      <span className="info-value" style={{ fontStyle: 'italic', color: '#94a3b8' }}>
-                        No description provided
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="info-section">
-                    <span className="info-label">Group JID / Phone</span>
-                    <span className="info-value">{selectedChat.phoneOrId}</span>
-                  </div>
-
-                  <div className="info-section">
-                    <span className="info-label">ASSIGNED TO</span>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: '#64748b' }}>Assignee</span>
-                        <span style={{ fontWeight: 600 }}>Unassigned</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: '#64748b' }}>Team Inbox</span>
-                        <span style={{ fontWeight: 600 }}>Unassigned</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="info-section">
-                    <span className="info-label">PARTICIPANTS</span>
-                    <span className="info-value">
-                      {selectedChat.size ? `${selectedChat.size} members` : 'Group'}
-                    </span>
-                  </div>
-                </>
-              )}
-
-              {!selectedChat.isGroup && (
-                <div className="info-section">
-                  <span className="info-label">Phone Number</span>
-                  <span className="info-value">{formatPhone(selectedChat.phoneOrId) || selectedChat.phoneOrId}</span>
-                </div>
-              )}
-
-              <div className="info-section">
-                <span className="info-label">Total Messages</span>
-                <span className="info-value">{currentChatMessages.length}</span>
-              </div>
-
-              {selectedChat.lastTimestamp && new Date(selectedChat.lastTimestamp).getTime() > 0 && (
-                <div className="info-section">
-                  <span className="info-label">Last Active</span>
-                  <span className="info-value" style={{ fontSize: 11 }}>
-                    {new Date(selectedChat.lastTimestamp).toLocaleString()}
-                  </span>
-                </div>
-              )}
-
-              {selectedChat.twoChatLink && (
-                <div style={{ marginTop: 8 }}>
-                  <a
-                    href={selectedChat.twoChatLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="secondary"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 6,
-                      textAlign: 'center',
-                      textDecoration: 'none',
-                      padding: '7px 12px',
-                      fontSize: 11,
-                      fontWeight: 600,
-                    }}
-                  >
-                    <span>Open in 2Chat Live Chat</span>
-                    <ExternalLink size={12} />
-                  </a>
-                </div>
-              )}
-            </>
-          ) : (
-            <div style={{ color: '#888888', fontSize: 12, textAlign: 'center', marginTop: 30 }}>
-              No chat selected
-            </div>
-          )}
-        </aside>
       </div>
     </div>
   );
