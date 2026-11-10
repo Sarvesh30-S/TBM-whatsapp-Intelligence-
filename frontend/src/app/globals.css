@@ -43,6 +43,7 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* ==========================================================================
@@ -51,6 +52,7 @@ body {
 .saas-app-layout {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
   width: 100%;
   background-color: var(--bg-canvas);
 }
@@ -65,6 +67,7 @@ body {
   flex-direction: column;
   flex-shrink: 0;
   height: 100vh;
+  height: 100dvh;
   position: sticky;
   top: 0;
   z-index: 40;
@@ -389,7 +392,7 @@ body {
 
 .saas-content-area {
   flex: 1;
-  padding: 24px 32px;
+  padding: clamp(16px, 2vw, 28px);
   width: 100%;
 }
 
@@ -487,7 +490,7 @@ body {
 /* KPI Cards Grid */
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
   gap: 16px;
   margin-bottom: 24px;
 }
@@ -969,8 +972,8 @@ body {
   grid-template-columns: 360px 1fr;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  height: calc(100vh - 270px);
-  min-height: 620px;
+  height: min(760px, calc(100dvh - 250px));
+  min-height: 500px;
   background-color: var(--bg-surface);
   overflow: hidden;
   box-shadow: var(--shadow-card);
@@ -980,6 +983,7 @@ body {
   .livechat-wrapper {
     grid-template-columns: 1fr;
     height: auto;
+    min-height: 0;
   }
 }
 
@@ -2562,7 +2566,7 @@ body {
    ========================================================================= */
 
 .briefing-content-area {
-  min-height: 480px;
+  min-height: 0;
 }
 
 /* 1. Executive Briefing Reading Pane */
@@ -2818,7 +2822,7 @@ body {
   background-color: #ffffff;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  padding: 32px 36px;
+  padding: clamp(20px, 2.2vw, 32px) clamp(18px, 2.5vw, 36px);
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
@@ -3076,7 +3080,7 @@ body {
   background-color: #ffffff;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  padding: 32px 36px;
+  padding: clamp(20px, 2.2vw, 32px) clamp(18px, 2.5vw, 36px);
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
@@ -3135,7 +3139,7 @@ body {
 /* 4. Decisions Cards Grid */
 .decisions-cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
   gap: 16px;
 }
 
@@ -3315,7 +3319,7 @@ body {
 /* 6. Pending Discussions & Risks */
 .pending-cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
   gap: 16px;
 }
 
@@ -3377,7 +3381,7 @@ body {
 /* 7. Participant Contributions Grid */
 .participants-cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
   gap: 16px;
 }
 
@@ -3503,6 +3507,576 @@ body {
   gap: 10px;
   z-index: 9999;
   animation: slideUpToast 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ========================================================================
+   Consistent responsive spacing and compact viewport layouts
+   ======================================================================== */
+.saas-main-viewport,
+.saas-content-area,
+.saas-content-area > *,
+.overview-view,
+.intelligence-view-container,
+.intelligence-main-layout,
+.intelligence-content-pane,
+.livechat-wrapper,
+.livechat-thread,
+.overview-card,
+.summary-card,
+.admin-table-card {
+  min-width: 0;
+}
+
+.saas-main-viewport {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.section-header,
+.overview-header-card,
+.inbox-header-card,
+.admin-header-card {
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.kpi-grid,
+.cards-grid,
+.overview-split-layout,
+.inbox-split-layout,
+.briefing-callouts-grid,
+.topic-explorer-layout,
+.dossier-grid-two,
+.decisions-cards-grid,
+.pending-cards-grid,
+.participants-cards-grid {
+  min-width: 0;
+}
+
+.storyline-view-pane,
+.decisions-view-pane,
+.actions-view-pane,
+.pending-view-pane,
+.participants-view-pane,
+.topic-dossier-card,
+.briefing-paper-card {
+  min-width: 0;
+}
+
+@media (max-width: 1024px) {
+  .saas-content-area {
+    padding: 20px;
+  }
+
+  .overview-split-layout,
+  .inbox-split-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .intelligence-main-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .intelligence-subnav-sidebar {
+    position: static;
+  }
+
+  .intelligence-tabs-row {
+    max-width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+  }
+
+  .intelligence-tabs-row > button {
+    flex: 0 0 auto;
+  }
+
+  .livechat-wrapper {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+    min-height: 0;
+  }
+
+  .livechat-sidebar {
+    max-height: 320px;
+    min-height: 210px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .livechat-thread {
+    min-height: 480px;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-sidebar {
+    inset: 0 auto 0 0;
+    width: min(290px, calc(100vw - 40px));
+    height: 100vh;
+    height: 100dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .saas-top-navbar {
+    height: auto;
+    min-height: 56px;
+    padding: 8px 14px;
+    gap: 8px;
+  }
+
+  .navbar-left {
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .breadcrumb-trail {
+    min-width: 0;
+    gap: 4px;
+    font-size: 12px;
+  }
+
+  .breadcrumb-current {
+    max-width: min(48vw, 240px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .navbar-right {
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .env-badge {
+    font-size: 9px;
+    padding: 3px 5px;
+  }
+
+  .saas-content-area {
+    padding: 14px;
+  }
+
+  .section-header {
+    align-items: flex-start;
+    margin-bottom: 14px;
+    gap: 10px;
+  }
+
+  .section-title,
+  .overview-greeting,
+  .inbox-title,
+  .admin-title {
+    font-size: clamp(19px, 5vw, 22px);
+    line-height: 1.25;
+  }
+
+  .section-header > *,
+  .header-actions,
+  .overview-header-actions {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .header-actions,
+  .overview-header-actions {
+    flex-wrap: wrap;
+  }
+
+  .intelligence-tabs-row {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+  }
+
+  .intelligence-tabs-row > button {
+    flex: 0 0 auto;
+  }
+
+  .overview-header-card,
+  .inbox-header-card,
+  .admin-header-card {
+    align-items: flex-start;
+    padding: 16px;
+    margin-bottom: 14px;
+    gap: 12px;
+  }
+
+  .greeting-row,
+  .header-badge-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .overview-subtitle,
+  .inbox-subtitle,
+  .admin-subtitle {
+    line-height: 1.5;
+  }
+
+  .kpi-grid,
+  .cards-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .kpi-card,
+  .card {
+    padding: 14px;
+  }
+
+  .kpi-card-top {
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .kpi-title {
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .kpi-value {
+    font-size: 24px;
+  }
+
+  .kpi-footer-row {
+    align-items: flex-start;
+    line-height: 1.4;
+  }
+
+  .overview-card {
+    padding: 16px;
+  }
+
+  .overview-card-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+  }
+
+  .priority-item-row {
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .priority-item-title {
+    white-space: normal;
+  }
+
+  .priority-item-meta {
+    line-height: 1.45;
+  }
+
+  .quick-nav-tile {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .group-intelligence-header {
+    padding: 16px;
+    gap: 14px;
+  }
+
+  .header-top-row,
+  .header-controls-row {
+    gap: 12px;
+  }
+
+  .group-identity-meta {
+    gap: 10px;
+  }
+
+  .group-main-title {
+    font-size: 18px;
+  }
+
+  .header-actions-group {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .controls-left {
+    min-width: 0;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .group-select-dropdown {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .controls-right,
+  .date-filter-group {
+    max-width: 100%;
+  }
+
+  .date-filter-group {
+    flex-wrap: wrap;
+  }
+
+  .intelligence-subnav-sidebar {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .subnav-sidebar-header {
+    padding: 2px 4px 8px;
+  }
+
+  .subnav-vertical-menu {
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: thin;
+  }
+
+  .subnav-vertical-item {
+    width: auto;
+    flex: 0 0 auto;
+    padding: 8px 10px;
+  }
+
+  .subnav-vertical-label {
+    white-space: nowrap;
+  }
+
+  .briefing-paper-card,
+  .storyline-view-pane,
+  .decisions-view-pane,
+  .actions-view-pane,
+  .pending-view-pane,
+  .participants-view-pane,
+  .topic-dossier-card {
+    padding: 18px 16px;
+    gap: 16px;
+  }
+
+  .briefing-title-meta,
+  .dossier-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .storyline-card {
+    padding: 14px;
+  }
+
+  .storyline-card-header,
+  .decision-top-meta,
+  .pending-card-top {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .enterprise-action-table {
+    min-width: 620px;
+  }
+
+  .enterprise-table {
+    min-width: 700px;
+  }
+
+  .actions-table-container {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .livechat-sidebar {
+    max-height: 270px;
+    min-height: 0;
+  }
+
+  .livechat-thread {
+    min-height: min(560px, 68dvh);
+  }
+
+  .thread-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .thread-composer {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .thread-composer input,
+  .thread-composer button {
+    min-height: 42px;
+  }
+
+  .developer-view {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .developer-view [style*="minmax(360px"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .developer-view .form-group > div {
+    flex-wrap: wrap;
+  }
+
+  .developer-view .form-input {
+    min-width: 0;
+  }
+
+  .thread-messages-scroll {
+    overflow-x: hidden;
+  }
+
+  .message-list-row,
+  .message-quote-box,
+  .quote-content {
+    min-width: 0;
+  }
+
+  .quote-content {
+    overflow-wrap: anywhere;
+  }
+
+  .modal-content {
+    width: min(100%, 560px);
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+  }
+
+  .modal-header,
+  .modal-body,
+  .modal-footer {
+    padding: 14px 16px;
+  }
+
+  .modal-footer {
+    flex-wrap: wrap;
+  }
+
+  .toast-floating-banner {
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    left: 12px;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .saas-content-area {
+    padding: 12px;
+  }
+
+  .saas-top-navbar {
+    padding: 8px 12px;
+  }
+
+  .env-badge {
+    display: none;
+  }
+
+  .overview-header-card,
+  .inbox-header-card,
+  .admin-header-card {
+    padding: 14px;
+  }
+
+  .overview-role-pill {
+    font-size: 10px;
+  }
+
+  .kpi-card {
+    padding: 12px 14px;
+  }
+
+  .kpi-card-top {
+    margin-bottom: 6px;
+  }
+
+  .priority-item-row {
+    flex-wrap: wrap;
+  }
+
+  .priority-item-info {
+    flex-basis: calc(100% - 24px);
+  }
+
+  .status-badge {
+    margin-left: 18px;
+  }
+
+  .header-actions,
+  .header-actions > *,
+  .overview-header-actions > *,
+  .header-actions-group > * {
+    max-width: 100%;
+  }
+
+  .header-actions > *,
+  .overview-header-actions > * {
+    white-space: normal;
+  }
+
+  .filter-label {
+    width: 100%;
+  }
+
+  .filter-range-btn {
+    padding: 6px 8px;
+  }
+
+  .language-switch-toggle {
+    max-width: 100%;
+  }
+
+  .pending-cards-grid,
+  .decisions-cards-grid,
+  .participants-cards-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .livechat-thread {
+    min-height: min(500px, 64dvh);
+  }
+
+  .thread-header-title,
+  .sender-display-name,
+  .message-body-text {
+    overflow-wrap: anywhere;
+  }
+
+  .thread-composer {
+    align-items: stretch;
+  }
+
+  .thread-composer input {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 360px) {
+  .kpi-grid,
+  .cards-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .toast-floating-banner svg {
