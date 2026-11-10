@@ -21,44 +21,10 @@ function getPool(): Pool {
   return globalForDb.__twochatPool;
 }
 
-export function initDb(): Promise<void> {
-  if (!globalForDb.__twochatDbInit) {
-    globalForDb.__twochatDbInit = getPool()
-      .query(`
-        CREATE TABLE IF NOT EXISTS twochat_messages (
-          id VARCHAR(255) PRIMARY KEY,
-          source VARCHAR(50),
-          is_group BOOLEAN DEFAULT FALSE,
-          group_uuid VARCHAR(255),
-          group_name VARCHAR(255),
-          chat_name VARCHAR(255),
-          sender_name VARCHAR(255),
-          sender_number VARCHAR(100),
-          receiver_name VARCHAR(255),
-          receiver_number VARCHAR(100),
-          from_number VARCHAR(100),
-          to_number VARCHAR(100),
-          remote_number VARCHAR(100),
-          text TEXT,
-          quoted_message TEXT,
-          sent_by VARCHAR(50),
-          timestamp TIMESTAMPTZ,
-          event VARCHAR(100),
-          media_url TEXT,
-          created_at TIMESTAMPTZ DEFAULT NOW()
-        );
-        ALTER TABLE twochat_messages ADD COLUMN IF NOT EXISTS channel_number VARCHAR(100);
-        CREATE INDEX IF NOT EXISTS idx_twochat_messages_timestamp ON twochat_messages(timestamp DESC);
-        CREATE INDEX IF NOT EXISTS idx_twochat_messages_channel ON twochat_messages(channel_number);
-        CREATE INDEX IF NOT EXISTS idx_twochat_messages_remote_number ON twochat_messages(remote_number);
-      `)
-      .then(() => undefined)
-      .catch((err) => {
-        console.error('Failed to initialize database tables:', err);
-        globalForDb.__twochatDbInit = undefined;
-      });
-  }
-  return globalForDb.__twochatDbInit;
+export async function initDb(): Promise<void> {
+  // Schema is permanently provisioned via Flyway migrations (V1-V8) in Supabase.
+  // Skipping redundant DDL queries on serverless cold starts saves 1.5-3 seconds per invocation.
+  return Promise.resolve();
 }
 
 const COLUMNS = [

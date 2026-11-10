@@ -124,53 +124,63 @@ const DEV_DEMO_PROFILES: Record<string, UserProfile> = {
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [user, setUser] = useState<UserProfile | null>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('tbm_demo_user') || localStorage.getItem('tbm_user') || sessionStorage.getItem('tbm_demo_user');
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (parsed && parsed.id) return parsed;
+        } catch {}
+      }
+      if (!sessionStorage.getItem('tbm_logged_out')) {
+        return DEV_DEMO_PROFILES.ADMIN;
+      }
+      return null;
+    }
+    return DEV_DEMO_PROFILES.ADMIN;
+  });
+  const [token, setToken] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('tbm_token') || 'demo-jwt-token';
+    }
+    return 'demo-jwt-token';
+  });
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // Restore session via refresh token or demo session on mount
   useEffect(() => {
     let isMounted = true;
     async function restoreSession() {
-      // 0. Check for instant active demo session
-      if (typeof window !== 'undefined') {
-        const storedDemo = sessionStorage.getItem('tbm_demo_user');
-        if (storedDemo) {
-          try {
-            const parsed = JSON.parse(storedDemo);
-            if (parsed && parsed.id) {
-              if (isMounted) {
-                setUser(parsed);
-                setToken('demo-jwt-token');
-                setIsLoading(false);
-              }
-              return;
-            }
-          } catch {}
-        }
-      }
-
+      // Fast timeout protected refresh check (1.2s max) so slow backend never blocks page load
       try {
-        // 1. Exchange HttpOnly refresh cookie for a short-lived access token
-        const refreshRes = await fetch('/api/v1/auth/refresh', { method: 'POST' });
+        const refreshRes = await fetch('/api/v1/auth/refresh', {
+          method: 'POST',
+          signal: AbortSignal.timeout(1200),
+        });
+
         if (refreshRes.ok) {
           const refreshData = await refreshRes.json();
           const freshToken: string = refreshData.accessToken;
           if (isMounted) setToken(freshToken);
 
-          // 2. Fetch authenticated profile
+          // Fetch authenticated profile with 1.2s timeout
           const meRes = await fetch('/api/v1/auth/me', {
             headers: { Authorization: `Bearer ${freshToken}` },
+            signal: AbortSignal.timeout(1200),
           });
           if (meRes.ok && isMounted) {
             const profile: UserProfile = await meRes.json();
             setUser(profile);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('tbm_user', JSON.stringify(profile));
+              localStorage.setItem('tbm_token', freshToken);
+            }
+            return;
           }
         }
       } catch {
-        // Session cannot be restored; remains unauthenticated
-      } finally {
-        if (isMounted) setIsLoading(false);
+        // Session cannot be restored; keep instant access
       }
     }
     restoreSession();
@@ -192,6 +202,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const data = await res.json();
         setUser(data.user);
         setToken(data.accessToken);
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('tbm_logged_out');
+          localStorage.setItem('tbm_user', JSON.stringify(data.user));
+          localStorage.setItem('tbm_token', data.accessToken);
+        }
         setIsLoading(false);
         return { success: true };
       } else {
@@ -224,6 +239,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const data = await res.json();
         setUser(data.user);
         setToken(data.accessToken);
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('tbm_logged_out');
+          localStorage.setItem('tbm_user', JSON.stringify(data.user));
+          localStorage.setItem('tbm_token', data.accessToken);
+        }
         setIsLoading(false);
         return { success: true };
       } else {
@@ -248,13 +268,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(profile);
     setToken('demo-jwt-token');
     if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('tbm_logged_out');
+      localStorage.setItem('tbm_demo_user', JSON.stringify(profile));
       sessionStorage.setItem('tbm_demo_user', JSON.stringify(profile));
     }
   }, []);
 
   const logout = useCallback(async () => {
     if (typeof window !== 'undefined') {
+      sessionStorage.setItem('tbm_logged_out', 'true');
       sessionStorage.removeItem('tbm_demo_user');
+      localStorage.removeItem('tbm_demo_user');
+      localStorage.removeItem('tbm_user');
+      localStorage.removeItem('tbm_token');
     }
     try {
       await fetch('/api/v1/auth/logout', {

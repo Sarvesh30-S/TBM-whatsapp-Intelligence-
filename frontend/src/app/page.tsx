@@ -74,9 +74,42 @@ function DashboardContent() {
   const [apiKey, setApiKey] = useState<string>('');
   const [channels, setChannels] = useState<any[]>([]);
   const [activeChannel, setActiveChannel] = useState<string>('');
-  const [conversations, setConversations] = useState<TwoChatConversation[]>([]);
-  const [selectedChat, setSelectedChat] = useState<TwoChatConversation | null>(null);
-  const [allMessages, setAllMessages] = useState<TwoChatMessage[]>([]);
+  const [conversations, setConversations] = useState<TwoChatConversation[]>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('cached_2chat_conversations');
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        } catch {}
+      }
+    }
+    return [];
+  });
+  const [selectedChat, setSelectedChat] = useState<TwoChatConversation | null>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('cached_2chat_conversations');
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed[0];
+        } catch {}
+      }
+    }
+    return null;
+  });
+  const [allMessages, setAllMessages] = useState<TwoChatMessage[]>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('cached_2chat_messages');
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return deduplicateList(parsed);
+        } catch {}
+      }
+    }
+    return [];
+  });
   const [chatFilter, setChatFilter] = useState<'all' | 'groups' | 'direct'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [replyText, setReplyText] = useState<string>('');
@@ -90,6 +123,7 @@ function DashboardContent() {
   useEffect(() => {
     if (!isAuthenticated) return;
     let keyToUse = '';
+    let hasCached = false;
     if (typeof window !== 'undefined') {
       const savedKey = localStorage.getItem('2chat_api_key') || '';
       const cachedMsgs = localStorage.getItem('cached_2chat_messages');
@@ -104,6 +138,7 @@ function DashboardContent() {
           const parsed = JSON.parse(cachedMsgs);
           if (Array.isArray(parsed) && parsed.length > 0) {
             setAllMessages(deduplicateList(parsed));
+            hasCached = true;
           }
         } catch (e) {
           console.error('Failed to parse cached messages', e);
@@ -118,6 +153,7 @@ function DashboardContent() {
             if (!selectedChat) {
               setSelectedChat(parsed[0]);
             }
+            hasCached = true;
           }
         } catch (e) {
           console.error('Failed to parse cached conversations', e);
@@ -125,12 +161,21 @@ function DashboardContent() {
       }
     }
 
-    loadData(keyToUse);
+    loadData(keyToUse, undefined, undefined, undefined, hasCached);
   }, [isAuthenticated]);
 
-  const loadData = async (key?: string, specificChatId?: string, isGroup?: boolean, groupUuid?: string) => {
-    setLoading(true);
-    setStatusText('Fetching messages from database...');
+  const loadData = async (
+    key?: string,
+    specificChatId?: string,
+    isGroup?: boolean,
+    groupUuid?: string,
+    isBackgroundRevalidate: boolean = false
+  ) => {
+    // Only set full loading indicator if we don't already have cached data rendered
+    if (!isBackgroundRevalidate) {
+      setLoading(true);
+      setStatusText('Fetching messages from database...');
+    }
     setApiErrors([]);
 
     try {

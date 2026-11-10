@@ -49,6 +49,7 @@ export async function GET(req: NextRequest) {
     const chatId = searchParams.get('chatId');
     const isGroupParam = searchParams.get('isGroup') === 'true';
     const groupUuid = searchParams.get('groupUuid') || (isGroupParam ? chatId : undefined);
+    const shouldSync = searchParams.get('sync') === 'true';
 
     let channels: TwoChatChannel[] = [];
     let groups: TwoChatGroup[] = [];
@@ -58,76 +59,81 @@ export async function GET(req: NextRequest) {
     let activeChannelName = 'You';
     const apiErrors: string[] = [];
 
-    // 1. Fetch channel metadata, contacts directory, and groups list from 2Chat API
-    if (apiKey) {
-      const [channelResult, fetchedContacts] = await Promise.all([
-        fetchTwoChatChannels(apiKey),
-        fetchTwoChatContacts(apiKey),
-      ]);
+    // 1. Fetch channel metadata, contacts directory, and groups list from 2Chat API only if explicitly requested (sync=true)
+    // Default fast path: read directly from Postgres so the dashboard loads in sub-second time without external network latency
+    if (apiKey && shouldSync) {
+      try {
+        const [channelResult, fetchedContacts] = await Promise.all([
+          fetchTwoChatChannels(apiKey),
+          fetchTwoChatContacts(apiKey),
+        ]);
 
-      channels = channelResult.channels;
-      if (channelResult.error && !channelResult.error.includes('402')) {
-        apiErrors.push(`Channels: ${channelResult.error}`);
-      }
-      contactDirectory = fetchedContacts;
-
-      if (!activeChannel && channels.length > 0) {
-        const connected = channels.find((c) => c.connection_status === 'C') || channels[0];
-        activeChannel = connected.phone_number;
-      }
-
-      const activeChanObj = channels.find(
-        (c) => normalizePhone(c.phone_number) === normalizePhone(activeChannel)
-      );
-      if (activeChanObj?.friendly_name) {
-        activeChannelName = activeChanObj.friendly_name;
-      }
-
-      if (activeChannel) {
-        // Fetch groups
-        const groupResult = await fetchTwoChatGroups(apiKey, activeChannel);
-        if (groupResult.error && !groupResult.error.includes('402')) {
-          apiErrors.push(`Groups: ${groupResult.error}`);
+        channels = channelResult.channels;
+        if (channelResult.error && !channelResult.error.includes('402')) {
+          apiErrors.push(`Channels: ${channelResult.error}`);
         }
-        groups = groupResult.groups;
+        contactDirectory = fetchedContacts;
 
-        const { groupsByJid, groupsByUuid } = indexGroups(groups);
-        const normCtx: NormalizeContext = {
-          channelNumber: activeChannel,
-          channelName: activeChannelName,
-          contacts: contactDirectory,
-          groupsByJid,
-          groupsByUuid,
-          source: 'api',
-        };
-
-        // Fetch recent messages feed (fast parallel page 0 & 1)
-        const feedResult = await fetchTwoChatMessages(apiKey, normCtx, undefined, [0, 1]);
-        if (feedResult.error && !feedResult.error.includes('402')) {
-          apiErrors.push(`Messages: ${feedResult.error}`);
-        }
-        if (feedResult.messages.length > 0) {
-          newlyFetchedApiMessages.push(...feedResult.messages);
+        if (!activeChannel && channels.length > 0) {
+          const connected = channels.find((c) => c.connection_status === 'C') || channels[0];
+          activeChannel = connected.phone_number;
         }
 
-        // If a specific conversation was selected, fetch its history
-        if (groupUuid) {
-          const targetGroup =
-            groupsByUuid.get(groupUuid) ||
-            groupsByJid.get(groupUuid) || {
-              uuid: groupUuid,
-              wa_group_name: '',
-            };
-          const grpResult = await fetchTwoChatGroupMessages(apiKey, targetGroup, normCtx, [0, 1]);
-          if (grpResult.messages.length > 0) {
-            newlyFetchedApiMessages.push(...grpResult.messages);
+        const activeChanObj = channels.find(
+          (c) => normalizePhone(c.phone_number) === normalizePhone(activeChannel)
+        );
+        if (activeChanObj?.friendly_name) {
+          activeChannelName = activeChanObj.friendly_name;
+        }
+
+        if (activeChannel) {
+          // Fetch groups
+          const groupResult = await fetchTwoChatGroups(apiKey, activeChannel);
+          if (groupResult.error && !groupResult.error.includes('402')) {
+            apiErrors.push(`Groups: ${groupResult.error}`);
           }
-        } else if (chatId && !isGroupParam) {
-          const directResult = await fetchTwoChatMessages(apiKey, normCtx, chatId, [0, 1]);
-          if (directResult.messages.length > 0) {
-            newlyFetchedApiMessages.push(...directResult.messages);
+          groups = groupResult.groups;
+
+          const { groupsByJid, groupsByUuid } = indexGroups(groups);
+          const normCtx: NormalizeContext = {
+            channelNumber: activeChannel,
+            channelName: activeChannelName,
+            contacts: contactDirectory,
+            groupsByJid,
+            groupsByUuid,
+            source: 'api',
+          };
+
+          // Fetch recent messages feed (fast parallel page 0 & 1)
+          const feedResult = await fetchTwoChatMessages(apiKey, normCtx, undefined, [0, 1]);
+          if (feedResult.error && !feedResult.error.includes('402')) {
+            apiErrors.push(`Messages: ${feedResult.error}`);
+          }
+          if (feedResult.messages.length > 0) {
+            newlyFetchedApiMessages.push(...feedResult.messages);
+          }
+
+          // If a specific conversation was selected, fetch its history
+          if (groupUuid) {
+            const targetGroup =
+              groupsByUuid.get(groupUuid) ||
+              groupsByJid.get(groupUuid) || {
+                uuid: groupUuid,
+                wa_group_name: '',
+              };
+            const grpResult = await fetchTwoChatGroupMessages(apiKey, targetGroup, normCtx, [0, 1]);
+            if (grpResult.messages.length > 0) {
+              newlyFetchedApiMessages.push(...grpResult.messages);
+            }
+          } else if (chatId && !isGroupParam) {
+            const directResult = await fetchTwoChatMessages(apiKey, normCtx, chatId, [0, 1]);
+            if (directResult.messages.length > 0) {
+              newlyFetchedApiMessages.push(...directResult.messages);
+            }
           }
         }
+      } catch (syncErr: any) {
+        console.warn('2Chat API live sync timed out or failed, serving database records:', syncErr.message);
       }
     }
 
