@@ -145,34 +145,36 @@ body {
   line-height: 1.25;
 }
 
-/* Collapsed sidebar element overrides */
-.app-sidebar.collapsed:not(.hover-expanded) .sidebar-brand {
-  padding: 16px 10px;
-  justify-content: center;
-}
+@media (min-width: 901px) {
+  /* Collapsed sidebar element overrides (Desktop icon rail only) */
+  .app-sidebar.collapsed:not(.hover-expanded) .sidebar-brand {
+    padding: 16px 10px;
+    justify-content: center;
+  }
 
-.app-sidebar.collapsed:not(.hover-expanded) .brand-header-left {
-  justify-content: center;
-  flex: 0 0 auto;
-}
+  .app-sidebar.collapsed:not(.hover-expanded) .brand-header-left {
+    justify-content: center;
+    flex: 0 0 auto;
+  }
 
-.app-sidebar.collapsed:not(.hover-expanded) .nav-item-btn {
-  padding: 10px;
-  justify-content: center;
-}
+  .app-sidebar.collapsed:not(.hover-expanded) .nav-item-btn {
+    padding: 10px;
+    justify-content: center;
+  }
 
-.app-sidebar.collapsed:not(.hover-expanded) .nav-item-content {
-  justify-content: center;
-}
+  .app-sidebar.collapsed:not(.hover-expanded) .nav-item-content {
+    justify-content: center;
+  }
 
-.app-sidebar.collapsed:not(.hover-expanded) .whatsapp-connection-card {
-  padding: 10px;
-  justify-content: center;
-}
+  .app-sidebar.collapsed:not(.hover-expanded) .whatsapp-connection-card {
+    padding: 10px;
+    justify-content: center;
+  }
 
-.app-sidebar.collapsed:not(.hover-expanded) .user-profile-card {
-  padding: 8px 10px;
-  justify-content: center;
+  .app-sidebar.collapsed:not(.hover-expanded) .user-profile-card {
+    padding: 8px 10px;
+    justify-content: center;
+  }
 }
 
 .mobile-close-btn {
@@ -1221,6 +1223,121 @@ body {
 }
 
 @media (max-width: 900px) {
+  /* Workspace Navigation Panel (Off-Canvas Drawer on Phone/Tablet) */
+  .sidebar-rail-slot {
+    display: none !important;
+    width: 0 !important;
+  }
+
+  .mobile-menu-btn {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    color: #475569;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  .mobile-menu-btn:hover,
+  .mobile-menu-btn:active {
+    background-color: #f1f5f9;
+    color: #4f46e5;
+  }
+
+  .app-sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: min(300px, 85vw) !important;
+    max-width: 320px !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    background-color: #ffffff !important;
+    border-right: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+    transform: translateX(-100%) !important;
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s ease !important;
+    z-index: 100 !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+  }
+
+  .app-sidebar.open {
+    transform: translateX(0) !important;
+    box-shadow: 8px 0 32px rgba(15, 23, 42, 0.25) !important;
+  }
+
+  .app-sidebar.collapsed {
+    width: min(300px, 85vw) !important;
+  }
+
+  .sidebar-backdrop {
+    position: fixed !important;
+    inset: 0 !important;
+    background-color: rgba(15, 23, 42, 0.5) !important;
+    z-index: 90 !important;
+    backdrop-filter: blur(2px) !important;
+  }
+
+  .mobile-close-btn {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    color: #64748b;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .mobile-close-btn:hover {
+    background-color: #f1f5f9;
+    color: #0f172a;
+  }
+
+  /* Compact Top Navbar on Mobile */
+  .saas-top-navbar {
+    padding: 0 12px !important;
+    height: 56px !important;
+    gap: 8px !important;
+  }
+
+  .navbar-left {
+    gap: 8px !important;
+    min-width: 0 !important;
+    flex: 1 !important;
+  }
+
+  .topbar-search-wrapper {
+    max-width: 210px !important;
+    width: auto !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+
+  .topbar-live-sync-badge .live-sync-text {
+    display: none !important;
+  }
+
+  .topbar-live-sync-badge {
+    padding: 6px !important;
+  }
+
+  .navbar-right {
+    gap: 6px !important;
+    flex-shrink: 0 !important;
+  }
+
   .test-messages-view {
     display: flex !important;
     flex-direction: column !important;

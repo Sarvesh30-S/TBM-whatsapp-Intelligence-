@@ -39,8 +39,22 @@ export default function Sidebar({
   const { user, logout, canAccessSection } = useAuth();
   const [isHovered, setIsHovered] = useState<boolean>(false);
 
-  // Remains closed/collapsed on desktop by default; smoothly opens on hover
-  const isCollapsed = !isHovered && !mobileOpen;
+  // Desktop hover detection (only active on desktop viewports)
+  const handleMouseEnter = () => {
+    if (typeof window !== 'undefined' && window.innerWidth > 900) {
+      setIsHovered(true);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (typeof window !== 'undefined' && window.innerWidth > 900) {
+      setIsHovered(false);
+    }
+  };
+
+  // On desktop: expanded if hovered. On mobile: expanded if mobileOpen is active
+  const isExpanded = mobileOpen || isHovered;
+  const isCollapsed = !isExpanded;
 
   const allNavItems = [
     {
@@ -98,112 +112,115 @@ export default function Sidebar({
         />
       )}
 
-      {/* Desktop Rail Slot holding 70px in layout; sidebar smoothly expands over content on hover */}
+      {/* Desktop Rail Slot holding 70px in layout (hidden on mobile <= 900px) */}
       <div
-        className="sidebar-rail-slot"
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
+        className="sidebar-rail-slot desktop-only"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        aria-hidden="true"
+      />
+
+      {/* App Workspace Sidebar (Drawer on mobile, icon-rail with hover expand on desktop) */}
+      <aside
+        className={`app-sidebar ${mobileOpen ? 'open' : ''} ${isHovered ? 'hover-expanded' : ''} ${isCollapsed ? 'collapsed' : 'expanded'}`}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       >
-        <aside
-          className={`app-sidebar ${mobileOpen ? 'open' : ''} ${isHovered ? 'hover-expanded' : 'collapsed'}`}
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
-        >
-          {/* Brand Header */}
-          <div className="sidebar-brand">
-            <div className="brand-header-left">
-              <div className="brand-icon-wrapper" title="TBM WhatsApp Intelligence">
-                <Sparkles className="brand-icon" size={19} />
-              </div>
-              {!isCollapsed && (
-                <div className="brand-text">
-                  <div className="brand-title">TBM WhatsApp Intelligence</div>
-                </div>
-              )}
+        {/* Brand Header */}
+        <div className="sidebar-brand">
+          <div className="brand-header-left">
+            <div className="brand-icon-wrapper" title="TBM WhatsApp Intelligence">
+              <Sparkles className="brand-icon" size={19} />
             </div>
-
-            <button
-              className="mobile-close-btn"
-              onClick={onToggleMobile}
-              aria-label="Close navigation"
-            >
-              <X size={18} />
-            </button>
+            {!isCollapsed && (
+              <div className="brand-text">
+                <div className="brand-title">TBM WhatsApp Intelligence</div>
+              </div>
+            )}
           </div>
 
-          {/* Navigation Items */}
-          <nav className="sidebar-nav">
-            {!isCollapsed && <div className="nav-group-label">Workspace</div>}
-            {visibleNavItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = currentSection === item.id;
-              return (
+          <button
+            type="button"
+            className="mobile-close-btn"
+            onClick={onToggleMobile}
+            aria-label="Close navigation"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Navigation Items */}
+        <nav className="sidebar-nav">
+          {!isCollapsed && <div className="nav-group-label">Workspace</div>}
+          {visibleNavItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = currentSection === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={`nav-item-btn ${isActive ? 'active' : ''}`}
+                title={isCollapsed ? item.label : undefined}
+                onClick={() => {
+                  onSelectSection(item.id);
+                  if (mobileOpen) onToggleMobile();
+                }}
+              >
+                <div className="nav-item-content">
+                  <Icon className="nav-item-icon" size={18} />
+                  {!isCollapsed && <span className="nav-item-label">{item.label}</span>}
+                </div>
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Sidebar Footer with WhatsApp Status & Dynamic User Account */}
+        <div className="sidebar-footer">
+          {/* Connection Pill */}
+          <div
+            className="whatsapp-connection-card"
+            title="Connected to WhatsApp • Last sync: 1 min ago"
+          >
+            <div className="connection-icon-dot">
+              <Check size={11} strokeWidth={3} />
+            </div>
+            {!isCollapsed && (
+              <div className="connection-meta">
+                <span className="connection-title">Connected to WhatsApp</span>
+                <span className="connection-sub">Last sync: 1 min ago</span>
+              </div>
+            )}
+          </div>
+
+          {/* User Account Profile */}
+          <div
+            className="user-profile-card"
+            title={`${displayName} (${primaryRole})`}
+          >
+            <div className="user-avatar-initials">{userInitials}</div>
+            {!isCollapsed && (
+              <>
+                <div className="user-info">
+                  <div className="user-name" title={displayName}>
+                    {displayName}
+                  </div>
+                  <div className="user-role-label">{primaryRole}</div>
+                </div>
                 <button
-                  key={item.id}
                   type="button"
-                  className={`nav-item-btn ${isActive ? 'active' : ''}`}
-                  title={isCollapsed ? item.label : undefined}
-                  onClick={() => {
-                    onSelectSection(item.id);
-                    if (mobileOpen) onToggleMobile();
-                  }}
+                  className="logout-action-btn"
+                  onClick={() => logout()}
+                  title="Sign Out"
+                  aria-label="Sign Out"
                 >
-                  <div className="nav-item-content">
-                    <Icon className="nav-item-icon" size={18} />
-                    {!isCollapsed && <span className="nav-item-label">{item.label}</span>}
-                  </div>
+                  <LogOut size={15} />
                 </button>
-              );
-            })}
-          </nav>
-
-          {/* Sidebar Footer with WhatsApp Status & Dynamic User Account */}
-          <div className="sidebar-footer">
-            {/* Connection Pill */}
-            <div
-              className="whatsapp-connection-card"
-              title="Connected to WhatsApp • Last sync: 1 min ago"
-            >
-              <div className="connection-icon-dot">
-                <Check size={11} strokeWidth={3} />
-              </div>
-              {!isCollapsed && (
-                <div className="connection-meta">
-                  <span className="connection-title">Connected to WhatsApp</span>
-                  <span className="connection-sub">Last sync: 1 min ago</span>
-                </div>
-              )}
-            </div>
-
-            {/* User Account Profile */}
-            <div
-              className="user-profile-card"
-              title={`${displayName} (${primaryRole})`}
-            >
-              <div className="user-avatar-initials">{userInitials}</div>
-              {!isCollapsed && (
-                <>
-                  <div className="user-info">
-                    <div className="user-name" title={displayName}>
-                      {displayName}
-                    </div>
-                    <div className="user-role-label">{primaryRole}</div>
-                  </div>
-                  <button
-                    type="button"
-                    className="logout-action-btn"
-                    onClick={() => logout()}
-                    title="Sign Out"
-                    aria-label="Sign Out"
-                  >
-                    <LogOut size={15} />
-                  </button>
-                </>
-              )}
-            </div>
+              </>
+            )}
           </div>
-        </aside>
-      </div>
+        </div>
+      </aside>
     </>
   );
 }
