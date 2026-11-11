@@ -15,6 +15,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { DashboardSection } from './Sidebar';
 import { TwoChatConversation, isHiddenPrivateGroup } from '@/lib/types';
+import AnimatedCounter from './AnimatedCounter';
 
 interface OverviewViewProps {
   onNavigate: (section: DashboardSection) => void;
@@ -168,7 +169,9 @@ export default function OverviewView({
                 </div>
               </div>
               <div className="kpi-value-row">
-                <span className="kpi-value">{kpi.value}</span>
+                <span className="kpi-value">
+                  <AnimatedCounter value={kpi.value} />
+                </span>
               </div>
               <div className="kpi-footer-row">
                 <TrendingUp size={13} className="kpi-trend-icon" />

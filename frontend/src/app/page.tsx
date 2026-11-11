@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Menu, Search, Bell, Settings, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Menu, Search, Bell, Settings } from 'lucide-react';
 import Sidebar, { DashboardSection } from '@/components/Sidebar';
 import OverviewView from '@/components/OverviewView';
 import TestMessagesView from '@/components/TestMessagesView';
@@ -68,22 +68,6 @@ function DashboardContent() {
   const { user, token, canAccessSection, isAuthenticated, isLoading } = useAuth();
   const [currentSection, setCurrentSection] = useState<DashboardSection>('overview');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('tbm_sidebar_collapsed') === 'true';
-    }
-    return false;
-  });
-
-  const handleToggleSidebarCollapse = () => {
-    setSidebarCollapsed((prev) => {
-      const next = !prev;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('tbm_sidebar_collapsed', next ? 'true' : 'false');
-      }
-      return next;
-    });
-  };
 
   // Application Data State
   const [apiKey, setApiKey] = useState<string>('');
@@ -460,15 +444,13 @@ function DashboardContent() {
       .join('') || displayName.slice(0, 2).toUpperCase();
 
   return (
-    <div className={`saas-app-layout ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+    <div className="saas-app-layout">
       {/* Left Sidebar */}
       <Sidebar
         currentSection={currentSection}
         onSelectSection={setCurrentSection}
         mobileOpen={mobileSidebarOpen}
         onToggleMobile={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-        collapsed={sidebarCollapsed}
-        onToggleCollapse={handleToggleSidebarCollapse}
         channelInfo="WhatsApp Active (+91 86553 30477)"
       />
 
@@ -483,15 +465,6 @@ function DashboardContent() {
               aria-label="Open Navigation"
             >
               <Menu size={20} />
-            </button>
-            <button
-              type="button"
-              className="desktop-sidebar-toggle-btn desktop-only"
-              onClick={handleToggleSidebarCollapse}
-              title={sidebarCollapsed ? 'Open Workspace Sidebar' : 'Close Workspace Sidebar'}
-              aria-label="Toggle Workspace Sidebar"
-            >
-              {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
             </button>
             <div className="topbar-search-wrapper">
               <Search size={15} className="topbar-search-icon" />

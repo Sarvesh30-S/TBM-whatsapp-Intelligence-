@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   LayoutGrid,
   MessageSquare,
@@ -11,10 +11,6 @@ import {
   Check,
   LogOut,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  PanelLeftClose,
-  PanelLeftOpen,
   X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -32,8 +28,6 @@ interface SidebarProps {
   mobileOpen: boolean;
   onToggleMobile: () => void;
   channelInfo?: string;
-  collapsed?: boolean;
-  onToggleCollapse?: () => void;
 }
 
 export default function Sidebar({
@@ -41,10 +35,12 @@ export default function Sidebar({
   onSelectSection,
   mobileOpen,
   onToggleMobile,
-  collapsed = false,
-  onToggleCollapse,
 }: SidebarProps) {
   const { user, logout, canAccessSection } = useAuth();
+  const [isHovered, setIsHovered] = useState<boolean>(false);
+
+  // Remains closed/collapsed on desktop by default; smoothly opens on hover
+  const isCollapsed = !isHovered && !mobileOpen;
 
   const allNavItems = [
     {
@@ -102,114 +98,112 @@ export default function Sidebar({
         />
       )}
 
-      <aside className={`app-sidebar ${mobileOpen ? 'open' : ''} ${collapsed ? 'collapsed' : ''}`}>
-        {/* Brand Header */}
-        <div className="sidebar-brand">
-          <div className="brand-header-left">
-            <div className="brand-icon-wrapper" title="TBM WhatsApp Intelligence">
-              <Sparkles className="brand-icon" size={19} />
-            </div>
-            {!collapsed && (
-              <div className="brand-text">
-                <div className="brand-title">TBM WhatsApp Intelligence</div>
+      {/* Desktop Rail Slot holding 70px in layout; sidebar smoothly expands over content on hover */}
+      <div
+        className="sidebar-rail-slot"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        <aside
+          className={`app-sidebar ${mobileOpen ? 'open' : ''} ${isHovered ? 'hover-expanded' : 'collapsed'}`}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
+          {/* Brand Header */}
+          <div className="sidebar-brand">
+            <div className="brand-header-left">
+              <div className="brand-icon-wrapper" title="TBM WhatsApp Intelligence">
+                <Sparkles className="brand-icon" size={19} />
               </div>
-            )}
-          </div>
+              {!isCollapsed && (
+                <div className="brand-text">
+                  <div className="brand-title">TBM WhatsApp Intelligence</div>
+                </div>
+              )}
+            </div>
 
-          {/* Desktop Collapse / Expand Button */}
-          {onToggleCollapse && (
             <button
-              type="button"
-              className="sidebar-collapse-btn desktop-only"
-              onClick={onToggleCollapse}
-              title={collapsed ? 'Expand Workspace Menu' : 'Collapse Workspace Menu'}
-              aria-label={collapsed ? 'Expand Workspace Menu' : 'Collapse Workspace Menu'}
+              className="mobile-close-btn"
+              onClick={onToggleMobile}
+              aria-label="Close navigation"
             >
-              {collapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
+              <X size={18} />
             </button>
-          )}
-
-          <button
-            className="mobile-close-btn"
-            onClick={onToggleMobile}
-            aria-label="Close navigation"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Navigation Items */}
-        <nav className="sidebar-nav">
-          {!collapsed && <div className="nav-group-label">Workspace</div>}
-          {visibleNavItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = currentSection === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                className={`nav-item-btn ${isActive ? 'active' : ''}`}
-                title={collapsed ? item.label : undefined}
-                onClick={() => {
-                  onSelectSection(item.id);
-                  if (mobileOpen) onToggleMobile();
-                }}
-              >
-                <div className="nav-item-content">
-                  <Icon className="nav-item-icon" size={18} />
-                  {!collapsed && <span className="nav-item-label">{item.label}</span>}
-                </div>
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* Sidebar Footer with WhatsApp Status & Dynamic User Account */}
-        <div className="sidebar-footer">
-          {/* Connection Pill */}
-          <div
-            className="whatsapp-connection-card"
-            title="Connected to WhatsApp • Last sync: 1 min ago"
-          >
-            <div className="connection-icon-dot">
-              <Check size={11} strokeWidth={3} />
-            </div>
-            {!collapsed && (
-              <div className="connection-meta">
-                <span className="connection-title">Connected to WhatsApp</span>
-                <span className="connection-sub">Last sync: 1 min ago</span>
-              </div>
-            )}
           </div>
 
-          {/* User Account Profile */}
-          <div
-            className="user-profile-card"
-            title={`${displayName} (${primaryRole})`}
-          >
-            <div className="user-avatar-initials">{userInitials}</div>
-            {!collapsed && (
-              <>
-                <div className="user-info">
-                  <div className="user-name" title={displayName}>
-                    {displayName}
-                  </div>
-                  <div className="user-role-label">{primaryRole}</div>
-                </div>
+          {/* Navigation Items */}
+          <nav className="sidebar-nav">
+            {!isCollapsed && <div className="nav-group-label">Workspace</div>}
+            {visibleNavItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = currentSection === item.id;
+              return (
                 <button
+                  key={item.id}
                   type="button"
-                  className="logout-action-btn"
-                  onClick={() => logout()}
-                  title="Sign Out"
-                  aria-label="Sign Out"
+                  className={`nav-item-btn ${isActive ? 'active' : ''}`}
+                  title={isCollapsed ? item.label : undefined}
+                  onClick={() => {
+                    onSelectSection(item.id);
+                    if (mobileOpen) onToggleMobile();
+                  }}
                 >
-                  <LogOut size={15} />
+                  <div className="nav-item-content">
+                    <Icon className="nav-item-icon" size={18} />
+                    {!isCollapsed && <span className="nav-item-label">{item.label}</span>}
+                  </div>
                 </button>
-              </>
-            )}
+              );
+            })}
+          </nav>
+
+          {/* Sidebar Footer with WhatsApp Status & Dynamic User Account */}
+          <div className="sidebar-footer">
+            {/* Connection Pill */}
+            <div
+              className="whatsapp-connection-card"
+              title="Connected to WhatsApp • Last sync: 1 min ago"
+            >
+              <div className="connection-icon-dot">
+                <Check size={11} strokeWidth={3} />
+              </div>
+              {!isCollapsed && (
+                <div className="connection-meta">
+                  <span className="connection-title">Connected to WhatsApp</span>
+                  <span className="connection-sub">Last sync: 1 min ago</span>
+                </div>
+              )}
+            </div>
+
+            {/* User Account Profile */}
+            <div
+              className="user-profile-card"
+              title={`${displayName} (${primaryRole})`}
+            >
+              <div className="user-avatar-initials">{userInitials}</div>
+              {!isCollapsed && (
+                <>
+                  <div className="user-info">
+                    <div className="user-name" title={displayName}>
+                      {displayName}
+                    </div>
+                    <div className="user-role-label">{primaryRole}</div>
+                  </div>
+                  <button
+                    type="button"
+                    className="logout-action-btn"
+                    onClick={() => logout()}
+                    title="Sign Out"
+                    aria-label="Sign Out"
+                  >
+                    <LogOut size={15} />
+                  </button>
+                </>
+              )}
+            </div>
           </div>
-        </div>
-      </aside>
+        </aside>
+      </div>
     </>
   );
 }
