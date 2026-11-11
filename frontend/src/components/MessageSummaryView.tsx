@@ -17,7 +17,6 @@ import {
   ListTodo,
   ExternalLink,
   ChevronRight,
-  Shield,
   MessageSquare,
   Search,
   Filter,
@@ -488,73 +487,6 @@ export default function MessageSummaryView({
               )}
             </button>
           </nav>
-
-          {/* Quick Context Card in Sidebar */}
-          <div className="subnav-sidebar-actions-card">
-            <div className="info-card-header">
-              <Sparkles size={13} style={{ color: '#4f46e5' }} />
-              <span>QUICK ACTIONS</span>
-            </div>
-            <button
-              type="button"
-              className="sidebar-action-btn copy-btn"
-              onClick={handleCopyAllMessages}
-              title="Copy entire conversation history to clipboard"
-            >
-              <Copy size={13} />
-              <span>Copy All Messages</span>
-            </button>
-            <div className="sidebar-lang-toggle-wrap">
-              <span className="sidebar-action-label">Language:</span>
-              <div className="sidebar-lang-pills">
-                <button
-                  type="button"
-                  className={`pill-mini ${summaryLanguage === 'hinglish' ? 'active' : ''}`}
-                  onClick={() => setSummaryLanguage('hinglish')}
-                >
-                  🇮🇳 Hinglish
-                </button>
-                <button
-                  type="button"
-                  className={`pill-mini ${summaryLanguage === 'english' ? 'active' : ''}`}
-                  onClick={() => setSummaryLanguage('english')}
-                >
-                  🇬🇧 English
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="subnav-sidebar-info-card">
-            <div className="info-card-header">
-              <Shield size={13} style={{ color: '#4f46e5' }} />
-              <span>INTELLIGENCE AUDIT</span>
-            </div>
-            <div className="info-card-stat">
-              <span className="stat-label">Coverage</span>
-              <span className="stat-val">{briefing?.isCompleteCoverage ? '100% Complete' : 'Partial'}</span>
-            </div>
-            <div className="info-card-stat">
-              <span className="stat-label">Database Records</span>
-              <span className="stat-val">{briefing?.totalMessagesCount ?? currentGroupMessages.length} Stored</span>
-            </div>
-            <div className="info-card-stat">
-              <span className="stat-label">Analyzed</span>
-              <span className="stat-val">{briefing?.messagesIncluded ?? currentGroupMessages.length} Messages</span>
-            </div>
-            {Boolean(briefing?.messagesExcluded && briefing.messagesExcluded > 0) && (
-              <div className="info-card-stat">
-                <span className="stat-label">Excluded</span>
-                <span className="stat-val" style={{ color: '#e11d48' }}>{briefing?.messagesExcluded} Messages</span>
-              </div>
-            )}
-            <div className="info-card-stat">
-              <span className="stat-label">AI Engine</span>
-              <span className="stat-val" style={{ fontSize: 10.5 }}>
-                {briefing?.metadata?.isLiveAI ? 'Groq LPU (Live)' : 'Groq AI Engine'}
-              </span>
-            </div>
-          </div>
         </aside>
 
         {/* Right Main Content Pane */}
@@ -577,24 +509,6 @@ export default function MessageSummaryView({
                   <div className="bottom-line-badge">
                     <Sparkles size={13} />
                     <span>THE BOTTOM LINE</span>
-                  </div>
-                  <div className="bottom-line-metrics">
-                    <span className="metric-tag">
-                      <Clock size={11} /> ~1 min read
-                    </span>
-                    <span className="metric-tag">
-                      <CheckCircle2 size={11} style={{ color: '#059669' }} />{' '}
-                      {briefing?.decisions.filter((d) => d.status === 'CONFIRMED').length || 0} Confirmed
-                    </span>
-                    {briefing?.pendingDiscussions && briefing.pendingDiscussions.length > 0 ? (
-                      <span className="metric-tag tag-warning">
-                        <AlertTriangle size={11} /> {briefing.pendingDiscussions.length} Unresolved
-                      </span>
-                    ) : (
-                      <span className="metric-tag tag-success">
-                        <CheckCircle2 size={11} /> No Active Blockers
-                      </span>
-                    )}
                   </div>
                 </div>
 
@@ -678,17 +592,6 @@ export default function MessageSummaryView({
                 </div>
               </div>
 
-              {/* Coverage & Audit Metadata */}
-              <div className="editorial-audit-footer">
-                <div>
-                  <strong>Processing Integrity:</strong> {briefing?.coverageNote}
-                </div>
-                <div className="audit-provenance">
-                  <span>Provider: {briefing?.metadata?.provenance || 'Groq LPU Intelligence'}</span> &bull; 
-                  <span>Model: {briefing?.metadata?.model}</span> &bull; 
-                  <span>Generated: {new Date(briefing?.metadata?.generatedAt || Date.now()).toLocaleTimeString()}</span>
-                </div>
-              </div>
             </div>
           </div>
         )}
