@@ -64,3 +64,16 @@ export interface TwoChatContact {
   name?: string;
   phone_number?: string;
 }
+
+export const HIDDEN_PRIVATE_GROUPS = new Set([
+  'tcs 2025 rehire jl update',
+  'aicte internship programme ( batch - 11 )',
+  'family forever 🫰🏻🥰🌹',
+  'sade das bgmi🫦',
+  'test grp',
+]);
+
+export function isHiddenPrivateGroup(groupName?: string | null): boolean {
+  if (!groupName) return false;
+  return HIDDEN_PRIVATE_GROUPS.has(groupName.trim().toLowerCase());
+}

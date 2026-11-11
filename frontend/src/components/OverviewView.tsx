@@ -13,15 +13,84 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { DashboardSection } from './Sidebar';
+import { TwoChatConversation, isHiddenPrivateGroup } from '@/lib/types';
 
 interface OverviewViewProps {
   onNavigate: (section: DashboardSection) => void;
   totalMessagesCount?: number;
+  conversations?: TwoChatConversation[];
 }
 
-export default function OverviewView({ onNavigate, totalMessagesCount = 148 }: OverviewViewProps) {
+export default function OverviewView({
+  onNavigate,
+  totalMessagesCount = 128,
+  conversations = [],
+}: OverviewViewProps) {
   const { user, hasPermission, hasRole } = useAuth();
   const primaryRole = user?.roles?.[0]?.replace('ROLE_', '') || 'EMPLOYEE';
+
+  // Discover real company groups and filter out personal test groups
+  const realCompanyGroups = conversations
+    .filter((c) => c.isGroup && !isHiddenPrivateGroup(c.name))
+    .slice(0, 6);
+
+  const fallbackCompanyGroups = [
+    {
+      name: 'Client || Blue Tyga x TBM || Celeb execution',
+      category: 'Client & Campaign Operations',
+      messagesCount: 29,
+      status: 'ACTIVE BRIEFING',
+      statusClass: 'badge-success',
+    },
+    {
+      name: 'Emami X TheBoredMonkey',
+      category: 'Brand Execution & Deliverables',
+      messagesCount: 28,
+      status: 'ACTIVE SYNC',
+      statusClass: 'badge-info',
+    },
+    {
+      name: 'Blue Tyga DVC || TBM internal',
+      category: 'Internal Creative & Review',
+      messagesCount: 28,
+      status: 'ACTIVE SYNC',
+      statusClass: 'badge-info',
+    },
+    {
+      name: 'Blue Tyga X Shreyas Iyer',
+      category: 'Celebrity Campaign Coordination',
+      messagesCount: 14,
+      status: 'MONITORED',
+      statusClass: 'badge-info',
+    },
+    {
+      name: 'Cent X TheBoredMonkey',
+      category: 'Client Campaign Operations',
+      messagesCount: 14,
+      status: 'MONITORED',
+      statusClass: 'badge-info',
+    },
+    {
+      name: 'BM x Eclipse Solaire Matte Effect',
+      category: 'Production & Deliverables',
+      messagesCount: 13,
+      status: 'MONITORED',
+      statusClass: 'badge-info',
+    },
+  ];
+
+  const featuredGroups =
+    realCompanyGroups.length > 0
+      ? realCompanyGroups.map((grp) => ({
+          name: grp.name,
+          category: 'Active Client & Campaign Group',
+          messagesCount: grp.messageCount || 0,
+          status: 'MONITORED',
+          statusClass: 'badge-info',
+        }))
+      : fallbackCompanyGroups;
+
+  const totalGroupsCount = realCompanyGroups.length > 0 ? realCompanyGroups.length : 6;
 
   const kpis = [
     {
@@ -42,8 +111,8 @@ export default function OverviewView({ onNavigate, totalMessagesCount = 148 }: O
     },
     {
       title: 'Monitored Groups',
-      value: '7',
-      change: 'Active group sync',
+      value: `${totalGroupsCount}`,
+      change: 'Active company channels',
       icon: Users,
       color: '#059669',
       bg: '#ecfdf5',
@@ -55,30 +124,6 @@ export default function OverviewView({ onNavigate, totalMessagesCount = 148 }: O
       icon: CheckCircle2,
       color: '#4338ca',
       bg: '#f5f3ff',
-    },
-  ];
-
-  const featuredGroups = [
-    {
-      name: 'Client || Blue Tyga x TBM || Celeb execution',
-      category: 'Client & Influencer Operations',
-      messagesCount: totalMessagesCount,
-      status: 'ACTIVE BRIEFING',
-      statusClass: 'badge-success',
-    },
-    {
-      name: 'Fleet Ops Pod',
-      category: 'Logistics & Transport Dispatch',
-      messagesCount: 24,
-      status: 'MONITORED',
-      statusClass: 'badge-info',
-    },
-    {
-      name: 'Dispatch Operations Central',
-      category: 'Daily Route Coordination',
-      messagesCount: 16,
-      status: 'MONITORED',
-      statusClass: 'badge-info',
     },
   ];
 

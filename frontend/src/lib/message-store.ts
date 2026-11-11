@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { TwoChatMessage } from './types';
+import { TwoChatMessage, isHiddenPrivateGroup } from './types';
 import {
   clearMessagesFromDb,
   getGroupHistoryFromDb,
@@ -57,6 +57,18 @@ export async function loadGroupHistory(
   groupIdentifier: string,
   dateRangeFilter: 'all' | '24h' | '7d' = 'all'
 ): Promise<GroupHistoryQueryResult> {
+  if (isHiddenPrivateGroup(groupIdentifier)) {
+    return {
+      messages: [],
+      totalInDb: 0,
+      excludedCount: 0,
+      excludedDetails: [],
+      dateRange: {
+        start: new Date().toISOString(),
+        end: new Date().toISOString(),
+      },
+    };
+  }
   try {
     return await getGroupHistoryFromDb(groupIdentifier, dateRangeFilter);
   } catch (err) {

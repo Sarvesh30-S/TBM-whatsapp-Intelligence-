@@ -25,7 +25,7 @@ import {
   Copy,
   Check,
 } from 'lucide-react';
-import { TwoChatMessage, TwoChatConversation } from '@/lib/types';
+import { TwoChatMessage, TwoChatConversation, isHiddenPrivateGroup } from '@/lib/types';
 import {
   GroupIntelligenceBriefing,
   StorylineStep,
@@ -65,28 +65,28 @@ export default function MessageSummaryView({
   const { hasRole, hasPermission } = useAuth();
   const canGenerate = hasRole('ADMIN') || hasRole('MANAGER') || hasPermission('SUMMARY_GENERATE');
 
-  // Discover group names with real messages
+  // Discover group names with real messages (filtering out private personal test groups)
   const availableGroups = useMemo(() => {
     const map = new Map<string, number>();
     for (const msg of allMessages) {
       const gName = msg.groupName || (msg.isGroup ? msg.chatName || 'WhatsApp Group' : null);
-      if (gName) {
+      if (gName && !isHiddenPrivateGroup(gName)) {
         map.set(gName, (map.get(gName) || 0) + 1);
       }
     }
     // Also include conversation objects that are groups
     for (const c of conversations) {
-      if (c.isGroup && c.name && !map.has(c.name)) {
+      if (c.isGroup && c.name && !isHiddenPrivateGroup(c.name) && !map.has(c.name)) {
         map.set(c.name, 0);
       }
     }
     return Array.from(map.entries()).map(([name, count]) => ({ name, count }));
   }, [allMessages, conversations]);
 
-  // Selected Group state (default to first group with messages or first available group)
+  // Selected Group state (default to first company group with messages)
   const [selectedGroup, setSelectedGroup] = useState<string>(() => {
     if (availableGroups.length > 0) {
-      const best = availableGroups.find((g) => g.count > 0) || availableGroups[0];
+      const best = availableGroups.find((g) => g.count > 0 && !isHiddenPrivateGroup(g.name)) || availableGroups[0];
       return best.name;
     }
     return 'Client || Blue Tyga x TBM || Celeb execution';

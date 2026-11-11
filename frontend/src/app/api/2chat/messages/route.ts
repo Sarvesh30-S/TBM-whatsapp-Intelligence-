@@ -14,7 +14,7 @@ import {
   normalizePhone,
   NormalizeContext,
 } from '@/lib/twochat-api';
-import { TwoChatChannel, TwoChatConversation, TwoChatGroup, TwoChatMessage } from '@/lib/types';
+import { TwoChatChannel, TwoChatConversation, TwoChatGroup, TwoChatMessage, isHiddenPrivateGroup } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -338,17 +338,28 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // Filter out private personal test groups so only genuine company conversations reach the frontend
+    const visibleConversations = conversations.filter((c) => !isHiddenPrivateGroup(c.name));
+    const visibleMessages = allMessages.filter((m) => {
+      const gName = m.groupName || (m.isGroup ? m.chatName : null);
+      return !isHiddenPrivateGroup(gName);
+    });
+    const visibleThreadMessages = threadMessages.filter((m) => {
+      const gName = m.groupName || (m.isGroup ? m.chatName : null);
+      return !isHiddenPrivateGroup(gName);
+    });
+
     return NextResponse.json({
       success: true,
       apiKeyConfigured: Boolean(apiKey),
       channels,
       activeChannel,
-      groups,
+      groups: groups.filter((g) => !isHiddenPrivateGroup(g.wa_group_name || g.name)),
       contacts: contactDirectory,
-      conversations,
-      messages: allMessages,
-      threadMessages,
-      webhookStoredCount: allMessages.length,
+      conversations: visibleConversations,
+      messages: visibleMessages,
+      threadMessages: visibleThreadMessages,
+      webhookStoredCount: visibleMessages.length,
       apiErrors: apiErrors.length > 0 ? apiErrors : undefined,
     });
   } catch (error: any) {

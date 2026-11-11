@@ -10,7 +10,7 @@ import DeveloperView from '@/components/DeveloperView';
 import AdminManagementView from '@/components/AdminManagementView';
 import LoginView from '@/components/LoginView';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
-import { TwoChatConversation, TwoChatMessage } from '@/lib/types';
+import { TwoChatConversation, TwoChatMessage, isHiddenPrivateGroup } from '@/lib/types';
 
 function cleanDigits(val: string): string {
   if (!val) return '';
@@ -79,7 +79,9 @@ function DashboardContent() {
       if (cached) {
         try {
           const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed.filter((c) => !isHiddenPrivateGroup(c.name));
+          }
         } catch {}
       }
     }
@@ -91,7 +93,10 @@ function DashboardContent() {
       if (cached) {
         try {
           const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed[0];
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const filtered = parsed.filter((c) => !isHiddenPrivateGroup(c.name));
+            return filtered[0] || null;
+          }
         } catch {}
       }
     }
@@ -103,7 +108,13 @@ function DashboardContent() {
       if (cached) {
         try {
           const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) return deduplicateList(parsed);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const filtered = parsed.filter((m) => {
+              const gName = m.groupName || (m.isGroup ? m.chatName : null);
+              return !isHiddenPrivateGroup(gName);
+            });
+            return deduplicateList(filtered);
+          }
         } catch {}
       }
     }
@@ -189,13 +200,20 @@ function DashboardContent() {
       const rawMessages: TwoChatMessage[] = data.messages || [];
       const rawConversations: TwoChatConversation[] = data.conversations || [];
 
-      const dedupedMessages = deduplicateList(rawMessages);
+      // Filter out private personal test groups so they never appear on the frontend
+      const visibleRawMessages = rawMessages.filter((m) => {
+        const gName = m.groupName || (m.isGroup ? m.chatName : null);
+        return !isHiddenPrivateGroup(gName);
+      });
+      const visibleRawConversations = rawConversations.filter((c) => !isHiddenPrivateGroup(c.name));
+
+      const dedupedMessages = deduplicateList(visibleRawMessages);
 
       const convMap = new Map<string, TwoChatConversation>();
 
-      rawConversations.forEach((c) => {
+      visibleRawConversations.forEach((c) => {
         const id = c.id || c.groupUuid || c.phoneOrId || c.name;
-        if (id) convMap.set(id, c);
+        if (id && !isHiddenPrivateGroup(c.name)) convMap.set(id, c);
       });
 
       dedupedMessages.forEach((msg) => {
@@ -242,9 +260,11 @@ function DashboardContent() {
         }
       });
 
-      const updatedConversations = Array.from(convMap.values()).sort(
-        (a, b) => new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime()
-      );
+      const updatedConversations = Array.from(convMap.values())
+        .filter((c) => !isHiddenPrivateGroup(c.name))
+        .sort(
+          (a, b) => new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime()
+        );
 
       setAllMessages(dedupedMessages);
       setConversations(updatedConversations);
@@ -423,7 +443,8 @@ function DashboardContent() {
           {currentSection === 'overview' && (
             <OverviewView
               onNavigate={setCurrentSection}
-              totalMessagesCount={allMessages.length || 148}
+              totalMessagesCount={allMessages.length || 128}
+              conversations={conversations}
             />
           )}
 
