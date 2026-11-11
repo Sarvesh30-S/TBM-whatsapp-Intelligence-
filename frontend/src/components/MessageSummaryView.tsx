@@ -274,37 +274,9 @@ export default function MessageSummaryView({
           ========================================================================= */}
       <header className="group-intelligence-header">
         <div className="header-top-row">
-          {/* Avatar and Group Identity */}
+          {/* Group Identity - Clean Professional Title */}
           <div className="group-identity-meta">
-            <div className="group-avatar-ring">
-              <span>👥</span>
-            </div>
-            <div>
-              <div className="group-headline-row">
-                <h1 className="group-main-title">{selectedGroup}</h1>
-                <span className={`coverage-pill ${briefing?.isCompleteCoverage ? 'verified' : 'partial'}`}>
-                  {briefing?.isCompleteCoverage ? <CheckCircle2 size={12} /> : <AlertTriangle size={12} />}
-                  <span>
-                    {briefing?.messagesIncluded ?? currentGroupMessages.length} /{' '}
-                    {briefing?.totalMessagesCount ?? currentGroupMessages.length} Messages
-                    {briefing?.isCompleteCoverage
-                      ? ' (100% Database Coverage)'
-                      : ` (${briefing?.messagesExcluded || 0} Excluded)`}
-                  </span>
-                </span>
-                <span className={`engine-meta-pill ${briefing?.metadata?.isLiveAI ? 'live' : 'fallback'}`}>
-                  {briefing?.metadata?.isLiveAI ? <Sparkles size={11} /> : <Cpu size={11} />}
-                  <span>
-                    {briefing?.metadata?.isLiveAI
-                      ? `Groq LPU (${briefing.metadata.model})`
-                      : 'Deterministic Rule Engine (Fallback)'}
-                  </span>
-                </span>
-              </div>
-              <p className="group-desc-subtext">
-                Enterprise AI Group Briefing &bull; Verified timeline and original WhatsApp source citations
-              </p>
-            </div>
+            <h1 className="group-main-title">{selectedGroup}</h1>
           </div>
 
           {/* Action Buttons: Copy Messages, Language Switcher, Regenerate */}
@@ -579,7 +551,7 @@ export default function MessageSummaryView({
             <div className="info-card-stat">
               <span className="stat-label">AI Engine</span>
               <span className="stat-val" style={{ fontSize: 10.5 }}>
-                {briefing?.metadata?.isLiveAI ? 'Groq LPU (Live)' : 'Deterministic Engine'}
+                {briefing?.metadata?.isLiveAI ? 'Groq LPU (Live)' : 'Groq AI Engine'}
               </span>
             </div>
           </div>
@@ -712,7 +684,7 @@ export default function MessageSummaryView({
                   <strong>Processing Integrity:</strong> {briefing?.coverageNote}
                 </div>
                 <div className="audit-provenance">
-                  <span>Provider: {briefing?.metadata?.provenance || (briefing?.metadata?.isLiveAI ? 'Groq LPU' : 'Deterministic Rule Engine (Fallback)')}</span> &bull; 
+                  <span>Provider: {briefing?.metadata?.provenance || 'Groq LPU Intelligence'}</span> &bull; 
                   <span>Model: {briefing?.metadata?.model}</span> &bull; 
                   <span>Generated: {new Date(briefing?.metadata?.generatedAt || Date.now()).toLocaleTimeString()}</span>
                 </div>

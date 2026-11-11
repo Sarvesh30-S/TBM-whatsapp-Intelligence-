@@ -2002,7 +2002,7 @@ body {
 .header-top-row {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 20px;
   flex-wrap: wrap;
 }
@@ -2010,36 +2010,17 @@ body {
 .group-identity-meta {
   display: flex;
   align-items: center;
-  gap: 16px;
   min-width: 0;
-}
-
-.group-avatar-ring {
-  width: 52px;
-  height: 52px;
-  border-radius: 12px;
-  background-color: #f1f5f9;
-  border: 1px solid var(--border-subtle);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  flex-shrink: 0;
-}
-
-.group-headline-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  flex: 1;
 }
 
 .group-main-title {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--text-primary);
   margin: 0;
-  line-height: 1.3;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
 }
 
 .coverage-pill {
@@ -4353,30 +4334,12 @@ body {
   }
 
   .group-identity-meta {
-    gap: 12px;
-    align-items: flex-start;
-  }
-
-  .group-avatar-ring {
-    width: 42px;
-    height: 42px;
-    font-size: 20px;
-    border-radius: 10px;
-  }
-
-  .group-headline-row {
-    gap: 6px;
+    width: 100%;
   }
 
   .group-main-title {
-    font-size: 17px;
+    font-size: 19px;
     word-break: break-word;
-  }
-
-  .coverage-pill,
-  .engine-meta-pill {
-    font-size: 10.5px;
-    padding: 2px 7px;
   }
 
   .header-actions-group {
