@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Sparkles,
   RotateCw,
@@ -17,6 +17,7 @@ import {
   ListTodo,
   ExternalLink,
   ChevronRight,
+  ChevronDown,
   MessageSquare,
   Search,
   Filter,
@@ -111,6 +112,38 @@ export default function MessageSummaryView({
   const [briefing, setBriefing] = useState<GroupIntelligenceBriefing | null>(null);
   const [briefingError, setBriefingError] = useState<string>('');
 
+  // Custom modern group dropdown state
+  const [isGroupDropdownOpen, setIsGroupDropdownOpen] = useState<boolean>(false);
+  const [groupSearchQuery, setGroupSearchQuery] = useState<string>('');
+  const groupDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (groupDropdownRef.current && !groupDropdownRef.current.contains(e.target as Node)) {
+        setIsGroupDropdownOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsGroupDropdownOpen(false);
+      }
+    };
+    if (isGroupDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isGroupDropdownOpen]);
+
+  const filteredDropdownGroups = useMemo(() => {
+    if (!groupSearchQuery.trim()) return availableGroups;
+    const q = groupSearchQuery.toLowerCase();
+    return availableGroups.filter((g) => g.name.toLowerCase().includes(q));
+  }, [availableGroups, groupSearchQuery]);
+
   // Filter messages for current group and date range
   const currentGroupMessages = useMemo(() => {
     const now = Date.now();
@@ -128,6 +161,15 @@ export default function MessageSummaryView({
       })
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   }, [allMessages, selectedGroup, dateRange]);
+
+  const selectedGroupData = useMemo(() => {
+    return (
+      availableGroups.find((g) => g.name.toLowerCase() === selectedGroup.toLowerCase()) || {
+        name: selectedGroup,
+        count: currentGroupMessages.length,
+      }
+    );
+  }, [availableGroups, selectedGroup, currentGroupMessages.length]);
 
   // Request new briefing from API for a specific group
   const generateGroupBriefing = async (targetGroup: string = selectedGroup) => {
@@ -323,22 +365,87 @@ export default function MessageSummaryView({
 
         {/* Group Selector & Date Filter Controls */}
         <div className="header-controls-row">
-          <div className="controls-left">
+          <div className="controls-left" ref={groupDropdownRef}>
             <label className="selector-label">
               <Compass size={13} />
               <span>ACTIVE WHATSAPP GROUP:</span>
             </label>
-            <select
-              className="group-select-dropdown"
-              value={selectedGroup}
-              onChange={(e) => handleSelectGroup(e.target.value)}
-            >
-              {availableGroups.map((g) => (
-                <option key={g.name} value={g.name}>
-                  {g.name} ({g.count} messages)
-                </option>
-              ))}
-            </select>
+
+            <div className="custom-group-dropdown-wrapper">
+              <button
+                type="button"
+                className={`custom-group-dropdown-trigger ${isGroupDropdownOpen ? 'open' : ''}`}
+                onClick={() => setIsGroupDropdownOpen((prev) => !prev)}
+                aria-haspopup="listbox"
+                aria-expanded={isGroupDropdownOpen}
+                title="Select active WhatsApp group"
+              >
+                <div className="trigger-group-info">
+                  <span className="trigger-group-name">{selectedGroup}</span>
+                  {selectedGroupData && (
+                    <span className="trigger-group-count">
+                      {selectedGroupData.count} {selectedGroupData.count === 1 ? 'msg' : 'msgs'}
+                    </span>
+                  )}
+                </div>
+                <ChevronDown
+                  size={15}
+                  className={`trigger-chevron ${isGroupDropdownOpen ? 'rotated' : ''}`}
+                />
+              </button>
+
+              {isGroupDropdownOpen && (
+                <div className="custom-group-dropdown-menu" role="listbox">
+                  {availableGroups.length > 4 && (
+                    <div className="dropdown-search-box">
+                      <Search size={13} className="dropdown-search-icon" />
+                      <input
+                        type="text"
+                        className="dropdown-search-input"
+                        placeholder="Search groups..."
+                        value={groupSearchQuery}
+                        onChange={(e) => setGroupSearchQuery(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        autoFocus
+                      />
+                    </div>
+                  )}
+
+                  <div className="dropdown-options-scroll">
+                    {filteredDropdownGroups.length === 0 ? (
+                      <div className="dropdown-no-results">
+                        No groups matching &quot;{groupSearchQuery}&quot;
+                      </div>
+                    ) : (
+                      filteredDropdownGroups.map((g) => {
+                        const isSelected = g.name.toLowerCase() === selectedGroup.toLowerCase();
+                        return (
+                          <div
+                            key={g.name}
+                            className={`dropdown-option-row ${isSelected ? 'selected' : ''}`}
+                            role="option"
+                            aria-selected={isSelected}
+                            onClick={() => {
+                              handleSelectGroup(g.name);
+                              setIsGroupDropdownOpen(false);
+                              setGroupSearchQuery('');
+                            }}
+                          >
+                            <span className="option-group-name">{g.name}</span>
+                            <div className="option-right-meta">
+                              <span className="option-msg-count">
+                                {g.count} {g.count === 1 ? 'msg' : 'msgs'}
+                              </span>
+                              {isSelected && <Check size={14} className="option-check-icon" />}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="controls-right">
