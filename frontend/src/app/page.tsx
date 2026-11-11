@@ -6,7 +6,6 @@ import Sidebar, { DashboardSection } from '@/components/Sidebar';
 import OverviewView from '@/components/OverviewView';
 import TestMessagesView from '@/components/TestMessagesView';
 import MessageSummaryView from '@/components/MessageSummaryView';
-import PriorityInboxView from '@/components/PriorityInboxView';
 import DeveloperView from '@/components/DeveloperView';
 import AdminManagementView from '@/components/AdminManagementView';
 import LoginView from '@/components/LoginView';
@@ -365,7 +364,6 @@ function DashboardContent() {
     overview: 'Operational Overview',
     'test-messages': 'Test Messages Sandbox',
     'message-summary': 'Group Intelligence & Summaries',
-    'priority-inbox': 'Priority Inbox Triage',
     developer: 'Developer & Telemetry Console',
     admin: 'Access Control & Administration',
   };
@@ -394,7 +392,6 @@ function DashboardContent() {
         mobileOpen={mobileSidebarOpen}
         onToggleMobile={() => setMobileSidebarOpen(!mobileSidebarOpen)}
         channelInfo="WhatsApp Active (+91 86553 30477)"
-        unresolvedPriorityCount={3}
       />
 
       {/* Main Viewport */}
@@ -480,10 +477,6 @@ function DashboardContent() {
               }}
               onNavigateToDeveloper={() => setCurrentSection('developer')}
             />
-          )}
-
-          {currentSection === 'priority-inbox' && (
-            <PriorityInboxView />
           )}
 
           {currentSection === 'developer' && (

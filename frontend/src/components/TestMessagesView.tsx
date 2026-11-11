@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   RotateCw,
   Trash2,
@@ -107,6 +107,14 @@ export default function TestMessagesView({
 }: TestMessagesViewProps) {
   const { hasPermission, hasRole } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [mobileChatView, setMobileChatView] = useState<'list' | 'thread'>('list');
+
+  // Switch to thread view on mobile if a specific message or chat is targeted
+  useEffect(() => {
+    if (targetMessageId && selectedChat) {
+      setMobileChatView('thread');
+    }
+  }, [targetMessageId, selectedChat]);
 
   // Auto-scroll when active chat or messages change, or scroll to targeted message
   useEffect(() => {
@@ -228,7 +236,7 @@ export default function TestMessagesView({
       {/* Live Chat Split Window */}
       <div className="livechat-wrapper">
         {/* Left Sidebar: Conversations List */}
-        <aside className="livechat-sidebar">
+        <aside className={`livechat-sidebar ${mobileChatView === 'thread' ? 'mobile-hidden-pane' : ''}`}>
           <div className="sidebar-header">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span className="sidebar-title">Chats</span>
@@ -298,7 +306,10 @@ export default function TestMessagesView({
                   <div
                     key={conv.id}
                     className={`chat-item ${isSelected ? 'active' : ''}`}
-                    onClick={() => onSelectChat(conv)}
+                    onClick={() => {
+                      onSelectChat(conv);
+                      setMobileChatView('thread');
+                    }}
                   >
                     <div className="chat-avatar">{initial}</div>
                     <div className="chat-info">
@@ -318,12 +329,20 @@ export default function TestMessagesView({
         </aside>
 
         {/* Center Pane: Active Conversation in LIST-TYPE View */}
-        <main className="livechat-thread">
+        <main className={`livechat-thread ${mobileChatView === 'list' ? 'mobile-hidden-pane' : ''}`}>
           {selectedChat ? (
             <>
               {/* Thread Header */}
               <div className="thread-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <button
+                    type="button"
+                    className="mobile-back-to-chats-btn"
+                    onClick={() => setMobileChatView('list')}
+                    aria-label="Back to conversations list"
+                  >
+                    ← Chats
+                  </button>
                   <div style={{
                     width: 36,
                     height: 36,

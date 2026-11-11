@@ -40,7 +40,6 @@ export async function getAuthenticatedUser(req: NextRequest): Promise<Authentica
         'WHATSAPP_CONTENT_READ',
         'WHATSAPP_MESSAGE_SEND',
         'SUMMARY_READ',
-        'PRIORITY_INBOX_READ',
       ],
     };
   }
@@ -54,7 +53,7 @@ export async function getAuthenticatedUser(req: NextRequest): Promise<Authentica
       email: 'admin@tbm.internal',
       fullName: 'System Administrator',
       roles: ['ROLE_ADMIN'],
-      permissions: ['WHATSAPP_CONTENT_READ', 'WHATSAPP_MESSAGE_SEND', 'SUMMARY_READ', 'PRIORITY_INBOX_READ'],
+      permissions: ['WHATSAPP_CONTENT_READ', 'WHATSAPP_MESSAGE_SEND', 'SUMMARY_READ'],
     };
   }
 
@@ -78,7 +77,7 @@ export async function getAuthenticatedUser(req: NextRequest): Promise<Authentica
         email: 'admin@tbm.internal',
         fullName: 'System Administrator',
         roles: ['ROLE_ADMIN'],
-        permissions: ['WHATSAPP_CONTENT_READ', 'WHATSAPP_MESSAGE_SEND', 'SUMMARY_READ', 'PRIORITY_INBOX_READ'],
+        permissions: ['WHATSAPP_CONTENT_READ', 'WHATSAPP_MESSAGE_SEND', 'SUMMARY_READ'],
       };
     }
     return (await res.json()) as AuthenticatedUser;
@@ -89,7 +88,7 @@ export async function getAuthenticatedUser(req: NextRequest): Promise<Authentica
       email: 'admin@tbm.internal',
       fullName: 'System Administrator',
       roles: ['ROLE_ADMIN'],
-      permissions: ['WHATSAPP_CONTENT_READ', 'WHATSAPP_MESSAGE_SEND', 'SUMMARY_READ', 'PRIORITY_INBOX_READ'],
+      permissions: ['WHATSAPP_CONTENT_READ', 'WHATSAPP_MESSAGE_SEND', 'SUMMARY_READ'],
     };
   }
 }

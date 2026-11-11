@@ -66,8 +66,6 @@ const DEV_DEMO_PROFILES: Record<string, UserProfile> = {
       'WHATSAPP_MESSAGE_SEND',
       'SUMMARY_READ',
       'SUMMARY_GENERATE',
-      'PRIORITY_INBOX_READ',
-      'PRIORITY_INBOX_TRIAGE',
       'ACTION_ITEM_CREATE',
       'ACTION_ITEM_ASSIGN',
       'ACTION_ITEM_UPDATE',
@@ -85,8 +83,6 @@ const DEV_DEMO_PROFILES: Record<string, UserProfile> = {
     permissions: [
       'EXECUTIVE_BI_READ',
       'SUMMARY_READ',
-      'PRIORITY_INBOX_READ',
-      'PRIORITY_INBOX_TRIAGE',
       'EXECUTIVE_APPROVE',
     ],
   },
@@ -117,7 +113,6 @@ const DEV_DEMO_PROFILES: Record<string, UserProfile> = {
     permissions: [
       'WHATSAPP_CONTENT_READ',
       'SUMMARY_READ',
-      'PRIORITY_INBOX_READ',
       'ACTION_ITEM_UPDATE',
     ],
   },
@@ -323,8 +318,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return true; // Read-only viewing permitted; send action is strictly gated on backend
         case 'message-summary':
           return hasPermission('SUMMARY_READ') || hasPermission('EXECUTIVE_BI_READ') || hasRole('C_SUITE') || hasRole('MANAGER');
-        case 'priority-inbox':
-          return hasPermission('PRIORITY_INBOX_READ') || hasRole('C_SUITE') || hasRole('MANAGER');
         case 'developer':
           return hasPermission('TELEMETRY_READ') || hasRole('DEVELOPER');
         case 'admin':

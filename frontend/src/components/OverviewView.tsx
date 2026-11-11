@@ -4,13 +4,12 @@ import React from 'react';
 import {
   MessageSquare,
   Sparkles,
-  AlertTriangle,
   Users,
   CheckCircle2,
-  Clock,
   ArrowRight,
   ShieldCheck,
   TrendingUp,
+  Cpu,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { DashboardSection } from './Sidebar';
@@ -35,28 +34,51 @@ export default function OverviewView({ onNavigate, totalMessagesCount = 148 }: O
     },
     {
       title: 'Analyzed by Groq',
-      value: '148',
-      change: '100% processed',
+      value: '100%',
+      change: 'Complete context coverage',
       icon: Sparkles,
       color: '#0891b2',
       bg: '#ecfeff',
     },
     {
-      title: 'Priority Inbox Alerts',
-      value: '3',
-      change: '2 require immediate triage',
-      icon: AlertTriangle,
-      color: '#e11d48',
-      bg: '#fff1f2',
-      alert: true,
-    },
-    {
-      title: 'Active Groups & Pods',
-      value: '1',
-      change: 'Fleet Ops Pod',
+      title: 'Monitored Groups',
+      value: '7',
+      change: 'Active group sync',
       icon: Users,
       color: '#059669',
       bg: '#ecfdf5',
+    },
+    {
+      title: 'System Uptime',
+      value: '99.9%',
+      change: 'Enterprise Grade SLA',
+      icon: CheckCircle2,
+      color: '#4338ca',
+      bg: '#f5f3ff',
+    },
+  ];
+
+  const featuredGroups = [
+    {
+      name: 'Client || Blue Tyga x TBM || Celeb execution',
+      category: 'Client & Influencer Operations',
+      messagesCount: totalMessagesCount,
+      status: 'ACTIVE BRIEFING',
+      statusClass: 'badge-success',
+    },
+    {
+      name: 'Fleet Ops Pod',
+      category: 'Logistics & Transport Dispatch',
+      messagesCount: 24,
+      status: 'MONITORED',
+      statusClass: 'badge-info',
+    },
+    {
+      name: 'Dispatch Operations Central',
+      category: 'Daily Route Coordination',
+      messagesCount: 16,
+      status: 'MONITORED',
+      statusClass: 'badge-info',
     },
   ];
 
@@ -77,15 +99,13 @@ export default function OverviewView({ onNavigate, totalMessagesCount = 148 }: O
           </p>
         </div>
         <div className="overview-header-actions">
-          {hasPermission('PRIORITY_INBOX_READ') && (
-            <button
-              className="btn btn-primary"
-              onClick={() => onNavigate('priority-inbox')}
-            >
-              <AlertTriangle size={16} />
-              Triage Priority Inbox (3)
-            </button>
-          )}
+          <button
+            className="btn btn-primary"
+            onClick={() => onNavigate('message-summary')}
+          >
+            <Sparkles size={16} />
+            View Group Intelligence
+          </button>
         </div>
       </div>
 
@@ -94,7 +114,7 @@ export default function OverviewView({ onNavigate, totalMessagesCount = 148 }: O
         {kpis.map((kpi, idx) => {
           const Icon = kpi.icon;
           return (
-            <div key={idx} className={`kpi-card ${kpi.alert ? 'kpi-card-alert' : ''}`}>
+            <div key={idx} className="kpi-card">
               <div className="kpi-card-top">
                 <span className="kpi-title">{kpi.title}</span>
                 <div className="kpi-icon-bubble" style={{ backgroundColor: kpi.bg, color: kpi.color }}>
@@ -113,61 +133,41 @@ export default function OverviewView({ onNavigate, totalMessagesCount = 148 }: O
         })}
       </div>
 
-      {/* 2-Column Split: Priority Alerts & Quick Action Workspaces */}
+      {/* 2-Column Split: Monitored Groups & Quick Action Workspaces */}
       <div className="overview-split-layout">
-        {/* Left: Active Urgent Matters */}
+        {/* Left: Active Monitored WhatsApp Groups */}
         <div className="overview-card">
           <div className="overview-card-header">
             <div className="card-header-title-group">
-              <div className="section-pill alert-pill">HIGH URGENCY</div>
-              <h2 className="card-title">Priority Inbox Items Requiring Action</h2>
+              <div className="section-pill admin-pill">CHANNELS</div>
+              <h2 className="card-title">Monitored WhatsApp Groups</h2>
             </div>
             <button
               className="btn-link"
-              onClick={() => onNavigate('priority-inbox')}
+              onClick={() => onNavigate('message-summary')}
             >
-              View All (3) <ArrowRight size={14} />
+              Open Intelligence <ArrowRight size={14} />
             </button>
           </div>
 
-          <div className="priority-items-list">
-            <div className="priority-item-row alert-critical">
-              <div className="priority-dot dot-critical" />
-              <div className="priority-item-info">
-                <div className="priority-item-title">Urgent driver payment clearance required for Fleet Pod #4</div>
-                <div className="priority-item-meta">
-                  <span>Group: <strong>Fleet Ops Pod</strong></span> &bull; 
-                  <span>Urgency: <strong>0.95 / 1.00</strong></span> &bull; 
-                  <span>Source: <strong>Sarvesh (+91 77386 74950)</strong></span>
+          <div className="monitored-groups-list">
+            {featuredGroups.map((grp, index) => (
+              <div
+                key={index}
+                className="monitored-group-row"
+                onClick={() => onNavigate('message-summary')}
+                style={{ cursor: 'pointer' }}
+              >
+                <div className="group-avatar-mini">👥</div>
+                <div className="group-info-meta">
+                  <div className="group-row-title">{grp.name}</div>
+                  <div className="group-row-sub">
+                    <span>{grp.category}</span> &bull; <span>{grp.messagesCount} Messages</span>
+                  </div>
                 </div>
+                <span className={`status-badge ${grp.statusClass}`}>{grp.status}</span>
               </div>
-              <span className="status-badge badge-danger">NEW</span>
-            </div>
-
-            <div className="priority-item-row alert-financial">
-              <div className="priority-dot dot-warning" />
-              <div className="priority-item-info">
-                <div className="priority-item-title">Diesel reimbursement claim submitted with receipt attachment</div>
-                <div className="priority-item-meta">
-                  <span>Group: <strong>Fleet Ops Pod</strong></span> &bull; 
-                  <span>Category: <strong>FINANCIAL</strong></span> &bull; 
-                  <span>Due: <strong>Today, 5:00 PM</strong></span>
-                </div>
-              </div>
-              <span className="status-badge badge-warning">ACKNOWLEDGED</span>
-            </div>
-
-            <div className="priority-item-row">
-              <div className="priority-dot dot-info" />
-              <div className="priority-item-info">
-                <div className="priority-item-title">Vehicle schedule change requested for tomorrow 08:00 AM dispatch</div>
-                <div className="priority-item-meta">
-                  <span>Group: <strong>Fleet Ops Pod</strong></span> &bull; 
-                  <span>Category: <strong>OPERATIONS</strong></span>
-                </div>
-              </div>
-              <span className="status-badge badge-info">VIEWED</span>
-            </div>
+            ))}
           </div>
         </div>
 
@@ -190,7 +190,7 @@ export default function OverviewView({ onNavigate, totalMessagesCount = 148 }: O
               </div>
               <div className="quick-nav-text">
                 <div className="quick-nav-title">Group Intelligence & Summary</div>
-                <div className="quick-nav-desc">Verifiable AI summaries citing original message IDs with timeline view</div>
+                <div className="quick-nav-desc">Hinglish / English AI summaries citing source message IDs with timeline view</div>
               </div>
               <ArrowRight size={16} className="tile-arrow" />
             </div>
@@ -215,7 +215,7 @@ export default function OverviewView({ onNavigate, totalMessagesCount = 148 }: O
                 onClick={() => onNavigate('developer')}
               >
                 <div className="quick-nav-icon bg-emerald">
-                  <CheckCircle2 size={20} />
+                  <Cpu size={20} />
                 </div>
                 <div className="quick-nav-text">
                   <div className="quick-nav-title">Developer & Telemetry Console</div>

@@ -5,7 +5,6 @@ import {
   LayoutDashboard,
   MessageSquareCode,
   FileText,
-  Inbox,
   Terminal,
   ShieldAlert,
   Radio,
@@ -19,7 +18,6 @@ export type DashboardSection =
   | 'overview'
   | 'test-messages'
   | 'message-summary'
-  | 'priority-inbox'
   | 'developer'
   | 'admin';
 
@@ -29,7 +27,6 @@ interface SidebarProps {
   mobileOpen: boolean;
   onToggleMobile: () => void;
   channelInfo?: string;
-  unresolvedPriorityCount?: number;
 }
 
 export default function Sidebar({
@@ -38,7 +35,6 @@ export default function Sidebar({
   mobileOpen,
   onToggleMobile,
   channelInfo,
-  unresolvedPriorityCount = 3,
 }: SidebarProps) {
   const { user, logout, canAccessSection, switchDemoRole } = useAuth();
 
@@ -60,13 +56,6 @@ export default function Sidebar({
       label: 'Summary',
       icon: FileText,
       badge: 'AI',
-    },
-    {
-      id: 'priority-inbox' as DashboardSection,
-      label: 'Priority Inbox',
-      icon: Inbox,
-      badge: unresolvedPriorityCount > 0 ? `${unresolvedPriorityCount}` : undefined,
-      isAlertBadge: unresolvedPriorityCount > 0,
     },
     {
       id: 'developer' as DashboardSection,
@@ -169,9 +158,7 @@ export default function Sidebar({
                 {item.badge && (
                   <span
                     className={`nav-item-badge ${
-                      item.isAlertBadge
-                        ? 'badge-alert'
-                        : item.badge === 'Live'
+                      item.badge === 'Live'
                         ? 'badge-live'
                         : 'badge-ai'
                     }`}
