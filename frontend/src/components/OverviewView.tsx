@@ -17,12 +17,14 @@ import { TwoChatConversation, isHiddenPrivateGroup } from '@/lib/types';
 
 interface OverviewViewProps {
   onNavigate: (section: DashboardSection) => void;
+  onSelectGroup?: (groupName: string) => void;
   totalMessagesCount?: number;
   conversations?: TwoChatConversation[];
 }
 
 export default function OverviewView({
   onNavigate,
+  onSelectGroup,
   totalMessagesCount = 128,
   conversations = [],
 }: OverviewViewProps) {
@@ -83,12 +85,10 @@ export default function OverviewView({
     realCompanyGroups.length > 0
       ? realCompanyGroups.map((grp) => ({
           name: grp.name,
-          category: 'Active Client & Campaign Group',
-          messagesCount: grp.messageCount || 0,
-          status: 'MONITORED',
-          statusClass: 'badge-info',
         }))
-      : fallbackCompanyGroups;
+      : fallbackCompanyGroups.map((grp) => ({
+          name: grp.name,
+        }));
 
   const totalGroupsCount = realCompanyGroups.length > 0 ? realCompanyGroups.length : 6;
 
@@ -189,9 +189,10 @@ export default function OverviewView({
             </div>
             <button
               className="btn-link"
-              onClick={() => onNavigate('message-summary')}
+              onClick={() => onNavigate('test-messages')}
+              title="View all chats in Groups & Chats"
             >
-              Open Intelligence <ArrowRight size={14} />
+              Open Chats <ArrowRight size={14} />
             </button>
           </div>
 
@@ -200,17 +201,17 @@ export default function OverviewView({
               <div
                 key={index}
                 className="monitored-group-row"
-                onClick={() => onNavigate('message-summary')}
-                style={{ cursor: 'pointer' }}
+                onClick={() => {
+                  if (onSelectGroup) {
+                    onSelectGroup(grp.name);
+                  } else {
+                    onNavigate('test-messages');
+                  }
+                }}
+                title={`Open chat for ${grp.name}`}
               >
-                <div className="group-avatar-mini">👥</div>
-                <div className="group-info-meta">
-                  <div className="group-row-title">{grp.name}</div>
-                  <div className="group-row-sub">
-                    <span>{grp.category}</span> &bull; <span>{grp.messagesCount} Messages</span>
-                  </div>
-                </div>
-                <span className={`status-badge ${grp.statusClass}`}>{grp.status}</span>
+                <span className="group-row-title">{grp.name}</span>
+                <ArrowRight size={14} className="group-row-arrow" />
               </div>
             ))}
           </div>

@@ -318,6 +318,34 @@ function DashboardContent() {
     setSelectedChat(chat);
   };
 
+  const handleOpenGroupChat = (groupName: string) => {
+    const trimmed = groupName.trim().toLowerCase();
+    let target = conversations.find((c) => {
+      const cName = c.name.trim().toLowerCase();
+      return cName === trimmed || cName.includes(trimmed) || trimmed.includes(cName);
+    });
+
+    if (!target) {
+      const newConv: TwoChatConversation = {
+        id: `conv-${groupName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`,
+        name: groupName,
+        phoneOrId: `group-${groupName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`,
+        isGroup: true,
+        messageCount: 0,
+        unreadCount: 0,
+        lastTimestamp: new Date().toISOString(),
+        lastMessage: 'Active company channel',
+      };
+      target = newConv;
+      setConversations((prev) => [newConv, ...prev.filter((c) => c.name !== groupName)]);
+    }
+
+    if (target) {
+      setSelectedChat(target);
+      setCurrentSection('test-messages');
+    }
+  };
+
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e && e.preventDefault) e.preventDefault();
     const text = replyText;
@@ -513,6 +541,7 @@ function DashboardContent() {
           {currentSection === 'overview' && (
             <OverviewView
               onNavigate={setCurrentSection}
+              onSelectGroup={handleOpenGroupChat}
               totalMessagesCount={allMessages.length || 128}
               conversations={conversations}
             />

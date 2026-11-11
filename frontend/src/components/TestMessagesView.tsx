@@ -254,7 +254,15 @@ export default function TestMessagesView({
     };
   }, [selectedChat?.id, currentChatMessages.length]);
 
-  // Switch to thread view on mobile if a specific message or chat is targeted
+  // Switch to thread view on mobile if a chat is selected or targeted
+  const prevSelectedChatIdRef = useRef<string | null>(selectedChat?.id || null);
+  useEffect(() => {
+    if (selectedChat?.id && selectedChat.id !== prevSelectedChatIdRef.current) {
+      prevSelectedChatIdRef.current = selectedChat.id;
+      setMobileChatView('thread');
+    }
+  }, [selectedChat?.id]);
+
   useEffect(() => {
     if (targetMessageId && selectedChat) {
       setMobileChatView('thread');
