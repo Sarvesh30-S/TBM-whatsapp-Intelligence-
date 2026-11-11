@@ -1047,21 +1047,13 @@ export default function TestMessagesView({
           } ${!showSummaryPane ? 'desktop-hidden-pane' : ''}`}
           style={isDesktop ? { width: summaryWidth, minWidth: summaryWidth, maxWidth: summaryWidth, flexShrink: 0 } : undefined}
         >
-          {/* Header Tabs: AI Summary & Intelligence Views */}
+          {/* Header Tab: AI Summary */}
           <div className="summary-pane-header">
             <div className="summary-pane-tabs">
-              <button type="button" className="summary-pane-tab active">
+              <div className="summary-pane-tab active" style={{ cursor: 'default' }}>
                 <Sparkles size={13} />
                 <span>AI Summary</span>
-              </button>
-              <button
-                type="button"
-                className="summary-pane-tab"
-                onClick={onNavigateToDeveloper}
-                title="Open deep intelligence views"
-              >
-                <span>Intelligence Views</span>
-              </button>
+              </div>
             </div>
 
             <div className="summary-pane-controls">
