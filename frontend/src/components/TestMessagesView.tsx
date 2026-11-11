@@ -21,8 +21,16 @@ import {
   Image as ImageIcon,
   Link2,
   ExternalLink,
+  Sparkles,
+  CheckCircle2,
+  AlertTriangle,
+  ListTodo,
+  ChevronDown,
+  ChevronUp,
+  Clock,
 } from 'lucide-react';
 import { TwoChatConversation, TwoChatMessage } from '@/lib/types';
+import { GroupIntelligenceBriefing } from '@/lib/groq-client';
 import { useAuth } from '@/context/AuthContext';
 
 interface TestMessagesViewProps {
@@ -117,8 +125,47 @@ export default function TestMessagesView({
 }: TestMessagesViewProps) {
   const { hasPermission, hasRole } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [mobileChatView, setMobileChatView] = useState<'list' | 'thread'>('list');
+  const [mobileChatView, setMobileChatView] = useState<'list' | 'thread' | 'summary'>('list');
   const [threadTab, setThreadTab] = useState<'messages' | 'media' | 'files' | 'links'>('messages');
+  const [showSummaryPane, setShowSummaryPane] = useState<boolean>(true);
+  const [summaryBriefing, setSummaryBriefing] = useState<GroupIntelligenceBriefing | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState<boolean>(false);
+  const [summaryLanguage, setSummaryLanguage] = useState<'hinglish' | 'english'>('english');
+  const [recentDevelopmentsOpen, setRecentDevelopmentsOpen] = useState<boolean>(false);
+
+  // Fetch AI Summary briefing for active chat
+  useEffect(() => {
+    if (!selectedChat) {
+      setSummaryBriefing(null);
+      return;
+    }
+    let isCancelled = false;
+    setSummaryLoading(true);
+
+    fetch('/api/groq/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mode: 'group_intelligence',
+        groupName: selectedChat.name,
+        messages: currentChatMessages.length > 0 ? currentChatMessages : undefined,
+      }),
+    })
+      .then((res) => res.json())
+      .then((json) => {
+        if (!isCancelled && json.success && json.data) {
+          setSummaryBriefing(json.data);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!isCancelled) setSummaryLoading(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedChat?.id, currentChatMessages.length]);
 
   // Switch to thread view on mobile if a specific message or chat is targeted
   useEffect(() => {
@@ -319,8 +366,8 @@ export default function TestMessagesView({
         </div>
       )}
 
-      {/* Live Chat Split Window */}
-      <div className="livechat-wrapper">
+      {/* Live Chat 3-Pane Window (Groups | Conversation | AI Summary) */}
+      <div className={`livechat-wrapper ${showSummaryPane ? 'summary-expanded' : 'summary-collapsed'}`}>
         {/* Left Sidebar: Active Groups List Pane */}
         <aside className={`livechat-sidebar ${mobileChatView === 'thread' ? 'mobile-hidden-pane' : ''}`}>
           <div className="active-groups-header">
@@ -438,6 +485,20 @@ export default function TestMessagesView({
                 </div>
 
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    className={`btn-chat-action ${showSummaryPane ? 'primary' : 'secondary'}`}
+                    onClick={() => {
+                      setShowSummaryPane(!showSummaryPane);
+                      if (mobileChatView === 'thread') {
+                        setMobileChatView('summary');
+                      }
+                    }}
+                    title="Toggle AI Summary Pane"
+                  >
+                    <Sparkles size={12} />
+                    <span>AI Summary</span>
+                  </button>
                   <button
                     type="button"
                     className="btn-chat-action secondary"
@@ -801,6 +862,241 @@ export default function TestMessagesView({
             </div>
           )}
         </main>
+
+        {/* Right Column: AI Summary & Intelligence Pane (Mockup Column 4) */}
+        <aside
+          className={`livechat-summary-pane ${
+            mobileChatView === 'summary' ? 'mobile-visible-pane' : 'mobile-hidden-pane'
+          } ${!showSummaryPane ? 'desktop-hidden-pane' : ''}`}
+        >
+          {/* Header Tabs: AI Summary & Intelligence Views */}
+          <div className="summary-pane-header">
+            <div className="summary-pane-tabs">
+              <button type="button" className="summary-pane-tab active">
+                <Sparkles size={13} />
+                <span>AI Summary</span>
+              </button>
+              <button
+                type="button"
+                className="summary-pane-tab"
+                onClick={onNavigateToDeveloper}
+                title="Open deep intelligence views"
+              >
+                <span>Intelligence Views</span>
+              </button>
+            </div>
+
+            <div className="summary-pane-controls">
+              <div className="summary-lang-pill" title="Switch summary language">
+                <button
+                  type="button"
+                  className={`lang-sub-btn ${summaryLanguage === 'hinglish' ? 'active' : ''}`}
+                  onClick={() => setSummaryLanguage('hinglish')}
+                >
+                  Hindi
+                </button>
+                <button
+                  type="button"
+                  className={`lang-sub-btn ${summaryLanguage === 'english' ? 'active' : ''}`}
+                  onClick={() => setSummaryLanguage('english')}
+                >
+                  English
+                </button>
+              </div>
+
+              <button
+                type="button"
+                className="summary-refresh-icon-btn"
+                title="Regenerate intelligence summary"
+                disabled={summaryLoading}
+                onClick={() => {
+                  if (selectedChat) {
+                    setSummaryLoading(true);
+                    fetch('/api/groq/analyze', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        mode: 'group_intelligence',
+                        groupName: selectedChat.name,
+                        messages: currentChatMessages.length > 0 ? currentChatMessages : undefined,
+                      }),
+                    })
+                      .then((res) => res.json())
+                      .then((json) => {
+                        if (json.success && json.data) setSummaryBriefing(json.data);
+                      })
+                      .finally(() => setSummaryLoading(false));
+                  }
+                }}
+              >
+                <RotateCw size={13} className={summaryLoading ? 'animate-spin' : ''} />
+              </button>
+            </div>
+          </div>
+
+          {/* Mobile Back Button */}
+          <div className="summary-mobile-bar">
+            <button
+              type="button"
+              className="mobile-back-to-chats-btn"
+              onClick={() => setMobileChatView('thread')}
+            >
+              ← Back to Chat
+            </button>
+            <span className="summary-mobile-group-title">{selectedChat?.name}</span>
+          </div>
+
+          {/* Date & Coverage Sub-bar */}
+          <div className="summary-date-subbar">
+            <span className="summary-date-pill">
+              Nov 5, 2026 - Nov 8, 2026
+            </span>
+            <span className="summary-coverage-text">
+              Coverage: {currentChatMessages.length} Messages
+            </span>
+          </div>
+
+          {/* Scrollable Summary Body */}
+          <div className="summary-pane-scroll">
+            {summaryLoading && !summaryBriefing ? (
+              <div className="summary-loading-state">
+                <RotateCw size={22} className="animate-spin text-purple-600 mb-2" />
+                <p className="summary-loading-title">Generating AI Briefing...</p>
+                <p className="summary-loading-sub">Analyzing group messages and decisions...</p>
+              </div>
+            ) : summaryBriefing ? (
+              <>
+                {/* THE BOTTOM LINE Card */}
+                <div className="summary-bottom-line-card">
+                  <div className="bottom-line-tag">
+                    <Sparkles size={12} />
+                    <span>THE BOTTOM LINE</span>
+                  </div>
+                  <p className="bottom-line-text">
+                    {(summaryLanguage === 'hinglish' && summaryBriefing.executiveBriefing.currentSituationHinglish)
+                      ? summaryBriefing.executiveBriefing.currentSituationHinglish
+                      : summaryBriefing.executiveBriefing.currentSituation}
+                  </p>
+                </div>
+
+                {/* Overall Conversation Summary */}
+                <div className="summary-section-block">
+                  <h4 className="summary-section-title">Overall Conversation Summary</h4>
+                  <p className="summary-narrative-p">
+                    {(summaryLanguage === 'hinglish' && summaryBriefing.executiveBriefing.overviewHinglish)
+                      ? summaryBriefing.executiveBriefing.overviewHinglish
+                      : summaryBriefing.executiveBriefing.overview}
+                  </p>
+                </div>
+
+                {/* Current Situation & Alignment */}
+                <div className="summary-status-card situation">
+                  <div className="status-card-header">
+                    <CheckCircle2 size={15} className="status-icon situation" />
+                    <span className="status-card-title">Current Situation &amp; Alignment</span>
+                  </div>
+                  <p className="status-card-body">
+                    {(summaryLanguage === 'hinglish' && summaryBriefing.executiveBriefing.currentSituationHinglish)
+                      ? summaryBriefing.executiveBriefing.currentSituationHinglish
+                      : summaryBriefing.executiveBriefing.currentSituation}
+                  </p>
+                </div>
+
+                {/* Matters Requiring Attention */}
+                <div className="summary-status-card attention">
+                  <div className="status-card-header">
+                    <AlertTriangle size={15} className="status-icon attention" />
+                    <span className="status-card-title">Matters Requiring Attention</span>
+                  </div>
+                  <p className="status-card-body">
+                    {(summaryLanguage === 'hinglish' && summaryBriefing.executiveBriefing.attentionRequiredHinglish)
+                      ? summaryBriefing.executiveBriefing.attentionRequiredHinglish
+                      : summaryBriefing.executiveBriefing.attentionRequired}
+                  </p>
+                </div>
+
+                {/* Decisions Made */}
+                {summaryBriefing.decisions && summaryBriefing.decisions.length > 0 && (
+                  <div className="summary-section-block">
+                    <div className="summary-section-title-row">
+                      <CheckCircle2 size={15} style={{ color: '#10b981' }} />
+                      <h4 className="summary-section-title">Decisions Made</h4>
+                    </div>
+                    <ul className="summary-bullet-list">
+                      {summaryBriefing.decisions.map((dec, i) => (
+                        <li key={dec.id || i} className="summary-bullet-item">
+                          <span className="bullet-point" />
+                          <span><strong>{dec.title}</strong>{dec.context ? ` — ${dec.context}` : ''}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Action Items */}
+                {summaryBriefing.actionTracker && summaryBriefing.actionTracker.length > 0 && (
+                  <div className="summary-section-block">
+                    <div className="summary-section-title-row">
+                      <ListTodo size={15} style={{ color: '#6366f1' }} />
+                      <h4 className="summary-section-title">Action Items ({summaryBriefing.actionTracker.length})</h4>
+                    </div>
+                    <div className="summary-action-items-list">
+                      {summaryBriefing.actionTracker.map((act, i) => (
+                        <div key={act.id || i} className="summary-action-item-card">
+                          <div className="action-item-left">
+                            <input type="checkbox" className="action-item-cb" readOnly checked={act.status === 'COMPLETED'} />
+                            <span className="action-item-text">{act.action}</span>
+                          </div>
+                          <div className="action-item-right">
+                            <span className="action-item-owner">{act.owner}</span>
+                            <span className={`action-item-status ${act.status.toLowerCase()}`}>{act.status}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Recent Developments Accordion */}
+                <div className="summary-accordion-block">
+                  <button
+                    type="button"
+                    className="summary-accordion-header"
+                    onClick={() => setRecentDevelopmentsOpen(!recentDevelopmentsOpen)}
+                  >
+                    <div className="accordion-title-left">
+                      <Clock size={14} />
+                      <span>Recent Developments</span>
+                    </div>
+                    {recentDevelopmentsOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  </button>
+                  {recentDevelopmentsOpen && (
+                    <div className="summary-accordion-body">
+                      {summaryBriefing.storyline && summaryBriefing.storyline.length > 0 ? (
+                        <ul className="accordion-milestones">
+                          {summaryBriefing.storyline.map((s, idx) => (
+                            <li key={s.id || idx} className="milestone-item">
+                              <span className="milestone-time">{s.timestamp}</span>
+                              <span className="milestone-title">{s.heading}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="milestone-empty">No milestone developments logged.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="summary-empty-state">
+                <Sparkles size={32} className="empty-icon" />
+                <p className="summary-empty-title">Select a Group</p>
+                <p className="summary-empty-sub">Choose any active conversation to load the live AI intelligence briefing.</p>
+              </div>
+            )}
+          </div>
+        </aside>
       </div>
     </div>
   );

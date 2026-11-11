@@ -592,6 +592,48 @@ export default function MessageSummaryView({
                 </div>
               </div>
 
+              {/* Decisions Made Section */}
+              {briefing?.decisions && briefing.decisions.length > 0 && (
+                <div className="briefing-decisions-section">
+                  <div className="section-title-with-icon">
+                    <CheckCircle2 size={16} style={{ color: '#10b981' }} />
+                    <h3 className="briefing-section-heading">Decisions Made</h3>
+                  </div>
+                  <ul className="briefing-bullets-list">
+                    {briefing.decisions.map((dec, i) => (
+                      <li key={dec.id || i} className="briefing-bullet-item">
+                        <span className="bullet-dot" />
+                        <span className="bullet-text"><strong>{dec.title}</strong> &mdash; <span className="bullet-context">{dec.context}</span></span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Action Items Section */}
+              {briefing?.actionTracker && briefing.actionTracker.length > 0 && (
+                <div className="briefing-actions-section">
+                  <div className="section-title-with-icon">
+                    <ListTodo size={16} style={{ color: '#6366f1' }} />
+                    <h3 className="briefing-section-heading">Action Items ({briefing.actionTracker.length})</h3>
+                  </div>
+                  <div className="briefing-action-cards-list">
+                    {briefing.actionTracker.map((act, i) => (
+                      <div key={act.id || i} className="briefing-action-row">
+                        <div className="action-row-left">
+                          <input type="checkbox" className="action-checkbox" readOnly checked={act.status === 'COMPLETED'} />
+                          <span className="action-row-text">{act.action}</span>
+                        </div>
+                        <div className="action-row-right">
+                          <span className="action-owner-pill">{act.owner}</span>
+                          <span className={`action-status-pill ${act.status.toLowerCase()}`}>{act.status}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
             </div>
           </div>
         )}
