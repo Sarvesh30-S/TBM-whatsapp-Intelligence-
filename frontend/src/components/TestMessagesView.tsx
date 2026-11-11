@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Key,
   Lock,
+  Search,
 } from 'lucide-react';
 import { TwoChatConversation, TwoChatMessage } from '@/lib/types';
 import { useAuth } from '@/context/AuthContext';
@@ -131,6 +132,10 @@ export default function TestMessagesView({
   const sentCount = allMessages.filter((m) => m.sentBy === 'agent').length;
   const receivedCount = allMessages.filter((m) => m.sentBy === 'customer').length;
 
+  const allCount = conversations.length;
+  const groupsCount = conversations.filter((c) => c.isGroup).length;
+  const directCount = conversations.filter((c) => !c.isGroup).length;
+
   const filteredConversations = conversations
     .filter((c) => {
       if (chatFilter === 'groups') return c.isGroup;
@@ -153,59 +158,91 @@ export default function TestMessagesView({
     ? `${channels[0].name || ''} (${formatPhone(channels[0].phone_number)})`.trim()
     : 'Connected Channel';
 
+  const formatChatTimestamp = (ts?: string | number): string => {
+    if (!ts) return '';
+    try {
+      const d = new Date(ts);
+      if (isNaN(d.getTime())) return '';
+      const now = new Date();
+      const isToday = d.toDateString() === now.toDateString();
+      if (isToday) {
+        return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+      }
+      const yesterday = new Date(now);
+      yesterday.setDate(now.getDate() - 1);
+      if (d.toDateString() === yesterday.toDateString()) {
+        return 'Yesterday';
+      }
+      return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    } catch {
+      return '';
+    }
+  };
+
+  const getConvMsgCount = (conv: TwoChatConversation): number => {
+    const matchingCount = allMessages.filter((m) => {
+      if (conv.isGroup) {
+        return (
+          (conv.groupUuid && m.groupUuid === conv.groupUuid) ||
+          m.chatName === conv.name ||
+          m.groupName === conv.name
+        );
+      }
+      return (
+        m.remoteNumber === conv.phoneOrId ||
+        m.senderNumber === conv.phoneOrId ||
+        m.fromNumber === conv.phoneOrId ||
+        m.toNumber === conv.phoneOrId ||
+        m.chatName === conv.name
+      );
+    }).length;
+
+    return matchingCount > 0 ? matchingCount : conv.messageCount || 0;
+  };
+
   return (
     <div className="test-messages-view">
-      {/* Top Header */}
-      <div className="section-header">
-        <div>
-          <h2 className="section-title">Test Messages &amp; Live Chat</h2>
-          <p className="section-subtitle">
-            Send test messages, view live conversations, and verify real-time WhatsApp webhook delivery.
-          </p>
-        </div>
-        <div className="header-actions">
-          {allMessages.length > 0 && (
+      {/* Sleek Workspace Header with Inline Stats */}
+      <div className="chat-workspace-header">
+        <div className="chat-workspace-title-row">
+          <div className="chat-workspace-title-block">
+            <h2 className="chat-workspace-title">Active Groups &amp; Live Chat</h2>
+            <div className="chat-workspace-stats-pill">
+              <span className="live-dot" />
+              <span>Live Sync</span>
+              <span className="stats-divider">•</span>
+              <span>{conversations.length} Active Groups</span>
+              <span className="stats-divider">•</span>
+              <span>{allMessages.length} Messages Synced</span>
+            </div>
+          </div>
+
+          <div className="chat-workspace-actions">
+            {allMessages.length > 0 && (
+              <button
+                type="button"
+                className="btn-chat-action secondary"
+                onClick={onClearMessages}
+                title="Clear local messages cache"
+              >
+                <Trash2 size={13} />
+                <span>Clear Cache</span>
+              </button>
+            )}
             <button
               type="button"
-              className="btn-secondary"
-              onClick={onClearMessages}
+              className="btn-chat-action primary"
+              onClick={() => onLoadData(apiKey)}
+              disabled={loading}
             >
-              <Trash2 size={14} />
-              <span>Clear Messages</span>
+              <RotateCw size={13} className={loading ? 'animate-spin' : ''} />
+              <span>{loading ? 'Syncing...' : 'Sync Messages'}</span>
             </button>
-          )}
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={() => onLoadData(apiKey)}
-            disabled={loading}
-          >
-            <RotateCw size={14} className={loading ? 'animate-spin' : ''} />
-            <span>{loading ? 'Fetching 2Chat...' : 'Sync Messages'}</span>
-          </button>
+          </div>
         </div>
       </div>
 
-      {/* Banner only if 2Chat is unconfigured AND no conversations/messages exist */}
-      {!apiKey && conversations.length === 0 && allMessages.length === 0 && (
-        <div className="warning-banner">
-          <div className="warning-content">
-            <Key size={18} className="warning-icon" />
-            <div>
-              <strong>2Chat API Key Required:</strong> To fetch conversations and send replies, configure your API Key in the Developer section.
-            </div>
-          </div>
-          <button
-            type="button"
-            className="btn-banner-action"
-            onClick={onNavigateToDeveloper}
-          >
-            Configure in Developer →
-          </button>
-        </div>
-      )}
-
-      {/* API Errors Banner */}
+      {/* Connection Diagnostics Banner if needed */}
       {apiErrors.length > 0 && (
         <div className="error-banner">
           <AlertCircle size={18} className="error-icon" />
@@ -220,106 +257,89 @@ export default function TestMessagesView({
         </div>
       )}
 
-      {/* 2 KPI Metric Cards */}
-      <div className="cards-grid">
-        <div className="card">
-          <div className="card-title">Messages Sent</div>
-          <div className="card-count">{sentCount}</div>
-        </div>
-
-        <div className="card">
-          <div className="card-title">Messages Received</div>
-          <div className="card-count">{receivedCount}</div>
-        </div>
-      </div>
-
       {/* Live Chat Split Window */}
       <div className="livechat-wrapper">
-        {/* Left Sidebar: Conversations List */}
+        {/* Left Sidebar: Active Groups List Pane */}
         <aside className={`livechat-sidebar ${mobileChatView === 'thread' ? 'mobile-hidden-pane' : ''}`}>
-          <div className="sidebar-header">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span className="sidebar-title">Chats</span>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#666666' }}>
-                {filteredConversations.length} CONVERSATION{filteredConversations.length === 1 ? '' : 'S'}
+          <div className="active-groups-header">
+            <div className="active-groups-title-row">
+              <span className="active-groups-title">Active Groups</span>
+              <span className="active-groups-count-badge">
+                {conversations.length} groups
               </span>
             </div>
 
-            <input
-              type="text"
-              className="search-box"
-              placeholder="Search chats..."
-              value={searchQuery}
-              onChange={(e) => onSetSearchQuery(e.target.value)}
-            />
+            <div className="active-groups-search-wrapper">
+              <Search size={14} className="active-groups-search-icon" />
+              <input
+                type="text"
+                className="active-groups-search-input"
+                placeholder="Search groups..."
+                value={searchQuery}
+                onChange={(e) => onSetSearchQuery(e.target.value)}
+              />
+            </div>
 
-            <div className="filter-pills">
+            <div className="active-groups-pills">
               <button
                 type="button"
-                className={`pill-btn ${chatFilter === 'all' ? 'active' : ''}`}
+                className={`active-group-pill ${chatFilter === 'all' ? 'active' : ''}`}
                 onClick={() => onSetChatFilter('all')}
               >
-                All
+                All ({allCount})
               </button>
               <button
                 type="button"
-                className={`pill-btn ${chatFilter === 'groups' ? 'active' : ''}`}
+                className={`active-group-pill ${chatFilter === 'groups' ? 'active' : ''}`}
                 onClick={() => onSetChatFilter('groups')}
               >
-                Groups
+                Groups ({groupsCount})
               </button>
               <button
                 type="button"
-                className={`pill-btn ${chatFilter === 'direct' ? 'active' : ''}`}
+                className={`active-group-pill ${chatFilter === 'direct' ? 'active' : ''}`}
                 onClick={() => onSetChatFilter('direct')}
               >
-                Direct
+                Direct ({directCount})
               </button>
             </div>
           </div>
 
           <div className="chat-items-scroll">
             {filteredConversations.length === 0 ? (
-              <div style={{ padding: '30px 16px', textAlign: 'center', color: '#888888', fontSize: 13 }}>
-                {loading ? 'Fetching from 2Chat...' : 'No chats found. Configure your 2Chat API Key in Developer and click "Sync Messages".'}
+              <div className="empty-groups-state">
+                {loading ? 'Fetching groups...' : 'No conversations found.'}
               </div>
             ) : (
               filteredConversations.map((conv) => {
                 const isSelected = selectedChat?.id === conv.id;
-                let formattedTime = '';
-                try {
-                  if (conv.lastTimestamp && new Date(conv.lastTimestamp).getTime() > 0) {
-                    formattedTime = new Date(conv.lastTimestamp).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    });
-                  }
-                } catch {
-                  formattedTime = '';
-                }
-
-                const initial = conv.isGroup
-                  ? '👥'
-                  : (conv.name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 1).toUpperCase() || '#');
+                const formattedTime = formatChatTimestamp(conv.lastTimestamp);
+                const msgCount = getConvMsgCount(conv);
 
                 return (
                   <div
                     key={conv.id}
-                    className={`chat-item ${isSelected ? 'active' : ''}`}
+                    className={`active-group-card ${isSelected ? 'active' : ''}`}
                     onClick={() => {
                       onSelectChat(conv);
                       setMobileChatView('thread');
                     }}
                   >
-                    <div className="chat-avatar">{initial}</div>
-                    <div className="chat-info">
-                      <div className="chat-info-top">
-                        <span className="chat-name">{conv.name}</span>
-                        {formattedTime && <span className="chat-time">{formattedTime}</span>}
-                      </div>
-                      <div className="chat-preview">
+                    <div className="group-card-top">
+                      <span className="group-card-name" title={conv.name}>
+                        {conv.name}
+                      </span>
+                      {formattedTime && (
+                        <span className="group-card-time">{formattedTime}</span>
+                      )}
+                    </div>
+                    <div className="group-card-bottom">
+                      <span className="group-card-snippet">
                         {conv.lastMessage || (conv.isGroup ? 'Group Conversation' : 'Direct Conversation')}
-                      </div>
+                      </span>
+                      {msgCount > 0 && (
+                        <span className="group-card-badge">{msgCount}</span>
+                      )}
                     </div>
                   </div>
                 );
@@ -328,43 +348,29 @@ export default function TestMessagesView({
           </div>
         </aside>
 
-        {/* Center Pane: Active Conversation in LIST-TYPE View */}
+        {/* Center Pane: Active Conversation */}
         <main className={`livechat-thread ${mobileChatView === 'list' ? 'mobile-hidden-pane' : ''}`}>
           {selectedChat ? (
             <>
-              {/* Thread Header */}
+              {/* Thread Header (Clean, professional, strictly NO DPs) */}
               <div className="thread-header">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <button
                     type="button"
                     className="mobile-back-to-chats-btn"
                     onClick={() => setMobileChatView('list')}
                     aria-label="Back to conversations list"
                   >
-                    ← Chats
+                    ← Groups
                   </button>
-                  <div style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: '50%',
-                    backgroundColor: '#25D366',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#ffffff',
-                    fontSize: 18,
-                    fontWeight: 700,
-                  }}>
-                    {selectedChat.isGroup ? '👥' : '💬'}
-                  </div>
-                  <div>
+                  <div className="thread-header-info">
                     <div className="thread-header-title">
                       {selectedChat.name}
                     </div>
                     <div className="thread-header-subtitle">
                       {selectedChat.isGroup
-                        ? `Channel: ${channelDisplayName} • ${currentChatMessages.length} message${currentChatMessages.length === 1 ? '' : 's'}`
-                        : `${formatPhone(selectedChat.phoneOrId) || selectedChat.phoneOrId} • ${currentChatMessages.length} message${currentChatMessages.length === 1 ? '' : 's'}`}
+                        ? `${currentChatMessages.length} messages • Active now`
+                        : `${formatPhone(selectedChat.phoneOrId) || selectedChat.phoneOrId} • ${currentChatMessages.length} messages`}
                     </div>
                   </div>
                 </div>
@@ -372,8 +378,7 @@ export default function TestMessagesView({
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <button
                     type="button"
-                    className="secondary"
-                    style={{ padding: '5px 12px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}
+                    className="btn-chat-action secondary"
                     onClick={() => onLoadData(apiKey, selectedChat.id, selectedChat.isGroup, selectedChat.groupUuid)}
                     disabled={loading}
                   >
