@@ -9,6 +9,7 @@ import MessageSummaryView from '@/components/MessageSummaryView';
 import DeveloperView from '@/components/DeveloperView';
 import AdminManagementView from '@/components/AdminManagementView';
 import LoginView from '@/components/LoginView';
+import GlobalSearchOmnibox from '@/components/GlobalSearchOmnibox';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { TwoChatConversation, TwoChatMessage, isHiddenPrivateGroup } from '@/lib/types';
 
@@ -330,6 +331,17 @@ function DashboardContent() {
     }
   };
 
+  const handleOpenMessage = (groupName: string, messageId: string) => {
+    handleOpenGroupChat(groupName);
+    setTargetMessageId(messageId);
+    setTimeout(() => setTargetMessageId(''), 6000);
+  };
+
+  const handleOpenGroupSummary = (groupName: string) => {
+    handleOpenGroupChat(groupName);
+    setCurrentSection('message-summary');
+  };
+
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e && e.preventDefault) e.preventDefault();
     const text = replyText;
@@ -466,16 +478,14 @@ function DashboardContent() {
             >
               <Menu size={20} />
             </button>
-            <div className="topbar-search-wrapper">
-              <Search size={15} className="topbar-search-icon" />
-              <input
-                type="text"
-                placeholder="Search groups, messages, summaries..."
-                className="topbar-search-input"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
+            <GlobalSearchOmnibox
+              conversations={conversations}
+              allMessages={allMessages}
+              onSelectGroup={handleOpenGroupChat}
+              onSelectMessage={handleOpenMessage}
+              onOpenSummary={handleOpenGroupSummary}
+              onNavigateSection={setCurrentSection}
+            />
           </div>
 
           <div className="navbar-right">
