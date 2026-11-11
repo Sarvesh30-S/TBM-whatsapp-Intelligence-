@@ -12,6 +12,15 @@ import {
   Key,
   Lock,
   Search,
+  Plus,
+  Smile,
+  Paperclip,
+  FileText,
+  Download,
+  CheckCheck,
+  Image as ImageIcon,
+  Link2,
+  ExternalLink,
 } from 'lucide-react';
 import { TwoChatConversation, TwoChatMessage } from '@/lib/types';
 import { useAuth } from '@/context/AuthContext';
@@ -109,6 +118,7 @@ export default function TestMessagesView({
   const { hasPermission, hasRole } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [mobileChatView, setMobileChatView] = useState<'list' | 'thread'>('list');
+  const [threadTab, setThreadTab] = useState<'messages' | 'media' | 'files' | 'links'>('messages');
 
   // Switch to thread view on mobile if a specific message or chat is targeted
   useEffect(() => {
@@ -119,6 +129,7 @@ export default function TestMessagesView({
 
   // Auto-scroll when active chat or messages change, or scroll to targeted message
   useEffect(() => {
+    if (threadTab !== 'messages') return;
     if (targetMessageId) {
       const el = document.getElementById(`msg-${targetMessageId}`);
       if (el) {
@@ -127,9 +138,9 @@ export default function TestMessagesView({
       }
     }
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [selectedChat, currentChatMessages, targetMessageId]);
+  }, [selectedChat, currentChatMessages, targetMessageId, threadTab]);
 
-  const sentCount = allMessages.filter((m) => m.sentBy === 'agent').length;
+  const sentCount = allMessages.filter((m) => m.sentBy === 'agent' || m.sentBy === 'user').length;
   const receivedCount = allMessages.filter((m) => m.sentBy === 'customer').length;
 
   const allCount = conversations.length;
@@ -179,6 +190,37 @@ export default function TestMessagesView({
     }
   };
 
+  const formatDateSeparator = (ts?: string | number): string => {
+    if (!ts) return 'Today';
+    try {
+      const d = new Date(ts);
+      if (isNaN(d.getTime())) return 'Today';
+      const now = new Date();
+      if (d.toDateString() === now.toDateString()) return 'Today';
+      const yesterday = new Date(now);
+      yesterday.setDate(now.getDate() - 1);
+      if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+      return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch {
+      return 'Today';
+    }
+  };
+
+  const extractFileName = (url?: string, fallback: string = 'Document'): string => {
+    if (!url) return fallback;
+    try {
+      const clean = url.split('?')[0];
+      const parts = clean.split('/');
+      const last = parts[parts.length - 1];
+      if (last && last.includes('.')) {
+        return decodeURIComponent(last);
+      }
+    } catch {
+      // ignore
+    }
+    return fallback;
+  };
+
   const getConvMsgCount = (conv: TwoChatConversation): number => {
     const matchingCount = allMessages.filter((m) => {
       if (conv.isGroup) {
@@ -199,6 +241,26 @@ export default function TestMessagesView({
 
     return matchingCount > 0 ? matchingCount : conv.messageCount || 0;
   };
+
+  // Filter media, files, and links for subtabs
+  const mediaMessages = currentChatMessages.filter((m) => {
+    if (!m.mediaUrl) return false;
+    const url = m.mediaUrl.toLowerCase();
+    return url.endsWith('.png') || url.endsWith('.jpg') || url.endsWith('.jpeg') || url.endsWith('.webp') || url.endsWith('.gif') || url.includes('image');
+  });
+
+  const fileMessages = currentChatMessages.filter((m) => {
+    if (!m.mediaUrl) return false;
+    const url = m.mediaUrl.toLowerCase();
+    return url.endsWith('.pdf') || url.endsWith('.doc') || url.endsWith('.docx') || url.endsWith('.xls') || url.endsWith('.xlsx') || url.includes('document');
+  });
+
+  const linkMessages = currentChatMessages.filter((m) => {
+    return /https?:\/\/[^\s]+/gi.test(m.text || '');
+  });
+
+  // Track dates for separator insertion
+  let lastDateLabel = '';
 
   return (
     <div className="test-messages-view">
@@ -388,90 +450,344 @@ export default function TestMessagesView({
                 </div>
               </div>
 
-              {/* Messages Stream: LIST TYPE */}
-              <div className="thread-messages-scroll">
-                {currentChatMessages.length === 0 ? (
-                  <div className="empty-chat-state">
-                    <p style={{ fontWeight: 600, marginBottom: 4 }}>No messages in this chat yet.</p>
-                    <p style={{ fontSize: 12 }}>Incoming messages will appear here via 2Chat webhook.</p>
-                  </div>
-                ) : (
-                  currentChatMessages.map((msg) => {
-                    const isOutbound = msg.sentBy === 'agent';
-                    let formattedTime = '';
-                    try {
-                      formattedTime = new Date(msg.timestamp).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      });
-                    } catch {
-                      formattedTime = '';
-                    }
-
-                    const senderDisplay = formatSenderDisplay(msg, activeChannel);
-
-                    return (
-                      <div
-                        key={msg.id}
-                        id={`msg-${msg.id}`}
-                        className={`message-list-row ${targetMessageId === msg.id ? 'highlight-pulse' : ''}`}
-                      >
-                        {/* Header: Sender's name, direction badge, and timestamp */}
-                        <div className="message-list-header">
-                          <div className="message-sender-info">
-                            <span className={`sender-badge ${isOutbound ? 'outbound-badge' : 'inbound-badge'}`}>
-                              {isOutbound ? 'Sent' : 'Received'}
-                            </span>
-                            <span className="sender-display-name">
-                              {senderDisplay}
-                            </span>
-                          </div>
-                          <span className="message-timestamp">{formattedTime}</span>
-                        </div>
-
-                        {/* Quoted Message / Reply Preview if present */}
-                        {msg.quotedMessage && (
-                          <div className="message-quote-box">
-                            <span className="quote-mark">“</span>
-                            <div className="quote-content">{msg.quotedMessage}</div>
-                          </div>
-                        )}
-
-                        {/* Message Text */}
-                        <div className="message-body-text">
-                          {msg.text || (msg.mediaUrl ? `[Media: ${msg.mediaUrl}]` : '(No text content)')}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-                <div ref={messagesEndRef} />
+              {/* Subheader Tabs: Messages, Media, Files, Links */}
+              <div className="thread-subtabs">
+                <button
+                  type="button"
+                  className={`thread-subtab-pill ${threadTab === 'messages' ? 'active' : ''}`}
+                  onClick={() => setThreadTab('messages')}
+                >
+                  Messages
+                </button>
+                <button
+                  type="button"
+                  className={`thread-subtab-pill ${threadTab === 'media' ? 'active' : ''}`}
+                  onClick={() => setThreadTab('media')}
+                >
+                  Media ({mediaMessages.length})
+                </button>
+                <button
+                  type="button"
+                  className={`thread-subtab-pill ${threadTab === 'files' ? 'active' : ''}`}
+                  onClick={() => setThreadTab('files')}
+                >
+                  Files ({fileMessages.length})
+                </button>
+                <button
+                  type="button"
+                  className={`thread-subtab-pill ${threadTab === 'links' ? 'active' : ''}`}
+                  onClick={() => setThreadTab('links')}
+                >
+                  Links ({linkMessages.length})
+                </button>
               </div>
 
-              {/* Message Composer / Reply Testing Form - Gated by WHATSAPP_MESSAGE_SEND or ADMIN */}
-              {(hasPermission('WHATSAPP_MESSAGE_SEND') || hasRole('ADMIN')) ? (
-                <form className="thread-composer" onSubmit={onSendMessage}>
-                  <input
-                    type="text"
-                    className="composer-input"
-                    placeholder={`Write a test message or reply to ${selectedChat.name}...`}
-                    value={replyText}
-                    onChange={(e) => onSetReplyText(e.target.value)}
-                    disabled={sending}
-                  />
-                  <button
-                    type="submit"
-                    disabled={sending || !replyText.trim()}
-                    style={{ minWidth: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-                  >
-                    <Send size={13} />
-                    <span>{sending ? '...' : 'Send'}</span>
-                  </button>
-                </form>
-              ) : (
-                <div style={{ padding: '12px 16px', backgroundColor: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#64748b' }}>
-                  <Lock size={15} style={{ color: '#94a3b8' }} />
-                  <span>Outbound messaging disabled: Requires <strong>WHATSAPP_MESSAGE_SEND</strong> permission. Contact an Administrator to request sending privileges.</span>
+              {/* View 1: Main Conversation Stream */}
+              {threadTab === 'messages' && (
+                <>
+                  <div className="thread-messages-scroll">
+                    {currentChatMessages.length === 0 ? (
+                      <div className="empty-chat-state">
+                        <p style={{ fontWeight: 600, marginBottom: 4 }}>No messages in this chat yet.</p>
+                        <p style={{ fontSize: 12 }}>Incoming messages will appear here via 2Chat webhook.</p>
+                      </div>
+                    ) : (
+                      currentChatMessages.map((msg) => {
+                        const isOutbound = msg.sentBy === 'agent' || msg.sentBy === 'user';
+                        let formattedTime = '';
+                        try {
+                          formattedTime = new Date(msg.timestamp).toLocaleTimeString([], {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true,
+                          });
+                        } catch {
+                          formattedTime = '';
+                        }
+
+                        const senderDisplay = formatSenderDisplay(msg, activeChannel);
+                        const dateLabel = formatDateSeparator(msg.timestamp);
+                        const showDateSep = dateLabel !== lastDateLabel;
+                        if (showDateSep) {
+                          lastDateLabel = dateLabel;
+                        }
+
+                        const hasFileAttachment = msg.mediaUrl && (
+                          msg.mediaUrl.toLowerCase().endsWith('.pdf') ||
+                          msg.mediaUrl.toLowerCase().endsWith('.doc') ||
+                          msg.mediaUrl.toLowerCase().endsWith('.docx') ||
+                          msg.mediaUrl.toLowerCase().includes('pdf') ||
+                          msg.mediaUrl.toLowerCase().includes('document')
+                        );
+
+                        return (
+                          <React.Fragment key={msg.id}>
+                            {showDateSep && (
+                              <div className="date-separator-row">
+                                <span className="date-separator-pill">{dateLabel}</span>
+                              </div>
+                            )}
+
+                            <div
+                              id={`msg-${msg.id}`}
+                              className={`chat-bubble-row ${isOutbound ? 'outbound' : 'inbound'} ${targetMessageId === msg.id ? 'highlight-pulse' : ''}`}
+                            >
+                              <div className={`chat-bubble ${isOutbound ? 'outbound' : 'inbound'}`}>
+                                {/* Sender name in bold indigo for inbound bubbles, strictly NO DP */}
+                                {!isOutbound && (
+                                  <div className="bubble-sender-name">{senderDisplay}</div>
+                                )}
+
+                                {/* Quoted message if present */}
+                                {msg.quotedMessage && (
+                                  <div className="bubble-quote-box">
+                                    <span className="quote-text">{msg.quotedMessage}</span>
+                                  </div>
+                                )}
+
+                                {/* Message text */}
+                                {msg.text && (
+                                  <div className="bubble-text">{msg.text}</div>
+                                )}
+
+                                {/* Document / File Attachment Card if present */}
+                                {hasFileAttachment && (
+                                  <div className="bubble-attachment-card">
+                                    <div className="attachment-icon-box file">
+                                      <FileText size={18} />
+                                    </div>
+                                    <div className="attachment-meta">
+                                      <span className="attachment-name">
+                                        {extractFileName(msg.mediaUrl, 'Document.pdf')}
+                                      </span>
+                                      <span className="attachment-sub">PDF Document</span>
+                                    </div>
+                                    <a
+                                      href={msg.mediaUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="attachment-download-btn"
+                                      title="Download attachment"
+                                    >
+                                      <Download size={14} />
+                                    </a>
+                                  </div>
+                                )}
+
+                                {/* Image Attachment Preview if present */}
+                                {msg.mediaUrl && !hasFileAttachment && (
+                                  <div className="bubble-media-preview">
+                                    <a
+                                      href={msg.mediaUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="bubble-media-link"
+                                    >
+                                      <img
+                                        src={msg.mediaUrl}
+                                        alt="Media attachment"
+                                        className="bubble-media-img"
+                                        onError={(e) => {
+                                          (e.target as HTMLElement).style.display = 'none';
+                                        }}
+                                      />
+                                    </a>
+                                  </div>
+                                )}
+
+                                {/* Footer with timestamp and checks */}
+                                <div className="bubble-footer">
+                                  <span className="bubble-time">{formattedTime}</span>
+                                  {isOutbound && (
+                                    <span className="bubble-checks">
+                                      <CheckCheck size={14} className="check-double" />
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </React.Fragment>
+                        );
+                      })
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  {/* Modern Docked Composer Pill */}
+                  <div className="composer-container">
+                    {(hasPermission('WHATSAPP_MESSAGE_SEND') || hasRole('ADMIN')) ? (
+                      <form className="modern-thread-composer" onSubmit={onSendMessage}>
+                        <button
+                          type="button"
+                          className="composer-action-btn plus"
+                          title="Add attachment"
+                          onClick={() => {}}
+                        >
+                          <Plus size={16} />
+                        </button>
+
+                        <input
+                          type="text"
+                          className="composer-pill-input"
+                          placeholder="Type a message..."
+                          value={replyText}
+                          onChange={(e) => onSetReplyText(e.target.value)}
+                          disabled={sending}
+                        />
+
+                        <div className="composer-right-actions">
+                          <button
+                            type="button"
+                            className="composer-icon-btn"
+                            title="Insert emoji"
+                            onClick={() => onSetReplyText(replyText ? `${replyText} 😊` : '😊')}
+                          >
+                            <Smile size={18} />
+                          </button>
+                          <button
+                            type="button"
+                            className="composer-icon-btn"
+                            title="Attach file"
+                            onClick={() => {}}
+                          >
+                            <Paperclip size={18} />
+                          </button>
+                          <button
+                            type="submit"
+                            className="composer-send-btn"
+                            disabled={sending || !replyText.trim()}
+                            title="Send message"
+                          >
+                            <Send size={14} />
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div className="composer-locked-notice">
+                        <Lock size={15} />
+                        <span>Outbound messaging requires <strong>WHATSAPP_MESSAGE_SEND</strong> permission. Contact an Administrator.</span>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* View 2: Media Gallery */}
+              {threadTab === 'media' && (
+                <div className="thread-tab-content">
+                  {mediaMessages.length === 0 ? (
+                    <div className="empty-tab-state">
+                      <ImageIcon size={32} className="empty-tab-icon" />
+                      <p className="empty-tab-title">No Media Found</p>
+                      <p className="empty-tab-sub">Photos and media shared in this group will appear here.</p>
+                    </div>
+                  ) : (
+                    <div className="media-gallery-grid">
+                      {mediaMessages.map((m) => (
+                        <a
+                          key={m.id}
+                          href={m.mediaUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="media-gallery-item"
+                        >
+                          <img
+                            src={m.mediaUrl}
+                            alt="Media item"
+                            className="media-gallery-thumb"
+                          />
+                          <div className="media-gallery-overlay">
+                            <span className="media-sender">{m.senderName || 'Member'}</span>
+                            <Download size={14} />
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* View 3: Files & Documents */}
+              {threadTab === 'files' && (
+                <div className="thread-tab-content">
+                  {fileMessages.length === 0 ? (
+                    <div className="empty-tab-state">
+                      <FileText size={32} className="empty-tab-icon" />
+                      <p className="empty-tab-title">No Files Found</p>
+                      <p className="empty-tab-sub">Documents, PDFs, and files shared in this group will appear here.</p>
+                    </div>
+                  ) : (
+                    <div className="files-list">
+                      {fileMessages.map((m) => (
+                        <div key={m.id} className="file-item-card">
+                          <div className="file-item-icon">
+                            <FileText size={20} />
+                          </div>
+                          <div className="file-item-meta">
+                            <span className="file-item-name">
+                              {extractFileName(m.mediaUrl, 'Document.pdf')}
+                            </span>
+                            <span className="file-item-sub">
+                              Shared by {m.senderName || 'Member'} • {formatChatTimestamp(m.timestamp)}
+                            </span>
+                          </div>
+                          <a
+                            href={m.mediaUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="file-item-download"
+                            title="Download document"
+                          >
+                            <Download size={15} />
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* View 4: Links */}
+              {threadTab === 'links' && (
+                <div className="thread-tab-content">
+                  {linkMessages.length === 0 ? (
+                    <div className="empty-tab-state">
+                      <Link2 size={32} className="empty-tab-icon" />
+                      <p className="empty-tab-title">No Links Found</p>
+                      <p className="empty-tab-sub">Web links shared in this conversation will be cataloged here.</p>
+                    </div>
+                  ) : (
+                    <div className="links-list">
+                      {linkMessages.map((m) => {
+                        const urlMatch = m.text?.match(/https?:\/\/[^\s]+/i);
+                        const url = urlMatch ? urlMatch[0] : '';
+                        return (
+                          <div key={m.id} className="link-item-card">
+                            <div className="link-item-icon">
+                              <Link2 size={18} />
+                            </div>
+                            <div className="link-item-meta">
+                              <span className="link-item-url">{url}</span>
+                              <span className="link-item-sub">
+                                Shared by {m.senderName || 'Member'} • {formatChatTimestamp(m.timestamp)}
+                              </span>
+                            </div>
+                            {url && (
+                              <a
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="link-item-action"
+                                title="Open link in new tab"
+                              >
+                                <ExternalLink size={14} />
+                              </a>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </>
