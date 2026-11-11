@@ -153,6 +153,17 @@ export default function TestMessagesView({
   const [isResizingGroups, setIsResizingGroups] = useState<boolean>(false);
   const [isResizingSummary, setIsResizingSummary] = useState<boolean>(false);
 
+  // Responsive desktop detection so resizable widths only apply on desktop
+  const [isDesktop, setIsDesktop] = useState<boolean>(true);
+  useEffect(() => {
+    const handleResize = () => {
+      setIsDesktop(typeof window !== 'undefined' ? window.innerWidth > 900 : true);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const handleGroupsResizeStart = (e: React.MouseEvent) => {
     e.preventDefault();
     setIsResizingGroups(true);
@@ -411,7 +422,7 @@ export default function TestMessagesView({
         <div className="chat-workspace-title-row">
           <div className="chat-workspace-title-block">
             <h2 className="chat-workspace-title">Active Groups &amp; Live Chat</h2>
-            <div className="chat-workspace-stats-pill">
+            <div className="chat-workspace-stats-pill desktop-only">
               <span className="live-dot" />
               <span>Live Sync</span>
               <span className="stats-divider">•</span>
@@ -438,7 +449,7 @@ export default function TestMessagesView({
                 title="Clear local messages cache"
               >
                 <Trash2 size={13} />
-                <span>Clear Cache</span>
+                <span className="desktop-only">Clear Cache</span>
               </button>
             )}
             <button
@@ -446,12 +457,47 @@ export default function TestMessagesView({
               className="btn-chat-action primary"
               onClick={() => onLoadData(apiKey)}
               disabled={loading}
+              title="Sync WhatsApp messages"
             >
               <RotateCw size={13} className={loading ? 'animate-spin' : ''} />
-              <span>{loading ? 'Syncing...' : 'Sync Messages'}</span>
+              <span>{loading ? 'Syncing...' : 'Sync'}</span>
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Mobile Navigation Segment Control (< 900px) */}
+      <div className="mobile-chat-nav-bar mobile-only">
+        <button
+          type="button"
+          className={`mobile-chat-nav-btn ${mobileChatView === 'list' ? 'active' : ''}`}
+          onClick={() => setMobileChatView('list')}
+        >
+          <Users size={13} />
+          <span>Groups ({conversations.length})</span>
+        </button>
+        <button
+          type="button"
+          className={`mobile-chat-nav-btn ${mobileChatView === 'thread' ? 'active' : ''}`}
+          onClick={() => {
+            if (selectedChat) setMobileChatView('thread');
+          }}
+          disabled={!selectedChat}
+        >
+          <MessageSquare size={13} />
+          <span>Chat</span>
+        </button>
+        <button
+          type="button"
+          className={`mobile-chat-nav-btn ${mobileChatView === 'summary' ? 'active' : ''}`}
+          onClick={() => {
+            if (selectedChat) setMobileChatView('summary');
+          }}
+          disabled={!selectedChat}
+        >
+          <Sparkles size={13} />
+          <span>AI Summary</span>
+        </button>
       </div>
 
       {/* Connection Diagnostics Banner if needed */}
@@ -471,10 +517,10 @@ export default function TestMessagesView({
 
       {/* Live Chat 3-Pane Window (Groups | Conversation | AI Summary) */}
       <div className={`livechat-wrapper ${showSummaryPane ? 'summary-expanded' : 'summary-collapsed'}`}>
-        {/* Left Sidebar: Active Groups List Pane (Flexible Resizable Width) */}
+        {/* Left Sidebar: Active Groups List Pane (Flexible Resizable Width on Desktop) */}
         <aside
           className={`livechat-sidebar ${mobileChatView === 'thread' || mobileChatView === 'summary' ? 'mobile-hidden-pane' : ''}`}
-          style={{ width: groupsWidth, minWidth: groupsWidth, maxWidth: groupsWidth, flexShrink: 0 }}
+          style={isDesktop ? { width: groupsWidth, minWidth: groupsWidth, maxWidth: groupsWidth, flexShrink: 0 } : undefined}
         >
           <div className="active-groups-header">
             <div className="active-groups-title-row">
@@ -578,13 +624,13 @@ export default function TestMessagesView({
         {/* Center Pane: Active Conversation (Flexible Stretch Width) */}
         <main
           className={`livechat-thread ${mobileChatView === 'list' || mobileChatView === 'summary' ? 'mobile-hidden-pane' : ''}`}
-          style={{ flex: 1, minWidth: 280 }}
+          style={isDesktop ? { flex: 1, minWidth: 280 } : undefined}
         >
           {selectedChat ? (
             <>
               {/* Thread Header (Clean, professional, strictly NO DPs) */}
               <div className="thread-header">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
                   <button
                     type="button"
                     className="mobile-back-to-chats-btn"
@@ -593,41 +639,37 @@ export default function TestMessagesView({
                   >
                     ← Groups
                   </button>
-                  <div className="thread-header-info">
-                    <div className="thread-header-title">
+                  <div className="thread-header-info" style={{ minWidth: 0, flex: 1 }}>
+                    <div className="thread-header-title" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {selectedChat.name}
                     </div>
                     <div className="thread-header-subtitle">
                       {selectedChat.isGroup
-                        ? `${currentChatMessages.length} messages • Active now`
-                        : `${formatPhone(selectedChat.phoneOrId) || selectedChat.phoneOrId} • ${currentChatMessages.length} messages`}
+                        ? `${currentChatMessages.length} msgs • Active`
+                        : `${formatPhone(selectedChat.phoneOrId) || selectedChat.phoneOrId}`}
                     </div>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div className="thread-header-actions" style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
                   <button
                     type="button"
-                    className={`btn-chat-action ${showSummaryPane ? 'primary' : 'secondary'}`}
-                    onClick={() => {
-                      setShowSummaryPane(!showSummaryPane);
-                      if (mobileChatView === 'thread') {
-                        setMobileChatView('summary');
-                      }
-                    }}
-                    title="Toggle AI Summary Pane"
+                    className="btn-chat-action primary"
+                    onClick={() => setMobileChatView('summary')}
+                    title="Open AI Summary"
                   >
                     <Sparkles size={12} />
-                    <span>AI Summary</span>
+                    <span className="desktop-only">AI Summary</span>
                   </button>
                   <button
                     type="button"
                     className="btn-chat-action secondary"
                     onClick={() => onLoadData(apiKey, selectedChat.id, selectedChat.isGroup, selectedChat.groupUuid)}
                     disabled={loading}
+                    title="Sync messages"
                   >
                     <RotateCw size={12} className={loading ? 'animate-spin' : ''} />
-                    <span>Sync Chat</span>
+                    <span className="desktop-only">Sync</span>
                   </button>
                 </div>
               </div>
@@ -998,12 +1040,12 @@ export default function TestMessagesView({
           </div>
         )}
 
-        {/* Right Column: AI Summary & Intelligence Pane (Flexible Resizable Width) */}
+        {/* Right Column: AI Summary & Intelligence Pane (Flexible Resizable Width on Desktop) */}
         <aside
           className={`livechat-summary-pane ${
             mobileChatView === 'summary' ? 'mobile-visible-pane' : 'mobile-hidden-pane'
           } ${!showSummaryPane ? 'desktop-hidden-pane' : ''}`}
-          style={{ width: summaryWidth, minWidth: summaryWidth, maxWidth: summaryWidth, flexShrink: 0 }}
+          style={isDesktop ? { width: summaryWidth, minWidth: summaryWidth, maxWidth: summaryWidth, flexShrink: 0 } : undefined}
         >
           {/* Header Tabs: AI Summary & Intelligence Views */}
           <div className="summary-pane-header">

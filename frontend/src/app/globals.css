@@ -1215,30 +1215,216 @@ body {
   display: inline-flex;
 }
 
+/* Mobile Segmented Chat View Switcher */
+.mobile-chat-nav-bar {
+  display: none;
+}
+
 @media (max-width: 900px) {
+  .test-messages-view {
+    display: flex !important;
+    flex-direction: column !important;
+    height: calc(100vh - 80px);
+    height: calc(100dvh - 80px) !important;
+    max-height: calc(100dvh - 80px) !important;
+    overflow: hidden !important;
+  }
+
+  .mobile-only {
+    display: flex !important;
+  }
+
+  .mobile-chat-nav-bar {
+    display: flex !important;
+    align-items: center;
+    background-color: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 3px;
+    margin-bottom: 8px;
+    gap: 4px;
+    width: 100%;
+    flex-shrink: 0 !important;
+  }
+
+  .mobile-chat-nav-btn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 7px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+
+  .mobile-chat-nav-btn.active {
+    background-color: #ffffff;
+    color: #4f46e5;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+
+  .mobile-chat-nav-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
   .livechat-wrapper {
     display: flex !important;
     flex-direction: column !important;
-    height: auto;
-    min-height: 0;
+    flex: 1 1 auto !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 12px !important;
+    background: #ffffff !important;
+    overflow: hidden !important;
+    box-shadow: none !important;
+    position: relative !important;
   }
+
   .desktop-only,
   .pane-resizer {
     display: none !important;
   }
+
   .livechat-sidebar,
   .livechat-thread,
   .livechat-summary-pane {
     width: 100% !important;
     min-width: 0 !important;
-    max-width: none !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    flex: 1 1 auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    background: #ffffff !important;
+    border: none !important;
   }
+
   .mobile-hidden-pane {
     display: none !important;
   }
+
   .mobile-visible-pane {
     display: flex !important;
     width: 100% !important;
+    height: 100% !important;
+  }
+
+  .summary-mobile-bar {
+    display: flex !important;
+  }
+
+  /* Pinned Headers & Scrollable Content */
+  .active-groups-header,
+  .thread-header,
+  .summary-pane-header,
+  .summary-mobile-bar {
+    flex-shrink: 0 !important;
+  }
+
+  .chat-items-scroll,
+  .thread-messages-scroll,
+  .summary-body-scroll {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* Compact Workspace Header on Phone */
+  .chat-workspace-header {
+    margin-bottom: 8px !important;
+  }
+
+  .chat-workspace-title {
+    font-size: 16px !important;
+  }
+
+  .chat-workspace-actions {
+    gap: 6px !important;
+  }
+
+  .btn-chat-action {
+    padding: 6px 10px !important;
+    font-size: 12px !important;
+  }
+
+  /* Thread Header on Phone */
+  .thread-header {
+    padding: 10px 12px !important;
+    gap: 8px !important;
+  }
+
+  .thread-header-title {
+    font-size: 13.5px !important;
+    line-height: 1.3 !important;
+  }
+
+  .thread-header-subtitle {
+    font-size: 11px !important;
+  }
+
+  /* Subtabs Swipable Pill Bar */
+  .thread-subtabs {
+    padding: 6px 10px !important;
+    gap: 6px !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    flex-shrink: 0 !important;
+  }
+
+  .thread-subtab,
+  .thread-subtab-pill {
+    padding: 4px 10px !important;
+    font-size: 11.5px !important;
+  }
+
+  /* Pinned Docked Composer at Bottom of Phone Screen */
+  .composer-container {
+    flex-shrink: 0 !important;
+    padding: 8px 10px !important;
+    background: #ffffff !important;
+    border-top: 1px solid #f1f5f9 !important;
+  }
+
+  .modern-thread-composer {
+    padding: 4px 6px 4px 8px !important;
+    gap: 6px !important;
+  }
+
+  .composer-pill-input {
+    font-size: 16px !important; /* Stop Safari Auto-Zoom */
+    padding: 6px 4px !important;
+  }
+
+  /* Summary Content on Phone */
+  .summary-body-scroll {
+    padding: 12px 10px !important;
+  }
+
+  .summary-bottomline-card,
+  .summary-narrative-card,
+  .summary-status-card {
+    padding: 12px 10px !important;
+  }
+
+  .summary-pane-header {
+    padding: 10px 12px !important;
+    min-height: auto !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
   }
 }
 
@@ -5608,23 +5794,39 @@ body {
     font-size: 20px;
   }
 
+  .test-messages-view {
+    display: flex !important;
+    flex-direction: column !important;
+    height: calc(100vh - 80px);
+    height: calc(100dvh - 80px) !important;
+    max-height: calc(100dvh - 80px) !important;
+    overflow: hidden !important;
+  }
+
   .livechat-wrapper {
     display: flex !important;
     flex-direction: column !important;
-    height: calc(100dvh - 120px) !important;
+    flex: 1 1 auto !important;
+    height: 100% !important;
     min-height: 0 !important;
+    max-height: 100% !important;
     background: #ffffff !important;
     border: 1px solid #e2e8f0 !important;
     border-radius: 12px !important;
     box-shadow: none !important;
     overflow: hidden !important;
+    position: relative !important;
   }
 
-  .livechat-sidebar {
+  .livechat-sidebar,
+  .livechat-thread,
+  .livechat-summary-pane {
     width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
     height: 100% !important;
-    max-height: none !important;
-    min-height: 0 !important;
+    max-height: 100% !important;
+    flex: 1 1 auto !important;
     background-color: #ffffff !important;
     border: none !important;
     border-radius: 0 !important;
@@ -5636,24 +5838,11 @@ body {
 
   .livechat-sidebar .chat-items-scroll {
     flex: 1 1 auto !important;
+    min-height: 0 !important;
     max-height: none !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
     padding: 10px !important;
-  }
-
-  .livechat-thread {
-    width: 100% !important;
-    height: 100% !important;
-    max-height: none !important;
-    min-height: 0 !important;
-    background-color: #ffffff !important;
-    border: none !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    display: flex !important;
-    flex-direction: column !important;
-    overflow: hidden !important;
   }
 
   .livechat-thread .thread-messages-scroll {
@@ -5661,6 +5850,14 @@ body {
     min-height: 0 !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
+  }
+
+  .summary-body-scroll {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 12px 10px !important;
   }
 
   .mobile-hidden-pane {
@@ -5684,8 +5881,8 @@ body {
     align-items: center;
     gap: 4px;
     padding: 6px 12px;
-    font-size: 12.5px;
-    font-weight: 700;
+    font-size: 12px;
+    font-weight: 600;
     background-color: #f1f5f9;
     border: 1px solid #cbd5e1;
     border-radius: 6px;
@@ -5695,26 +5892,26 @@ body {
   }
 
   .thread-header {
-    padding: 10px 12px;
-    flex-wrap: wrap;
-    gap: 8px;
+    padding: 10px 12px !important;
+    gap: 8px !important;
+    flex-shrink: 0 !important;
   }
 
   .thread-header-title {
-    font-size: 13.5px;
+    font-size: 13.5px !important;
     word-break: break-word;
     overflow-wrap: break-word;
   }
 
   .thread-header-subtitle {
-    font-size: 11px;
+    font-size: 11px !important;
     word-break: break-word;
     overflow-wrap: break-word;
   }
 
   .thread-messages-scroll {
-    padding: 12px 10px;
-    gap: 8px;
+    padding: 12px 10px !important;
+    gap: 8px !important;
   }
 
   .message-list-row {
@@ -5725,14 +5922,21 @@ body {
     font-size: 13.5px;
   }
 
-  .thread-composer {
-    padding: 8px 10px;
-    gap: 8px;
+  .composer-container {
+    flex-shrink: 0 !important;
+    padding: 8px 10px !important;
+    background: #ffffff !important;
+    border-top: 1px solid #f1f5f9 !important;
   }
 
-  .composer-input {
-    font-size: 16px; /* 16px is critical to stop iOS safari auto-zooming */
-    padding: 8px 12px;
+  .modern-thread-composer {
+    padding: 4px 6px 4px 8px !important;
+    gap: 6px !important;
+  }
+
+  .composer-pill-input {
+    font-size: 16px !important; /* 16px is critical to stop iOS safari auto-zooming */
+    padding: 6px 4px !important;
   }
 
   /* Group Intelligence & Summaries Section */
