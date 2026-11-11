@@ -186,8 +186,8 @@ export default function TestMessagesView({
         </div>
       </div>
 
-      {/* Banner if 2Chat API Key is Missing */}
-      {!apiKey && (
+      {/* Banner only if 2Chat is unconfigured AND no conversations/messages exist */}
+      {!apiKey && conversations.length === 0 && allMessages.length === 0 && (
         <div className="warning-banner">
           <div className="warning-content">
             <Key size={18} className="warning-icon" />

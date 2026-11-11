@@ -197,6 +197,9 @@ function DashboardContent() {
       }
 
       const data = await res.json();
+      if (data.apiKeyConfigured) {
+        setApiKey((prev) => prev || 'server-configured');
+      }
       const rawMessages: TwoChatMessage[] = data.messages || [];
       const rawConversations: TwoChatConversation[] = data.conversations || [];
 
