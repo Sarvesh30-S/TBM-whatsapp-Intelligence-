@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Menu, ShieldCheck, Bell } from 'lucide-react';
+import { Menu, Search, Bell, Settings } from 'lucide-react';
 import Sidebar, { DashboardSection } from '@/components/Sidebar';
 import OverviewView from '@/components/OverviewView';
 import TestMessagesView from '@/components/TestMessagesView';
@@ -406,6 +406,15 @@ function DashboardContent() {
     return <LoginView />;
   }
 
+  const displayName = user?.fullName || (user?.email ? user.email.split('@')[0] : 'Admin User');
+  const userInitials =
+    displayName
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0].toUpperCase())
+      .join('') || displayName.slice(0, 2).toUpperCase();
+
   return (
     <div className="saas-app-layout">
       {/* Left Sidebar */}
@@ -429,15 +438,46 @@ function DashboardContent() {
             >
               <Menu size={20} />
             </button>
-            <div className="breadcrumb-trail">
-              <span className="breadcrumb-parent">Portal</span>
-              <span className="breadcrumb-separator">/</span>
-              <span className="breadcrumb-current">{sectionTitles[currentSection]}</span>
+            <div className="topbar-search-wrapper">
+              <Search size={15} className="topbar-search-icon" />
+              <input
+                type="text"
+                placeholder="Search groups, messages, summaries..."
+                className="topbar-search-input"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
           </div>
 
           <div className="navbar-right">
-            <span className="env-badge">ENTERPRISE PROD</span>
+            <div className="topbar-live-sync-badge">
+              <span className="live-sync-pulse-dot" />
+              <span className="live-sync-text">Live Sync</span>
+            </div>
+            <button
+              type="button"
+              className="topbar-icon-btn"
+              title="Notifications"
+              aria-label="Notifications"
+            >
+              <Bell size={17} />
+            </button>
+            <button
+              type="button"
+              className="topbar-icon-btn"
+              onClick={() => setCurrentSection('admin')}
+              title="Settings"
+              aria-label="Settings"
+            >
+              <Settings size={17} />
+            </button>
+            <div
+              className="topbar-user-avatar"
+              title={`${displayName} (${user?.roles?.[0] || 'User'})`}
+            >
+              {userInitials}
+            </div>
           </div>
         </header>
 
