@@ -133,6 +133,93 @@ export default function TestMessagesView({
   const [summaryLanguage, setSummaryLanguage] = useState<'hinglish' | 'english'>('english');
   const [recentDevelopmentsOpen, setRecentDevelopmentsOpen] = useState<boolean>(false);
 
+  // Flexible Panel Widths (Resizable by dragging splitters)
+  const [groupsWidth, setGroupsWidth] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('tbm_chat_groups_width');
+      if (saved) return Math.max(200, Math.min(550, parseInt(saved, 10)));
+    }
+    return 290;
+  });
+
+  const [summaryWidth, setSummaryWidth] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('tbm_chat_summary_width');
+      if (saved) return Math.max(260, Math.min(650, parseInt(saved, 10)));
+    }
+    return 380;
+  });
+
+  const [isResizingGroups, setIsResizingGroups] = useState<boolean>(false);
+  const [isResizingSummary, setIsResizingSummary] = useState<boolean>(false);
+
+  const handleGroupsResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizingGroups(true);
+    const startX = e.clientX;
+    const startWidth = groupsWidth;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const delta = moveEvent.clientX - startX;
+      const newWidth = Math.max(200, Math.min(550, startWidth + delta));
+      setGroupsWidth(newWidth);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('tbm_chat_groups_width', newWidth.toString());
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizingGroups(false);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
+  const handleSummaryResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizingSummary(true);
+    const startX = e.clientX;
+    const startWidth = summaryWidth;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const delta = startX - moveEvent.clientX;
+      const newWidth = Math.max(260, Math.min(650, startWidth + delta));
+      setSummaryWidth(newWidth);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('tbm_chat_summary_width', newWidth.toString());
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizingSummary(false);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
+  const resetColumnWidths = () => {
+    setGroupsWidth(290);
+    setSummaryWidth(380);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('tbm_chat_groups_width');
+      localStorage.removeItem('tbm_chat_summary_width');
+    }
+  };
+
   // Fetch AI Summary briefing for active chat
   useEffect(() => {
     if (!selectedChat) {
@@ -327,6 +414,14 @@ export default function TestMessagesView({
           </div>
 
           <div className="chat-workspace-actions">
+            <button
+              type="button"
+              className="btn-chat-action secondary desktop-only"
+              onClick={resetColumnWidths}
+              title="Reset column widths to default (Double-click any divider to reset)"
+            >
+              <span>Reset Layout</span>
+            </button>
             {allMessages.length > 0 && (
               <button
                 type="button"
@@ -368,8 +463,11 @@ export default function TestMessagesView({
 
       {/* Live Chat 3-Pane Window (Groups | Conversation | AI Summary) */}
       <div className={`livechat-wrapper ${showSummaryPane ? 'summary-expanded' : 'summary-collapsed'}`}>
-        {/* Left Sidebar: Active Groups List Pane */}
-        <aside className={`livechat-sidebar ${mobileChatView === 'thread' ? 'mobile-hidden-pane' : ''}`}>
+        {/* Left Sidebar: Active Groups List Pane (Flexible Resizable Width) */}
+        <aside
+          className={`livechat-sidebar ${mobileChatView === 'thread' || mobileChatView === 'summary' ? 'mobile-hidden-pane' : ''}`}
+          style={{ width: groupsWidth, minWidth: groupsWidth, maxWidth: groupsWidth, flexShrink: 0 }}
+        >
           <div className="active-groups-header">
             <div className="active-groups-title-row">
               <span className="active-groups-title">Active Groups</span>
@@ -457,8 +555,23 @@ export default function TestMessagesView({
           </div>
         </aside>
 
-        {/* Center Pane: Active Conversation */}
-        <main className={`livechat-thread ${mobileChatView === 'list' ? 'mobile-hidden-pane' : ''}`}>
+        {/* Left Resizer: Drag to resize Active Groups */}
+        <div
+          className={`pane-resizer groups-resizer desktop-only ${isResizingGroups ? 'resizing' : ''}`}
+          onMouseDown={handleGroupsResizeStart}
+          onDoubleClick={() => setGroupsWidth(290)}
+          title="Drag to resize Active Groups • Double-click to reset"
+          role="separator"
+          aria-orientation="vertical"
+        >
+          <div className="resizer-handle-line" />
+        </div>
+
+        {/* Center Pane: Active Conversation (Flexible Stretch Width) */}
+        <main
+          className={`livechat-thread ${mobileChatView === 'list' || mobileChatView === 'summary' ? 'mobile-hidden-pane' : ''}`}
+          style={{ flex: 1, minWidth: 280 }}
+        >
           {selectedChat ? (
             <>
               {/* Thread Header (Clean, professional, strictly NO DPs) */}
@@ -863,11 +976,26 @@ export default function TestMessagesView({
           )}
         </main>
 
-        {/* Right Column: AI Summary & Intelligence Pane (Mockup Column 4) */}
+        {/* Right Resizer: Drag to resize AI Summary (Desktop) */}
+        {showSummaryPane && (
+          <div
+            className={`pane-resizer summary-resizer desktop-only ${isResizingSummary ? 'resizing' : ''}`}
+            onMouseDown={handleSummaryResizeStart}
+            onDoubleClick={() => setSummaryWidth(380)}
+            title="Drag to resize AI Summary • Double-click to reset"
+            role="separator"
+            aria-orientation="vertical"
+          >
+            <div className="resizer-handle-line" />
+          </div>
+        )}
+
+        {/* Right Column: AI Summary & Intelligence Pane (Flexible Resizable Width) */}
         <aside
           className={`livechat-summary-pane ${
             mobileChatView === 'summary' ? 'mobile-visible-pane' : 'mobile-hidden-pane'
           } ${!showSummaryPane ? 'desktop-hidden-pane' : ''}`}
+          style={{ width: summaryWidth, minWidth: summaryWidth, maxWidth: summaryWidth, flexShrink: 0 }}
         >
           {/* Header Tabs: AI Summary & Intelligence Views */}
           <div className="summary-pane-header">
