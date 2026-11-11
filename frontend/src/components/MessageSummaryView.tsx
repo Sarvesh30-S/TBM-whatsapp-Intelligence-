@@ -24,6 +24,9 @@ import {
   Cpu,
   Copy,
   Check,
+  Building2,
+  Briefcase,
+  Split,
 } from 'lucide-react';
 import { TwoChatMessage, TwoChatConversation, isHiddenPrivateGroup } from '@/lib/types';
 import {
@@ -280,6 +283,20 @@ export default function MessageSummaryView({
       }
       return part;
     });
+  };
+
+  const getTrackStatusClass = (status?: string) => {
+    const s = (status || '').toLowerCase();
+    if (s.includes('approved') || s.includes('locked') || s.includes('delivered') || s.includes('settled') || s.includes('ready')) {
+      return 'status-success';
+    }
+    if (s.includes('pushback') || s.includes('cap') || s.includes('blocked') || s.includes('urgent')) {
+      return 'status-danger';
+    }
+    if (s.includes('review') || s.includes('awaiting') || s.includes('negotiating') || s.includes('pending')) {
+      return 'status-warning';
+    }
+    return 'status-info';
   };
 
   // Helper for source citation button
@@ -611,93 +628,235 @@ export default function MessageSummaryView({
               </div>
 
               {/* The Bottom Line: Executive Hook */}
-              <div className="briefing-bottom-line-card">
-                <div className="bottom-line-header">
-                  <div className="bottom-line-badge">
-                    <Sparkles size={13} />
-                    <span>THE BOTTOM LINE</span>
-                  </div>
-                </div>
+              {(() => {
+                const eb = briefing?.executiveBriefing;
+                const isHinglish = summaryLanguage === 'hinglish';
+                const tldrList: string[] = (isHinglish && eb?.tldrHinglish && eb.tldrHinglish.length > 0)
+                  ? eb.tldrHinglish
+                  : (eb?.tldr && eb.tldr.length > 0)
+                  ? eb.tldr
+                  : [isHinglish && eb?.currentSituationHinglish ? eb.currentSituationHinglish : (eb?.currentSituation || '')];
 
-                <p className="bottom-line-summary">
-                  {((summaryLanguage === 'hinglish' && briefing?.executiveBriefing.currentSituationHinglish)
-                    ? briefing.executiveBriefing.currentSituationHinglish
-                    : briefing?.executiveBriefing.currentSituation)}
-                </p>
+                const clientTrack = (isHinglish && eb?.clientSideHinglish)
+                  ? {
+                      title: eb.clientSideHinglish.title || eb.clientSide?.title || 'Client Demands & Feedback',
+                      status: eb.clientSideHinglish.status || eb.clientSide?.status || 'Active',
+                      points: (eb.clientSideHinglish.points && eb.clientSideHinglish.points.length > 0)
+                        ? eb.clientSideHinglish.points
+                        : (eb.clientSide?.points || []),
+                    }
+                  : (eb?.clientSide || {
+                      title: 'Client Demands & Feedback',
+                      status: 'Active',
+                      points: [eb?.attentionRequired || 'No immediate client blockers noted.'],
+                    });
 
-                {briefing?.decisions && briefing.decisions.length > 0 && (
-                  <div className="bottom-line-decisions-preview">
-                    <span className="preview-label">Key Milestones:</span>
-                    {briefing.decisions.slice(0, 3).map((d) => (
-                      <button
-                        key={d.id}
-                        type="button"
-                        className={`preview-chip ${d.status === 'SUPERSEDED' ? 'chip-superseded' : ''}`}
-                        onClick={() => setActiveSection('decisions')}
-                        title={`Click to view in Decisions Log (${d.status})`}
-                      >
-                        {d.status === 'CONFIRMED' ? (
-                          <CheckCircle2 size={12} style={{ color: '#059669' }} />
-                        ) : d.status === 'SUPERSEDED' ? (
-                          <Clock size={12} style={{ color: '#64748b' }} />
+                const teamTrack = (isHinglish && eb?.teamSideHinglish)
+                  ? {
+                      title: eb.teamSideHinglish.title || eb.teamSide?.title || 'Internal Team Execution',
+                      status: eb.teamSideHinglish.status || eb.teamSide?.status || 'In Progress',
+                      points: (eb.teamSideHinglish.points && eb.teamSideHinglish.points.length > 0)
+                        ? eb.teamSideHinglish.points
+                        : (eb.teamSide?.points || []),
+                    }
+                  : (eb?.teamSide || {
+                      title: 'Internal Team Execution',
+                      status: 'In Progress',
+                      points: [eb?.currentSituation || 'Team deliverables underway.'],
+                    });
+
+                const decidedList: string[] = (isHinglish && eb?.decidedItemsHinglish && eb.decidedItemsHinglish.length > 0)
+                  ? eb.decidedItemsHinglish
+                  : (eb?.decidedItems && eb.decidedItems.length > 0)
+                  ? eb.decidedItems
+                  : (briefing?.decisions || []).filter(d => d.status === 'CONFIRMED').map(d => `${d.title}${d.context ? ` — ${d.context}` : ''}`).slice(0, 3);
+
+                const blockersList = (isHinglish && eb?.pendingBlockersHinglish && eb.pendingBlockersHinglish.length > 0)
+                  ? eb.pendingBlockersHinglish
+                  : (eb?.pendingBlockers && eb.pendingBlockers.length > 0)
+                  ? eb.pendingBlockers
+                  : (briefing?.pendingDiscussions || []).map(p => ({
+                      item: p.unresolvedQuestion || p.topic,
+                      waitingOn: (p.participantsInvolved || [])[0] || 'Team',
+                    }));
+
+                return (
+                  <>
+                    <div className="briefing-bottom-line-card">
+                      <div className="bottom-line-header">
+                        <div className="bottom-line-badge">
+                          <Sparkles size={13} />
+                          <span>THE BOTTOM LINE</span>
+                        </div>
+                      </div>
+
+                      {tldrList.length > 0 ? (
+                        <ul className="bottom-line-bullets">
+                          {tldrList.map((bullet, idx) => (
+                            <li key={idx} className="bottom-line-bullet">
+                              <span className="bullet-indicator" />
+                              <span>{renderFormattedText(bullet)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="bottom-line-summary">
+                          {isHinglish && eb?.currentSituationHinglish
+                            ? eb.currentSituationHinglish
+                            : eb?.currentSituation}
+                        </p>
+                      )}
+
+                      {briefing?.decisions && briefing.decisions.length > 0 && (
+                        <div className="bottom-line-decisions-preview">
+                          <span className="preview-label">Key Milestones:</span>
+                          {briefing.decisions.slice(0, 3).map((d) => (
+                            <button
+                              key={d.id}
+                              type="button"
+                              className={`preview-chip ${d.status === 'SUPERSEDED' ? 'chip-superseded' : ''}`}
+                              onClick={() => setActiveSection('decisions')}
+                              title={`Click to view in Decisions Log (${d.status})`}
+                            >
+                              {d.status === 'CONFIRMED' ? (
+                                <CheckCircle2 size={12} style={{ color: '#059669' }} />
+                              ) : d.status === 'SUPERSEDED' ? (
+                                <Clock size={12} style={{ color: '#64748b' }} />
+                              ) : (
+                                <Compass size={12} style={{ color: '#d97706' }} />
+                              )}
+                              <span>{d.title}</span>
+                            </button>
+                          ))}
+                          {briefing.decisions.length > 3 && (
+                            <button
+                              type="button"
+                              className="preview-chip"
+                              onClick={() => setActiveSection('decisions')}
+                              style={{ color: '#4f46e5', fontWeight: 700 }}
+                            >
+                              +{briefing.decisions.length - 3} more &rarr;
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* CONVERSATION BIFURCATION (Client Track vs Team Track) */}
+                    <div className="summary-bifurcation-container">
+                      <div className="bifurcation-header-row">
+                        <Split size={14} className="bifurcation-title-icon" />
+                        <span className="bifurcation-title">Conversation Bifurcation</span>
+                        <span className="bifurcation-subtitle">Client vs Team Streams</span>
+                      </div>
+
+                      <div className="bifurcation-grid">
+                        {/* Left: Client Track */}
+                        <div className="bifurcation-track client-track">
+                          <div className="track-header">
+                            <div className="track-title-wrap">
+                              <Building2 size={13} className="track-icon client" />
+                              <span className="track-name">{clientTrack.title}</span>
+                            </div>
+                            {clientTrack.status && (
+                              <span className={`track-status-pill ${getTrackStatusClass(clientTrack.status)}`}>
+                                {clientTrack.status}
+                              </span>
+                            )}
+                          </div>
+                          <ul className="track-bullets-list">
+                            {clientTrack.points.map((pt, idx) => (
+                              <li key={idx} className="track-bullet-item">
+                                <span className="track-bullet-dot client" />
+                                <span>{renderFormattedText(pt)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        {/* Right: Team Track */}
+                        <div className="bifurcation-track team-track">
+                          <div className="track-header">
+                            <div className="track-title-wrap">
+                              <Briefcase size={13} className="track-icon team" />
+                              <span className="track-name">{teamTrack.title}</span>
+                            </div>
+                            {teamTrack.status && (
+                              <span className={`track-status-pill ${getTrackStatusClass(teamTrack.status)}`}>
+                                {teamTrack.status}
+                              </span>
+                            )}
+                          </div>
+                          <ul className="track-bullets-list">
+                            {teamTrack.points.map((pt, idx) => (
+                              <li key={idx} className="track-bullet-item">
+                                <span className="track-bullet-dot team" />
+                                <span>{renderFormattedText(pt)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* DECIDED vs BLOCKED BIFURCATION */}
+                    <div className="briefing-callouts-grid">
+                      <div className="editorial-callout callout-situation">
+                        <div className="callout-header">
+                          <CheckCircle2 size={16} className="callout-icon situation-icon" />
+                          <span className="callout-title">Agreed &amp; Settled</span>
+                        </div>
+                        {decidedList.length > 0 ? (
+                          <ul className="status-card-bullets">
+                            {decidedList.map((dec, idx) => (
+                              <li key={idx} className="status-bullet-row">
+                                <span className="mini-bullet success" />
+                                <span>{renderFormattedText(dec)}</span>
+                              </li>
+                            ))}
+                          </ul>
                         ) : (
-                          <Compass size={12} style={{ color: '#d97706' }} />
+                          <p className="callout-body">
+                            {isHinglish && eb?.currentSituationHinglish
+                              ? eb.currentSituationHinglish
+                              : eb?.currentSituation}
+                          </p>
                         )}
-                        <span>{d.title}</span>
-                      </button>
-                    ))}
-                    {briefing.decisions.length > 3 && (
-                      <button
-                        type="button"
-                        className="preview-chip"
-                        onClick={() => setActiveSection('decisions')}
-                        style={{ color: '#4f46e5', fontWeight: 700 }}
-                      >
-                        +{briefing.decisions.length - 3} more &rarr;
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
+                      </div>
 
-              {/* Natural Language Multi-Paragraph Overview */}
-              <div className="briefing-narrative-text">
-                {((summaryLanguage === 'hinglish' && briefing?.executiveBriefing.overviewHinglish)
-                  ? briefing.executiveBriefing.overviewHinglish
-                  : (briefing?.executiveBriefing.overview || '')
-                ).split('\n\n').map((paragraph, idx) => (
-                  <p key={idx} className="editorial-paragraph">
-                    {renderFormattedText(paragraph)}
-                  </p>
-                ))}
-              </div>
-
-              {/* Connected Callouts */}
-              <div className="briefing-callouts-grid">
-                <div className="editorial-callout callout-situation">
-                  <div className="callout-header">
-                    <CheckCircle2 size={16} className="callout-icon situation-icon" />
-                    <span className="callout-title">Current Situation &amp; Alignment</span>
-                  </div>
-                  <p className="callout-body">
-                    {(summaryLanguage === 'hinglish' && briefing?.executiveBriefing.currentSituationHinglish)
-                      ? briefing.executiveBriefing.currentSituationHinglish
-                      : briefing?.executiveBriefing.currentSituation}
-                  </p>
-                </div>
-
-                <div className="editorial-callout callout-attention">
-                  <div className="callout-header">
-                    <AlertTriangle size={16} className="callout-icon attention-icon" />
-                    <span className="callout-title">Matters Requiring Attention</span>
-                  </div>
-                  <p className="callout-body">
-                    {(summaryLanguage === 'hinglish' && briefing?.executiveBriefing.attentionRequiredHinglish)
-                      ? briefing.executiveBriefing.attentionRequiredHinglish
-                      : briefing?.executiveBriefing.attentionRequired}
-                  </p>
-                </div>
-              </div>
+                      <div className="editorial-callout callout-attention">
+                        <div className="callout-header">
+                          <AlertTriangle size={16} className="callout-icon attention-icon" />
+                          <span className="callout-title">Blocked / Waiting on Action</span>
+                        </div>
+                        {blockersList.length > 0 ? (
+                          <ul className="status-card-bullets">
+                            {blockersList.map((blk, idx) => (
+                              <li key={idx} className="status-bullet-row">
+                                <span className="mini-bullet warning" />
+                                <div>
+                                  <span>{renderFormattedText(blk.item)}</span>
+                                  {blk.waitingOn && (
+                                    <span className="waiting-on-tag">
+                                      Waiting on: <strong>{blk.waitingOn}</strong>
+                                    </span>
+                                  )}
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="callout-body">
+                            {isHinglish && eb?.attentionRequiredHinglish
+                              ? eb.attentionRequiredHinglish
+                              : eb?.attentionRequired}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
 
               {/* Decisions Made Section */}
               {briefing?.decisions && briefing.decisions.length > 0 && (

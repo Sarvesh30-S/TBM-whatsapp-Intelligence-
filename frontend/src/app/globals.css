@@ -2936,6 +2936,233 @@ body {
   line-height: 1.45;
 }
 
+.bottom-line-bullets {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bottom-line-bullet {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12.5px;
+  color: #1e1b4b;
+  line-height: 1.45;
+}
+
+.bullet-indicator {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: #6366f1;
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+
+/* Bifurcation Container & Tracks */
+.summary-bifurcation-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.bifurcation-header-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.bifurcation-title-icon {
+  color: #6366f1;
+}
+
+.bifurcation-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.bifurcation-subtitle {
+  font-size: 11px;
+  color: #64748b;
+  margin-left: auto;
+}
+
+.bifurcation-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .bifurcation-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bifurcation-track {
+  padding: 10px 12px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid transparent;
+}
+
+.bifurcation-track.client-track {
+  background-color: #f8fafc;
+  border-color: #e2e8f0;
+  border-left: 3px solid #3b82f6;
+}
+
+.bifurcation-track.team-track {
+  background-color: #f8fafc;
+  border-color: #e2e8f0;
+  border-left: 3px solid #10b981;
+}
+
+.track-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.track-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.track-icon.client {
+  color: #2563eb;
+}
+
+.track-icon.team {
+  color: #059669;
+}
+
+.track-name {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.track-status-pill {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.track-status-pill.status-success {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.track-status-pill.status-warning {
+  background-color: #fef3c7;
+  color: #b45309;
+}
+
+.track-status-pill.status-danger {
+  background-color: #ffe4e6;
+  color: #be123c;
+}
+
+.track-status-pill.status-info {
+  background-color: #e0e7ff;
+  color: #4338ca;
+}
+
+.track-bullets-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.track-bullet-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 11.5px;
+  color: #334155;
+  line-height: 1.45;
+}
+
+.track-bullet-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+
+.track-bullet-dot.client {
+  background-color: #3b82f6;
+}
+
+.track-bullet-dot.team {
+  background-color: #10b981;
+}
+
+/* Status Cards List */
+.status-card-bullets {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.status-bullet-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12px;
+  color: #334155;
+  line-height: 1.45;
+}
+
+.mini-bullet {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+
+.mini-bullet.success {
+  background-color: #10b981;
+}
+
+.mini-bullet.warning {
+  background-color: #f59e0b;
+}
+
+.waiting-on-tag {
+  display: block;
+  font-size: 10.5px;
+  color: #9a3412;
+  margin-top: 2px;
+}
+
 .summary-section-block {
   display: flex;
   flex-direction: column;

@@ -28,6 +28,9 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
+  Building2,
+  Briefcase,
+  Split,
 } from 'lucide-react';
 import { TwoChatConversation, TwoChatMessage } from '@/lib/types';
 import { GroupIntelligenceBriefing } from '@/lib/groq-client';
@@ -264,6 +267,36 @@ export default function TestMessagesView({
       isCancelled = true;
     };
   }, [selectedChat?.id, currentChatMessages.length]);
+
+  // Render markdown bold text cleanly
+  const renderFormattedText = (text: string) => {
+    if (!text) return null;
+    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return (
+          <strong key={i} style={{ color: '#0f172a', fontWeight: 700 }}>
+            {part.slice(2, -2)}
+          </strong>
+        );
+      }
+      return part;
+    });
+  };
+
+  const getTrackStatusClass = (status?: string) => {
+    const s = (status || '').toLowerCase();
+    if (s.includes('approved') || s.includes('locked') || s.includes('delivered') || s.includes('settled') || s.includes('ready')) {
+      return 'status-success';
+    }
+    if (s.includes('pushback') || s.includes('cap') || s.includes('blocked') || s.includes('urgent')) {
+      return 'status-danger';
+    }
+    if (s.includes('review') || s.includes('awaiting') || s.includes('negotiating') || s.includes('pending')) {
+      return 'status-warning';
+    }
+    return 'status-info';
+  };
 
   // Switch to thread view on mobile if a chat is selected or targeted
   const prevSelectedChatIdRef = useRef<string | null>(selectedChat?.id || null);
@@ -1134,56 +1167,198 @@ export default function TestMessagesView({
                 <p className="summary-loading-title">Generating AI Briefing...</p>
                 <p className="summary-loading-sub">Analyzing group messages and decisions...</p>
               </div>
-            ) : summaryBriefing ? (
-              <>
-                {/* THE BOTTOM LINE Card */}
-                <div className="summary-bottom-line-card">
-                  <div className="bottom-line-tag">
-                    <Sparkles size={12} />
-                    <span>THE BOTTOM LINE</span>
-                  </div>
-                  <p className="bottom-line-text">
-                    {(summaryLanguage === 'hinglish' && summaryBriefing.executiveBriefing.currentSituationHinglish)
-                      ? summaryBriefing.executiveBriefing.currentSituationHinglish
-                      : summaryBriefing.executiveBriefing.currentSituation}
-                  </p>
-                </div>
+            ) : summaryBriefing ? (() => {
+              const eb = summaryBriefing.executiveBriefing;
+              const isHinglish = summaryLanguage === 'hinglish';
 
-                {/* Overall Conversation Summary */}
-                <div className="summary-section-block">
-                  <h4 className="summary-section-title">Overall Conversation Summary</h4>
-                  <p className="summary-narrative-p">
-                    {(summaryLanguage === 'hinglish' && summaryBriefing.executiveBriefing.overviewHinglish)
-                      ? summaryBriefing.executiveBriefing.overviewHinglish
-                      : summaryBriefing.executiveBriefing.overview}
-                  </p>
-                </div>
+              // 1. TL;DR list
+              const tldrList: string[] = (isHinglish && eb.tldrHinglish && eb.tldrHinglish.length > 0)
+                ? eb.tldrHinglish
+                : (eb.tldr && eb.tldr.length > 0)
+                ? eb.tldr
+                : [isHinglish && eb.currentSituationHinglish ? eb.currentSituationHinglish : eb.currentSituation];
 
-                {/* Current Situation & Alignment */}
-                <div className="summary-status-card situation">
-                  <div className="status-card-header">
-                    <CheckCircle2 size={15} className="status-icon situation" />
-                    <span className="status-card-title">Current Situation &amp; Alignment</span>
-                  </div>
-                  <p className="status-card-body">
-                    {(summaryLanguage === 'hinglish' && summaryBriefing.executiveBriefing.currentSituationHinglish)
-                      ? summaryBriefing.executiveBriefing.currentSituationHinglish
-                      : summaryBriefing.executiveBriefing.currentSituation}
-                  </p>
-                </div>
+              // 2. Client Side Track
+              const clientTrack = (isHinglish && eb.clientSideHinglish)
+                ? {
+                    title: eb.clientSideHinglish.title || eb.clientSide?.title || 'Client Demands & Feedback',
+                    status: eb.clientSideHinglish.status || eb.clientSide?.status || 'Active',
+                    points: (eb.clientSideHinglish.points && eb.clientSideHinglish.points.length > 0)
+                      ? eb.clientSideHinglish.points
+                      : (eb.clientSide?.points || []),
+                  }
+                : (eb.clientSide || {
+                    title: 'Client Demands & Feedback',
+                    status: 'Active',
+                    points: [eb.attentionRequired || 'No immediate client blockers noted.'],
+                  });
 
-                {/* Matters Requiring Attention */}
-                <div className="summary-status-card attention">
-                  <div className="status-card-header">
-                    <AlertTriangle size={15} className="status-icon attention" />
-                    <span className="status-card-title">Matters Requiring Attention</span>
+              // 3. Team Side Track
+              const teamTrack = (isHinglish && eb.teamSideHinglish)
+                ? {
+                    title: eb.teamSideHinglish.title || eb.teamSide?.title || 'Internal Team Execution',
+                    status: eb.teamSideHinglish.status || eb.teamSide?.status || 'In Progress',
+                    points: (eb.teamSideHinglish.points && eb.teamSideHinglish.points.length > 0)
+                      ? eb.teamSideHinglish.points
+                      : (eb.teamSide?.points || []),
+                  }
+                : (eb.teamSide || {
+                    title: 'Internal Team Execution',
+                    status: 'In Progress',
+                    points: [eb.currentSituation || 'Team deliverables underway.'],
+                  });
+
+              // 4. Decided Items
+              const decidedList: string[] = (isHinglish && eb.decidedItemsHinglish && eb.decidedItemsHinglish.length > 0)
+                ? eb.decidedItemsHinglish
+                : (eb.decidedItems && eb.decidedItems.length > 0)
+                ? eb.decidedItems
+                : (summaryBriefing.decisions || []).filter(d => d.status === 'CONFIRMED').map(d => `${d.title}${d.context ? ` — ${d.context}` : ''}`).slice(0, 3);
+
+              // 5. Blockers
+              const blockersList = (isHinglish && eb.pendingBlockersHinglish && eb.pendingBlockersHinglish.length > 0)
+                ? eb.pendingBlockersHinglish
+                : (eb.pendingBlockers && eb.pendingBlockers.length > 0)
+                ? eb.pendingBlockers
+                : (summaryBriefing.pendingDiscussions || []).map(p => ({
+                    item: p.unresolvedQuestion || p.topic,
+                    waitingOn: (p.participantsInvolved || [])[0] || 'Team',
+                  }));
+
+              return (
+                <>
+                  {/* 1. THE BOTTOM LINE (TL;DR) */}
+                  <div className="summary-bottom-line-card">
+                    <div className="bottom-line-tag">
+                      <Sparkles size={12} />
+                      <span>THE BOTTOM LINE</span>
+                    </div>
+                    {tldrList.length > 0 ? (
+                      <ul className="bottom-line-bullets">
+                        {tldrList.map((bullet, idx) => (
+                          <li key={idx} className="bottom-line-bullet">
+                            <span className="bullet-indicator" />
+                            <span>{renderFormattedText(bullet)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="bottom-line-text">
+                        {isHinglish && eb.currentSituationHinglish ? eb.currentSituationHinglish : eb.currentSituation}
+                      </p>
+                    )}
                   </div>
-                  <p className="status-card-body">
-                    {(summaryLanguage === 'hinglish' && summaryBriefing.executiveBriefing.attentionRequiredHinglish)
-                      ? summaryBriefing.executiveBriefing.attentionRequiredHinglish
-                      : summaryBriefing.executiveBriefing.attentionRequired}
-                  </p>
-                </div>
+
+                  {/* 2. CONVERSATION BIFURCATION: CLIENT TRACK vs TEAM TRACK */}
+                  <div className="summary-bifurcation-container">
+                    <div className="bifurcation-header-row">
+                      <Split size={14} className="bifurcation-title-icon" />
+                      <span className="bifurcation-title">Conversation Bifurcation</span>
+                      <span className="bifurcation-subtitle">Client vs Team Streams</span>
+                    </div>
+
+                    <div className="bifurcation-grid">
+                      {/* Left: Client Track */}
+                      <div className="bifurcation-track client-track">
+                        <div className="track-header">
+                          <div className="track-title-wrap">
+                            <Building2 size={13} className="track-icon client" />
+                            <span className="track-name">{clientTrack.title}</span>
+                          </div>
+                          {clientTrack.status && (
+                            <span className={`track-status-pill ${getTrackStatusClass(clientTrack.status)}`}>
+                              {clientTrack.status}
+                            </span>
+                          )}
+                        </div>
+                        <ul className="track-bullets-list">
+                          {clientTrack.points.map((pt, idx) => (
+                            <li key={idx} className="track-bullet-item">
+                              <span className="track-bullet-dot client" />
+                              <span>{renderFormattedText(pt)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {/* Right: Team Track */}
+                      <div className="bifurcation-track team-track">
+                        <div className="track-header">
+                          <div className="track-title-wrap">
+                            <Briefcase size={13} className="track-icon team" />
+                            <span className="track-name">{teamTrack.title}</span>
+                          </div>
+                          {teamTrack.status && (
+                            <span className={`track-status-pill ${getTrackStatusClass(teamTrack.status)}`}>
+                              {teamTrack.status}
+                            </span>
+                          )}
+                        </div>
+                        <ul className="track-bullets-list">
+                          {teamTrack.points.map((pt, idx) => (
+                            <li key={idx} className="track-bullet-item">
+                              <span className="track-bullet-dot team" />
+                              <span>{renderFormattedText(pt)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3. DECIDED vs BLOCKED BIFURCATION */}
+                  <div className="summary-status-grid">
+                    {/* Settled Decisions */}
+                    <div className="summary-status-card situation">
+                      <div className="status-card-header">
+                        <CheckCircle2 size={15} className="status-icon situation" />
+                        <span className="status-card-title">Agreed &amp; Settled</span>
+                      </div>
+                      {decidedList.length > 0 ? (
+                        <ul className="status-card-bullets">
+                          {decidedList.map((dec, idx) => (
+                            <li key={idx} className="status-bullet-row">
+                              <span className="mini-bullet success" />
+                              <span>{renderFormattedText(dec)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="status-card-body">
+                          {isHinglish && eb.currentSituationHinglish ? eb.currentSituationHinglish : eb.currentSituation}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Blocked / Waiting on Action */}
+                    <div className="summary-status-card attention">
+                      <div className="status-card-header">
+                        <AlertTriangle size={15} className="status-icon attention" />
+                        <span className="status-card-title">Blocked / Waiting on Action</span>
+                      </div>
+                      {blockersList.length > 0 ? (
+                        <ul className="status-card-bullets">
+                          {blockersList.map((blk, idx) => (
+                            <li key={idx} className="status-bullet-row">
+                              <span className="mini-bullet warning" />
+                              <div>
+                                <span>{renderFormattedText(blk.item)}</span>
+                                {blk.waitingOn && (
+                                  <span className="waiting-on-tag">
+                                    Waiting on: <strong>{blk.waitingOn}</strong>
+                                  </span>
+                                )}
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="status-card-body">
+                          {isHinglish && eb.attentionRequiredHinglish ? eb.attentionRequiredHinglish : eb.attentionRequired}
+                        </p>
+                      )}
+                    </div>
+                  </div>
 
                 {/* Decisions Made */}
                 {summaryBriefing.decisions && summaryBriefing.decisions.length > 0 && (
@@ -1258,8 +1433,9 @@ export default function TestMessagesView({
                   )}
                 </div>
               </>
-            ) : (
-              <div className="summary-empty-state">
+            );
+          })() : (
+            <div className="summary-empty-state">
                 <Sparkles size={32} className="empty-icon" />
                 <p className="summary-empty-title">Select a Group</p>
                 <p className="summary-empty-sub">Choose any active conversation to load the live AI intelligence briefing.</p>
