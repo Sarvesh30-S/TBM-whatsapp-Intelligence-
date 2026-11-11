@@ -1226,214 +1226,176 @@ export default function TestMessagesView({
                   }));
 
               return (
-                <>
-                  {/* 1. THE BOTTOM LINE (TL;DR) */}
-                  <div className="summary-bottom-line-card">
-                    <div className="bottom-line-tag">
-                      <Sparkles size={12} />
-                      <span>THE BOTTOM LINE</span>
+                <div className="formal-briefing-doc">
+                  {/* 1. KEY TAKEAWAYS (THE BOTTOM LINE) */}
+                  <section className="formal-section">
+                    <div className="formal-section-header">
+                      <span className="formal-section-title">Key Takeaways</span>
+                      <span className="formal-section-sub">Executive Summary</span>
                     </div>
                     {tldrList.length > 0 ? (
-                      <ul className="bottom-line-bullets">
+                      <ul className="formal-bullets-list">
                         {tldrList.map((bullet, idx) => (
-                          <li key={idx} className="bottom-line-bullet">
-                            <span className="bullet-indicator" />
-                            <span>{renderFormattedText(bullet)}</span>
+                          <li key={idx} className="formal-bullet-row">
+                            <span className="formal-bullet-dot primary" />
+                            <span className="formal-bullet-text">{renderFormattedText(bullet)}</span>
                           </li>
                         ))}
                       </ul>
                     ) : (
-                      <p className="bottom-line-text">
+                      <p className="formal-bullet-text">
                         {isHinglish && eb.currentSituationHinglish ? eb.currentSituationHinglish : eb.currentSituation}
                       </p>
                     )}
-                  </div>
+                  </section>
 
-                  {/* 2. CONVERSATION BIFURCATION: CLIENT TRACK vs TEAM TRACK */}
-                  <div className="summary-bifurcation-container">
-                    <div className="bifurcation-header-row">
-                      <Split size={14} className="bifurcation-title-icon" />
-                      <span className="bifurcation-title">Conversation Bifurcation</span>
-                      <span className="bifurcation-subtitle">Client vs Team Streams</span>
+                  {/* 2. CONVERSATION BREAKDOWN: CLIENT vs AGENCY */}
+                  <section className="formal-section">
+                    <div className="formal-section-header">
+                      <span className="formal-section-title">Conversation Breakdown</span>
+                      <span className="formal-section-sub">Client vs Agency Streams</span>
                     </div>
 
-                    <div className="bifurcation-grid">
+                    <div className="formal-streams-grid">
                       {/* Left: Client Track */}
-                      <div className="bifurcation-track client-track">
-                        <div className="track-header">
-                          <div className="track-title-wrap">
-                            <Building2 size={13} className="track-icon client" />
-                            <span className="track-name">{clientTrack.title}</span>
+                      <div className="formal-stream-col client">
+                        <div className="formal-stream-header">
+                          <div className="formal-stream-name">
+                            <span className="formal-stream-label">CLIENT PERSPECTIVE</span>
+                            <span className="formal-stream-actor">{clientTrack.title}</span>
                           </div>
                           {clientTrack.status && (
-                            <span className={`track-status-pill ${getTrackStatusClass(clientTrack.status)}`}>
-                              {clientTrack.status}
-                            </span>
+                            <span className="formal-status-tag">{clientTrack.status}</span>
                           )}
                         </div>
-                        <ul className="track-bullets-list">
+                        <ul className="formal-bullets-list">
                           {clientTrack.points.map((pt, idx) => (
-                            <li key={idx} className="track-bullet-item">
-                              <span className="track-bullet-dot client" />
-                              <span>{renderFormattedText(pt)}</span>
+                            <li key={idx} className="formal-bullet-row">
+                              <span className="formal-bullet-dot" />
+                              <span className="formal-bullet-text">{renderFormattedText(pt)}</span>
                             </li>
                           ))}
                         </ul>
                       </div>
 
-                      {/* Right: Team Track */}
-                      <div className="bifurcation-track team-track">
-                        <div className="track-header">
-                          <div className="track-title-wrap">
-                            <Briefcase size={13} className="track-icon team" />
-                            <span className="track-name">{teamTrack.title}</span>
+                      {/* Right: Agency Track */}
+                      <div className="formal-stream-col agency">
+                        <div className="formal-stream-header">
+                          <div className="formal-stream-name">
+                            <span className="formal-stream-label">AGENCY EXECUTION</span>
+                            <span className="formal-stream-actor">{teamTrack.title}</span>
                           </div>
                           {teamTrack.status && (
-                            <span className={`track-status-pill ${getTrackStatusClass(teamTrack.status)}`}>
-                              {teamTrack.status}
-                            </span>
+                            <span className="formal-status-tag">{teamTrack.status}</span>
                           )}
                         </div>
-                        <ul className="track-bullets-list">
+                        <ul className="formal-bullets-list">
                           {teamTrack.points.map((pt, idx) => (
-                            <li key={idx} className="track-bullet-item">
-                              <span className="track-bullet-dot team" />
-                              <span>{renderFormattedText(pt)}</span>
+                            <li key={idx} className="formal-bullet-row">
+                              <span className="formal-bullet-dot" />
+                              <span className="formal-bullet-text">{renderFormattedText(pt)}</span>
                             </li>
                           ))}
                         </ul>
                       </div>
                     </div>
-                  </div>
+                  </section>
 
-                  {/* 3. DECIDED vs BLOCKED BIFURCATION */}
-                  <div className="summary-status-grid">
-                    {/* Settled Decisions */}
-                    <div className="summary-status-card situation">
-                      <div className="status-card-header">
-                        <CheckCircle2 size={15} className="status-icon situation" />
-                        <span className="status-card-title">Agreed &amp; Settled</span>
+                  {/* 3. AGREED DECISIONS & SETTLED ITEMS */}
+                  {decidedList.length > 0 && (
+                    <section className="formal-section">
+                      <div className="formal-section-header">
+                        <span className="formal-section-title">Agreed &amp; Settled</span>
+                        <span className="formal-section-sub">{decidedList.length} Confirmed</span>
                       </div>
-                      {decidedList.length > 0 ? (
-                        <ul className="status-card-bullets">
-                          {decidedList.map((dec, idx) => (
-                            <li key={idx} className="status-bullet-row">
-                              <span className="mini-bullet success" />
-                              <span>{renderFormattedText(dec)}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="status-card-body">
-                          {isHinglish && eb.currentSituationHinglish ? eb.currentSituationHinglish : eb.currentSituation}
-                        </p>
-                      )}
-                    </div>
+                      <ul className="formal-bullets-list">
+                        {decidedList.map((dec, idx) => (
+                          <li key={idx} className="formal-bullet-row settled">
+                            <CheckCircle2 size={13} className="formal-settled-icon" />
+                            <span className="formal-bullet-text">{renderFormattedText(dec)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  )}
 
-                    {/* Blocked / Waiting on Action */}
-                    <div className="summary-status-card attention">
-                      <div className="status-card-header">
-                        <AlertTriangle size={15} className="status-icon attention" />
-                        <span className="status-card-title">Blocked / Waiting on Action</span>
+                  {/* 4. ACTIVE BLOCKERS & DEPENDENCIES */}
+                  {blockersList.length > 0 && (
+                    <section className="formal-section">
+                      <div className="formal-section-header">
+                        <span className="formal-section-title">Active Blockers &amp; Dependencies</span>
+                        <span className="formal-section-sub">{blockersList.length} Pending</span>
                       </div>
-                      {blockersList.length > 0 ? (
-                        <ul className="status-card-bullets">
-                          {blockersList.map((blk, idx) => (
-                            <li key={idx} className="status-bullet-row">
-                              <span className="mini-bullet warning" />
-                              <div>
-                                <span>{renderFormattedText(blk.item)}</span>
-                                {blk.waitingOn && (
-                                  <span className="waiting-on-tag">
-                                    Waiting on: <strong>{blk.waitingOn}</strong>
-                                  </span>
-                                )}
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="status-card-body">
-                          {isHinglish && eb.attentionRequiredHinglish ? eb.attentionRequiredHinglish : eb.attentionRequired}
-                        </p>
-                      )}
-                    </div>
-                  </div>
+                      <ul className="formal-blockers-list">
+                        {blockersList.map((blk, idx) => (
+                          <li key={idx} className="formal-blocker-row">
+                            <AlertTriangle size={13} className="formal-blocker-icon" />
+                            <div className="formal-blocker-content">
+                              <span className="formal-blocker-title">{renderFormattedText(blk.item)}</span>
+                              {blk.waitingOn && (
+                                <span className="formal-dependency-tag">
+                                  Awaiting action from: <strong>{blk.waitingOn}</strong>
+                                </span>
+                              )}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  )}
 
-                {/* Decisions Made */}
-                {summaryBriefing.decisions && summaryBriefing.decisions.length > 0 && (
-                  <div className="summary-section-block">
-                    <div className="summary-section-title-row">
-                      <CheckCircle2 size={15} style={{ color: '#10b981' }} />
-                      <h4 className="summary-section-title">Decisions Made</h4>
-                    </div>
-                    <ul className="summary-bullet-list">
-                      {summaryBriefing.decisions.map((dec, i) => (
-                        <li key={dec.id || i} className="summary-bullet-item">
-                          <span className="bullet-point" />
-                          <span><strong>{dec.title}</strong>{dec.context ? ` — ${dec.context}` : ''}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Action Items */}
-                {summaryBriefing.actionTracker && summaryBriefing.actionTracker.length > 0 && (
-                  <div className="summary-section-block">
-                    <div className="summary-section-title-row">
-                      <ListTodo size={15} style={{ color: '#6366f1' }} />
-                      <h4 className="summary-section-title">Action Items ({summaryBriefing.actionTracker.length})</h4>
-                    </div>
-                    <div className="summary-action-items-list">
-                      {summaryBriefing.actionTracker.map((act, i) => (
-                        <div key={act.id || i} className="summary-action-item-card">
-                          <div className="action-item-left">
-                            <input type="checkbox" className="action-item-cb" readOnly checked={act.status === 'COMPLETED'} />
-                            <span className="action-item-text">{act.action}</span>
+                  {/* 5. ACTION LEDGER */}
+                  {summaryBriefing.actionTracker && summaryBriefing.actionTracker.length > 0 && (
+                    <section className="formal-section">
+                      <div className="formal-section-header">
+                        <span className="formal-section-title">Action Ledger</span>
+                        <span className="formal-section-sub">{summaryBriefing.actionTracker.length} Tasks</span>
+                      </div>
+                      <div className="formal-ledger-list">
+                        {summaryBriefing.actionTracker.map((act, i) => (
+                          <div key={act.id || i} className="formal-ledger-row">
+                            <div className="formal-ledger-left">
+                              <span className={`formal-ledger-checkbox ${act.status === 'COMPLETED' ? 'checked' : ''}`} />
+                              <span className="formal-ledger-action">{act.action}</span>
+                            </div>
+                            <div className="formal-ledger-meta">
+                              <span className="formal-ledger-owner">{act.owner}</span>
+                              <span className={`formal-ledger-status ${act.status.toLowerCase()}`}>{act.status}</span>
+                            </div>
                           </div>
-                          <div className="action-item-right">
-                            <span className="action-item-owner">{act.owner}</span>
-                            <span className={`action-item-status ${act.status.toLowerCase()}`}>{act.status}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                        ))}
+                      </div>
+                    </section>
+                  )}
 
-                {/* Recent Developments Accordion */}
-                <div className="summary-accordion-block">
-                  <button
-                    type="button"
-                    className="summary-accordion-header"
-                    onClick={() => setRecentDevelopmentsOpen(!recentDevelopmentsOpen)}
-                  >
-                    <div className="accordion-title-left">
-                      <Clock size={14} />
-                      <span>Recent Developments</span>
-                    </div>
-                    {recentDevelopmentsOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                  </button>
-                  {recentDevelopmentsOpen && (
-                    <div className="summary-accordion-body">
-                      {summaryBriefing.storyline && summaryBriefing.storyline.length > 0 ? (
-                        <ul className="accordion-milestones">
+                  {/* 6. TIMELINE & MILESTONES */}
+                  {summaryBriefing.storyline && summaryBriefing.storyline.length > 0 && (
+                    <section className="formal-section developments">
+                      <button
+                        type="button"
+                        className="formal-accordion-trigger"
+                        onClick={() => setRecentDevelopmentsOpen(!recentDevelopmentsOpen)}
+                      >
+                        <span className="formal-section-title">Timeline &amp; Milestones ({summaryBriefing.storyline.length})</span>
+                        {recentDevelopmentsOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                      </button>
+                      {recentDevelopmentsOpen && (
+                        <div className="formal-timeline-list">
                           {summaryBriefing.storyline.map((s, idx) => (
-                            <li key={s.id || idx} className="milestone-item">
-                              <span className="milestone-time">{s.timestamp}</span>
-                              <span className="milestone-title">{s.heading}</span>
-                            </li>
+                            <div key={s.id || idx} className="formal-timeline-item">
+                              <span className="formal-timeline-time">{s.timestamp}</span>
+                              <span className="formal-timeline-heading">{s.heading}</span>
+                              {s.description && (
+                                <span className="formal-timeline-desc">{s.description}</span>
+                              )}
+                            </div>
                           ))}
-                        </ul>
-                      ) : (
-                        <p className="milestone-empty">No milestone developments logged.</p>
+                        </div>
                       )}
-                    </div>
+                    </section>
                   )}
                 </div>
-              </>
-            );
+              );
           })() : (
             <div className="summary-empty-state">
                 <Sparkles size={32} className="empty-icon" />

@@ -681,26 +681,25 @@ export default function MessageSummaryView({
                     }));
 
                 return (
-                  <>
-                    <div className="briefing-bottom-line-card">
-                      <div className="bottom-line-header">
-                        <div className="bottom-line-badge">
-                          <Sparkles size={13} />
-                          <span>THE BOTTOM LINE</span>
-                        </div>
+                  <div className="formal-briefing-doc">
+                    {/* 1. KEY TAKEAWAYS (THE BOTTOM LINE) */}
+                    <section className="formal-section">
+                      <div className="formal-section-header">
+                        <span className="formal-section-title">Key Takeaways</span>
+                        <span className="formal-section-sub">Executive Summary</span>
                       </div>
 
                       {tldrList.length > 0 ? (
-                        <ul className="bottom-line-bullets">
+                        <ul className="formal-bullets-list">
                           {tldrList.map((bullet, idx) => (
-                            <li key={idx} className="bottom-line-bullet">
-                              <span className="bullet-indicator" />
-                              <span>{renderFormattedText(bullet)}</span>
+                            <li key={idx} className="formal-bullet-row">
+                              <span className="formal-bullet-dot primary" />
+                              <span className="formal-bullet-text">{renderFormattedText(bullet)}</span>
                             </li>
                           ))}
                         </ul>
                       ) : (
-                        <p className="bottom-line-summary">
+                        <p className="formal-bullet-text">
                           {isHinglish && eb?.currentSituationHinglish
                             ? eb.currentSituationHinglish
                             : eb?.currentSituation}
@@ -708,7 +707,7 @@ export default function MessageSummaryView({
                       )}
 
                       {briefing?.decisions && briefing.decisions.length > 0 && (
-                        <div className="bottom-line-decisions-preview">
+                        <div className="bottom-line-decisions-preview" style={{ marginTop: '8px' }}>
                           <span className="preview-label">Key Milestones:</span>
                           {briefing.decisions.slice(0, 3).map((d) => (
                             <button
@@ -740,121 +739,103 @@ export default function MessageSummaryView({
                           )}
                         </div>
                       )}
-                    </div>
+                    </section>
 
-                    {/* CONVERSATION BIFURCATION (Client Track vs Team Track) */}
-                    <div className="summary-bifurcation-container">
-                      <div className="bifurcation-header-row">
-                        <Split size={14} className="bifurcation-title-icon" />
-                        <span className="bifurcation-title">Conversation Bifurcation</span>
-                        <span className="bifurcation-subtitle">Client vs Team Streams</span>
+                    {/* 2. CONVERSATION BREAKDOWN (CLIENT vs AGENCY) */}
+                    <section className="formal-section">
+                      <div className="formal-section-header">
+                        <span className="formal-section-title">Conversation Breakdown</span>
+                        <span className="formal-section-sub">Client vs Agency Streams</span>
                       </div>
 
-                      <div className="bifurcation-grid">
+                      <div className="formal-streams-grid">
                         {/* Left: Client Track */}
-                        <div className="bifurcation-track client-track">
-                          <div className="track-header">
-                            <div className="track-title-wrap">
-                              <Building2 size={13} className="track-icon client" />
-                              <span className="track-name">{clientTrack.title}</span>
+                        <div className="formal-stream-col client">
+                          <div className="formal-stream-header">
+                            <div className="formal-stream-name">
+                              <span className="formal-stream-label">CLIENT PERSPECTIVE</span>
+                              <span className="formal-stream-actor">{clientTrack.title}</span>
                             </div>
                             {clientTrack.status && (
-                              <span className={`track-status-pill ${getTrackStatusClass(clientTrack.status)}`}>
-                                {clientTrack.status}
-                              </span>
+                              <span className="formal-status-tag">{clientTrack.status}</span>
                             )}
                           </div>
-                          <ul className="track-bullets-list">
+                          <ul className="formal-bullets-list">
                             {clientTrack.points.map((pt, idx) => (
-                              <li key={idx} className="track-bullet-item">
-                                <span className="track-bullet-dot client" />
-                                <span>{renderFormattedText(pt)}</span>
+                              <li key={idx} className="formal-bullet-row">
+                                <span className="formal-bullet-dot" />
+                                <span className="formal-bullet-text">{renderFormattedText(pt)}</span>
                               </li>
                             ))}
                           </ul>
                         </div>
 
-                        {/* Right: Team Track */}
-                        <div className="bifurcation-track team-track">
-                          <div className="track-header">
-                            <div className="track-title-wrap">
-                              <Briefcase size={13} className="track-icon team" />
-                              <span className="track-name">{teamTrack.title}</span>
+                        {/* Right: Agency Track */}
+                        <div className="formal-stream-col agency">
+                          <div className="formal-stream-header">
+                            <div className="formal-stream-name">
+                              <span className="formal-stream-label">AGENCY EXECUTION</span>
+                              <span className="formal-stream-actor">{teamTrack.title}</span>
                             </div>
                             {teamTrack.status && (
-                              <span className={`track-status-pill ${getTrackStatusClass(teamTrack.status)}`}>
-                                {teamTrack.status}
-                              </span>
+                              <span className="formal-status-tag">{teamTrack.status}</span>
                             )}
                           </div>
-                          <ul className="track-bullets-list">
+                          <ul className="formal-bullets-list">
                             {teamTrack.points.map((pt, idx) => (
-                              <li key={idx} className="track-bullet-item">
-                                <span className="track-bullet-dot team" />
-                                <span>{renderFormattedText(pt)}</span>
+                              <li key={idx} className="formal-bullet-row">
+                                <span className="formal-bullet-dot" />
+                                <span className="formal-bullet-text">{renderFormattedText(pt)}</span>
                               </li>
                             ))}
                           </ul>
                         </div>
                       </div>
-                    </div>
+                    </section>
 
-                    {/* DECIDED vs BLOCKED BIFURCATION */}
-                    <div className="briefing-callouts-grid">
-                      <div className="editorial-callout callout-situation">
-                        <div className="callout-header">
-                          <CheckCircle2 size={16} className="callout-icon situation-icon" />
-                          <span className="callout-title">Agreed &amp; Settled</span>
+                    {/* 3. AGREED DECISIONS & SETTLED ITEMS */}
+                    {decidedList.length > 0 && (
+                      <section className="formal-section">
+                        <div className="formal-section-header">
+                          <span className="formal-section-title">Agreed &amp; Settled</span>
+                          <span className="formal-section-sub">{decidedList.length} Confirmed</span>
                         </div>
-                        {decidedList.length > 0 ? (
-                          <ul className="status-card-bullets">
-                            {decidedList.map((dec, idx) => (
-                              <li key={idx} className="status-bullet-row">
-                                <span className="mini-bullet success" />
-                                <span>{renderFormattedText(dec)}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="callout-body">
-                            {isHinglish && eb?.currentSituationHinglish
-                              ? eb.currentSituationHinglish
-                              : eb?.currentSituation}
-                          </p>
-                        )}
-                      </div>
+                        <ul className="formal-bullets-list">
+                          {decidedList.map((dec, idx) => (
+                            <li key={idx} className="formal-bullet-row settled">
+                              <CheckCircle2 size={13} className="formal-settled-icon" />
+                              <span className="formal-bullet-text">{renderFormattedText(dec)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                    )}
 
-                      <div className="editorial-callout callout-attention">
-                        <div className="callout-header">
-                          <AlertTriangle size={16} className="callout-icon attention-icon" />
-                          <span className="callout-title">Blocked / Waiting on Action</span>
+                    {/* 4. ACTIVE BLOCKERS & DEPENDENCIES */}
+                    {blockersList.length > 0 && (
+                      <section className="formal-section">
+                        <div className="formal-section-header">
+                          <span className="formal-section-title">Active Blockers &amp; Dependencies</span>
+                          <span className="formal-section-sub">{blockersList.length} Pending</span>
                         </div>
-                        {blockersList.length > 0 ? (
-                          <ul className="status-card-bullets">
-                            {blockersList.map((blk, idx) => (
-                              <li key={idx} className="status-bullet-row">
-                                <span className="mini-bullet warning" />
-                                <div>
-                                  <span>{renderFormattedText(blk.item)}</span>
-                                  {blk.waitingOn && (
-                                    <span className="waiting-on-tag">
-                                      Waiting on: <strong>{blk.waitingOn}</strong>
-                                    </span>
-                                  )}
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="callout-body">
-                            {isHinglish && eb?.attentionRequiredHinglish
-                              ? eb.attentionRequiredHinglish
-                              : eb?.attentionRequired}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </>
+                        <ul className="formal-blockers-list">
+                          {blockersList.map((blk, idx) => (
+                            <li key={idx} className="formal-blocker-row">
+                              <AlertTriangle size={13} className="formal-blocker-icon" />
+                              <div className="formal-blocker-content">
+                                <span className="formal-blocker-title">{renderFormattedText(blk.item)}</span>
+                                {blk.waitingOn && (
+                                  <span className="formal-dependency-tag">
+                                    Awaiting action from: <strong>{blk.waitingOn}</strong>
+                                  </span>
+                                )}
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                    )}
+                  </div>
                 );
               })()}
 
