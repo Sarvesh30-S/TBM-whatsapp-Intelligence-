@@ -65,16 +65,18 @@ export default function MessageSummaryView({
   const { hasRole, hasPermission } = useAuth();
   const canGenerate = hasRole('ADMIN') || hasRole('MANAGER') || hasPermission('SUMMARY_GENERATE');
 
-  // Discover group names with real messages (filtering out private personal test groups)
+  // Discover group names with real messages (filtering out private personal test groups and direct chats)
   const availableGroups = useMemo(() => {
     const map = new Map<string, number>();
     for (const msg of allMessages) {
-      const gName = msg.groupName || (msg.isGroup ? msg.chatName || 'WhatsApp Group' : null);
+      // Must be an actual group message, not a direct chat
+      if (!msg.isGroup && !msg.groupUuid) continue;
+      const gName = msg.groupName || msg.chatName;
       if (gName && !isHiddenPrivateGroup(gName)) {
         map.set(gName, (map.get(gName) || 0) + 1);
       }
     }
-    // Also include conversation objects that are groups
+    // Also include conversation objects that are strictly groups
     for (const c of conversations) {
       if (c.isGroup && c.name && !isHiddenPrivateGroup(c.name) && !map.has(c.name)) {
         map.set(c.name, 0);

@@ -71,6 +71,7 @@ export const HIDDEN_PRIVATE_GROUPS = new Set([
   'family forever 🫰🏻🥰🌹',
   'sade das bgmi🫦',
   'test grp',
+  'sarvesh',
 ]);
 
 export function isHiddenPrivateGroup(groupName?: string | null): boolean {
