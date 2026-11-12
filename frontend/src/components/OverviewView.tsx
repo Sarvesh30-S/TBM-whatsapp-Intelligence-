@@ -10,7 +10,6 @@ import {
   ArrowRight,
   ShieldCheck,
   TrendingUp,
-  Cpu,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { DashboardSection } from './Sidebar';
@@ -253,27 +252,11 @@ export default function OverviewView({
                 <MessageSquare size={20} />
               </div>
               <div className="quick-nav-text">
-                <div className="quick-nav-title">Live Test Messages Sandbox</div>
-                <div className="quick-nav-desc">Inspect inbound webhooks, simulate group conversations, and view history</div>
+                <div className="quick-nav-title">Groups &amp; Chats Hub</div>
+                <div className="quick-nav-desc">Inspect active conversation threads, live messaging, and participant history</div>
               </div>
               <ArrowRight size={16} className="tile-arrow" />
             </div>
-
-            {(hasRole('DEVELOPER') || hasRole('ADMIN') || hasPermission('TELEMETRY_READ')) && (
-              <div
-                className="quick-nav-tile"
-                onClick={() => onNavigate('developer')}
-              >
-                <div className="quick-nav-icon bg-emerald">
-                  <Cpu size={20} />
-                </div>
-                <div className="quick-nav-text">
-                  <div className="quick-nav-title">Developer & Telemetry Console</div>
-                  <div className="quick-nav-desc">Actuator health, HikariCP pool stats, Groq latency, and redacted logs</div>
-                </div>
-                <ArrowRight size={16} className="tile-arrow" />
-              </div>
-            )}
           </div>
         </div>
       </div>

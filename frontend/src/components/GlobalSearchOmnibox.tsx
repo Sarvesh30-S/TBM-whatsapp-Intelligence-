@@ -126,10 +126,9 @@ export default function GlobalSearchOmnibox({
       desc: string;
       icon: React.ComponentType<{ size?: number; className?: string }>;
     }[] = [
-      { id: 'overview', label: 'Workspace', desc: 'Operational overview & KPI metrics', icon: LayoutGrid },
       { id: 'test-messages', label: 'Groups & Chats', desc: 'Active conversation threads & live messaging', icon: MessageSquare },
       { id: 'message-summary', label: 'Intelligence Views', desc: 'AI briefings, decisions & action items', icon: Sparkles },
-      { id: 'developer', label: 'Analytics & Console', desc: 'Telemetry, Groq latency & actuator health', icon: BarChart3 },
+      { id: 'overview', label: 'Analytics & Console', desc: 'Executive intelligence, KPIs & monitored threads', icon: BarChart3 },
       { id: 'admin', label: 'Administration', desc: 'User management & role assignments', icon: Settings },
     ];
     return sections.filter(
@@ -278,7 +277,7 @@ export default function GlobalSearchOmnibox({
                   type="button"
                   className="omnibox-quick-pill"
                   onClick={() => {
-                    onNavigateSection('developer');
+                    onNavigateSection('overview');
                     setIsOpen(false);
                   }}
                 >

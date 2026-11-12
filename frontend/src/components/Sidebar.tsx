@@ -18,11 +18,11 @@ import TheBoredMonkeyLogo from './TheBoredMonkeyLogo';
 import TheBoredMonkeyCompactLogo from './TheBoredMonkeyCompactLogo';
 
 export type DashboardSection =
-  | 'overview'
   | 'test-messages'
   | 'message-summary'
-  | 'developer'
-  | 'admin';
+  | 'overview'
+  | 'admin'
+  | 'developer';
 
 interface SidebarProps {
   currentSection: DashboardSection;
@@ -60,11 +60,6 @@ export default function Sidebar({
 
   const allNavItems = [
     {
-      id: 'overview' as DashboardSection,
-      label: 'Workspace',
-      icon: LayoutGrid,
-    },
-    {
       id: 'test-messages' as DashboardSection,
       label: 'Groups & Chats',
       icon: MessageSquare,
@@ -75,7 +70,7 @@ export default function Sidebar({
       icon: Sparkles,
     },
     {
-      id: 'developer' as DashboardSection,
+      id: 'overview' as DashboardSection,
       label: 'Analytics & Console',
       icon: BarChart3,
     },
@@ -132,7 +127,7 @@ export default function Sidebar({
         <div className="sidebar-brand">
           <div
             className="brand-header-left"
-            onClick={() => onSelectSection('overview')}
+            onClick={() => onSelectSection('test-messages')}
             title="TheBoredMonkey - WhatsApp Intelligence"
             role="button"
             tabIndex={0}

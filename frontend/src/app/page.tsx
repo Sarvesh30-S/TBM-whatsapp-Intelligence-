@@ -6,7 +6,6 @@ import Sidebar, { DashboardSection } from '@/components/Sidebar';
 import OverviewView from '@/components/OverviewView';
 import TestMessagesView from '@/components/TestMessagesView';
 import MessageSummaryView from '@/components/MessageSummaryView';
-import DeveloperView from '@/components/DeveloperView';
 import AdminManagementView from '@/components/AdminManagementView';
 import LoginView from '@/components/LoginView';
 import GlobalSearchOmnibox from '@/components/GlobalSearchOmnibox';
@@ -67,7 +66,7 @@ function deduplicateList(messages: TwoChatMessage[]): TwoChatMessage[] {
 
 function DashboardContent() {
   const { user, token, canAccessSection, isAuthenticated, isLoading } = useAuth();
-  const [currentSection, setCurrentSection] = useState<DashboardSection>('overview');
+  const [currentSection, setCurrentSection] = useState<DashboardSection>('test-messages');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
 
   // Application Data State
@@ -424,11 +423,11 @@ function DashboardContent() {
     : [];
 
   const sectionTitles: Record<DashboardSection, string> = {
-    overview: 'Operational Overview',
-    'test-messages': 'Test Messages Sandbox',
+    'test-messages': 'Groups & Chats',
     'message-summary': 'Group Intelligence & Summaries',
-    developer: 'Developer & Telemetry Console',
+    overview: 'Analytics & Console',
     admin: 'Access Control & Administration',
+    developer: 'Analytics & Console',
   };
 
   if (isLoading) {
@@ -478,6 +477,9 @@ function DashboardContent() {
             >
               <Menu size={20} />
             </button>
+          </div>
+
+          <div className="navbar-center">
             <GlobalSearchOmnibox
               conversations={conversations}
               allMessages={allMessages}
@@ -521,15 +523,6 @@ function DashboardContent() {
 
         {/* Content Area */}
         <main className="saas-content-area">
-          {currentSection === 'overview' && (
-            <OverviewView
-              onNavigate={setCurrentSection}
-              onSelectGroup={handleOpenGroupChat}
-              totalMessagesCount={allMessages.length || 128}
-              conversations={conversations}
-            />
-          )}
-
           {currentSection === 'test-messages' && (
             <TestMessagesView
               apiKey={apiKey}
@@ -552,7 +545,7 @@ function DashboardContent() {
               onLoadData={loadData}
               onSendMessage={handleSendMessage}
               onClearMessages={handleClearMessages}
-              onNavigateToDeveloper={() => setCurrentSection('developer')}
+              onNavigateToDeveloper={() => setCurrentSection('overview')}
               targetMessageId={targetMessageId}
             />
           )}
@@ -578,16 +571,16 @@ function DashboardContent() {
                   }
                 }
               }}
-              onNavigateToDeveloper={() => setCurrentSection('developer')}
+              onNavigateToDeveloper={() => setCurrentSection('overview')}
             />
           )}
 
-          {currentSection === 'developer' && (
-            <DeveloperView
-              apiKey={apiKey}
-              onSaveApiKey={handleSaveApiKey}
-              webhookUrl={webhookUrl}
-              statusText={statusText}
+          {(currentSection === 'overview' || (currentSection as any) === 'developer') && (
+            <OverviewView
+              onNavigate={setCurrentSection}
+              onSelectGroup={handleOpenGroupChat}
+              totalMessagesCount={allMessages.length || 128}
+              conversations={conversations}
             />
           )}
 
