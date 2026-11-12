@@ -98,30 +98,32 @@ body {
 }
 
 .sidebar-brand {
-  padding: 16px 18px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 10px;
   min-height: 64px;
+  position: relative;
 }
 
 .brand-header-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: center;
   flex: 1;
   min-width: 0;
   cursor: pointer;
   user-select: none;
+  margin: 0 auto;
 }
 
 /* 1. Compact Icon for Collapsed Desktop Rail */
 .brand-compact-logo {
   display: none;
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: 8px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
@@ -131,6 +133,7 @@ body {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   transition: transform 0.15s ease, border-color 0.15s ease;
   flex-shrink: 0;
+  margin: 0 auto;
 }
 
 .brand-compact-logo:hover {
@@ -139,8 +142,8 @@ body {
 }
 
 .brand-icon-img {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   object-fit: contain;
   display: block;
   image-rendering: -webkit-optimize-contrast;
@@ -150,29 +153,32 @@ body {
 .brand-expanded-logo {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   flex: 1;
   min-width: 0;
-  height: 32px;
+  max-width: 190px;
+  margin: 0 auto;
+  height: 36px;
 }
 
 .brand-anim-picture {
   display: inline-flex;
   align-items: center;
-  height: 25px;
+  justify-content: center;
+  height: 32px;
+  margin: 0 auto;
 }
 
 .brand-anim-img {
   width: auto;
-  height: 25px;
-  max-width: 140px;
+  height: 32px;
+  max-width: 175px;
   object-fit: contain;
   display: block;
   image-rendering: -webkit-optimize-contrast;
   image-rendering: crisp-edges;
   transform: translateZ(0);
   -webkit-backface-visibility: hidden;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.03));
 }
 
 @media (min-width: 901px) {

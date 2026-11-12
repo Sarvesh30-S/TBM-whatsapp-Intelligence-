@@ -141,8 +141,8 @@ export default function Sidebar({
                 src="/theboredmonkey-tbm-badge.png"
                 alt="TheBoredMonkey"
                 className="brand-icon-img"
-                width={36}
-                height={36}
+                width={32}
+                height={32}
               />
             </div>
 
@@ -154,8 +154,8 @@ export default function Sidebar({
                   src="/theboredmonkey-logo.gif"
                   alt="TheBoredMonkey Creations & Connections"
                   className="brand-anim-img"
-                  width={134}
-                  height={25}
+                  width={176}
+                  height={32}
                 />
               </picture>
             </div>
