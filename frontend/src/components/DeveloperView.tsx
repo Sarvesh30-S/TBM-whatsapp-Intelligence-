@@ -245,7 +245,7 @@ export default function DeveloperView({
             <div className="kpi-card">
               <div className="kpi-card-top">
                 <span className="kpi-title">JVM Heap Memory</span>
-                <div className="kpi-icon-bubble" style={{ backgroundColor: '#eef2ff', color: '#4f46e5' }}>
+                <div className="kpi-icon-bubble" style={{ backgroundColor: '#fffbeb', color: '#b45309' }}>
                   <Cpu size={16} />
                 </div>
               </div>

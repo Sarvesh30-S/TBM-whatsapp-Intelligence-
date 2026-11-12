@@ -100,8 +100,8 @@ export default function OverviewView({
       value: totalMessagesCount.toLocaleString(),
       change: '+12% this week',
       icon: MessageSquare,
-      color: '#4f46e5',
-      bg: '#eef2ff',
+      color: '#b45309',
+      bg: '#fffbeb',
     },
     {
       title: 'Analyzed by Groq',
@@ -124,8 +124,8 @@ export default function OverviewView({
       value: '98.8%',
       change: 'Verified source citations',
       icon: Target,
-      color: '#4338ca',
-      bg: '#f5f3ff',
+      color: '#d97706',
+      bg: '#fef3c7',
     },
   ];
 
@@ -235,7 +235,7 @@ export default function OverviewView({
               className="quick-nav-tile"
               onClick={() => onNavigate('message-summary')}
             >
-              <div className="quick-nav-icon bg-indigo">
+              <div className="quick-nav-icon bg-amber">
                 <Sparkles size={20} />
               </div>
               <div className="quick-nav-text">

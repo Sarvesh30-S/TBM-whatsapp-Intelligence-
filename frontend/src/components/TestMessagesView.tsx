@@ -790,7 +790,7 @@ export default function TestMessagesView({
                               className={`chat-bubble-row ${isOutbound ? 'outbound' : 'inbound'} ${targetMessageId === msg.id ? 'highlight-pulse' : ''}`}
                             >
                               <div className={`chat-bubble ${isOutbound ? 'outbound' : 'inbound'}`}>
-                                {/* Sender name in bold indigo for inbound bubbles, strictly NO DP */}
+                                {/* Sender name in bold amber for inbound bubbles, strictly NO DP */}
                                 {!isOutbound && (
                                   <div className="bubble-sender-name">{senderDisplay}</div>
                                 )}
@@ -1163,7 +1163,7 @@ export default function TestMessagesView({
           <div className="summary-pane-scroll">
             {summaryLoading && !summaryBriefing ? (
               <div className="summary-loading-state">
-                <RotateCw size={22} className="animate-spin text-purple-600 mb-2" />
+                <RotateCw size={22} className="animate-spin text-amber-500 mb-2" />
                 <p className="summary-loading-title">Generating AI Briefing...</p>
                 <p className="summary-loading-sub">Analyzing group messages and decisions...</p>
               </div>

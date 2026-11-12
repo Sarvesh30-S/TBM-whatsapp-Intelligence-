@@ -27,10 +27,16 @@ import {
   Building2,
   Briefcase,
   Split,
+  Tag,
+  DollarSign,
+  Target,
+  TrendingUp,
 } from 'lucide-react';
 import { TwoChatMessage, TwoChatConversation, isHiddenPrivateGroup } from '@/lib/types';
 import {
   GroupIntelligenceBriefing,
+  GroupContextData,
+  KeyInformationMetric,
   StorylineStep,
   TopicDossier,
   DecisionItem,
@@ -615,273 +621,551 @@ export default function MessageSummaryView({
 
         {/* Right Main Content Pane */}
         <main className="intelligence-content-pane">
-        {/* SECTION 1: EXECUTIVE BRIEFING (DEFAULT VIEW) */}
+        {/* SECTION 1: EXECUTIVE BRIEFING (RESTRUCTURED 7-SECTION AI SUMMARY) */}
         {activeSection === 'briefing' && (
           <div className="editorial-briefing-pane">
-            <div className="briefing-paper-card">
-              <div className="briefing-title-meta">
-                <span className="document-tag">OVERALL CONVERSATION SUMMARY</span>
-                <span className="document-timestamp">
-                  Coverage: {new Date(briefing?.dateRange.start || Date.now()).toLocaleDateString()} &mdash;{' '}
-                  {new Date(briefing?.dateRange.end || Date.now()).toLocaleDateString()}
-                </span>
-              </div>
+            {(() => {
+              const eb = briefing?.executiveBriefing;
+              const isHinglish = summaryLanguage === 'hinglish';
 
-              {/* The Bottom Line: Executive Hook */}
-              {(() => {
-                const eb = briefing?.executiveBriefing;
-                const isHinglish = summaryLanguage === 'hinglish';
-                const tldrList: string[] = (isHinglish && eb?.tldrHinglish && eb.tldrHinglish.length > 0)
-                  ? eb.tldrHinglish
-                  : (eb?.tldr && eb.tldr.length > 0)
-                  ? eb.tldr
-                  : [isHinglish && eb?.currentSituationHinglish ? eb.currentSituationHinglish : (eb?.currentSituation || '')];
+              // 1. Group Context (Phase 1)
+              const gc = eb?.groupContext || briefing?.groupContext;
+              const contextParagraphs: string[] = (isHinglish && gc?.paragraphsHinglish && gc.paragraphsHinglish.length > 0)
+                ? gc.paragraphsHinglish
+                : (gc?.paragraphs && gc.paragraphs.length > 0)
+                ? gc.paragraphs
+                : [
+                    isHinglish && eb?.overviewHinglish ? eb.overviewHinglish : (eb?.overview || `Active coordination ongoing in ${selectedGroup}.`),
+                    isHinglish && eb?.currentSituationHinglish ? eb.currentSituationHinglish : (eb?.currentSituation || 'Discussion ongoing regarding project deliverables and execution.')
+                  ];
+              const isLimitedHistory = gc?.isLimitedHistory || (briefing?.totalMessagesCount || 0) < 4;
 
-                const clientTrack = (isHinglish && eb?.clientSideHinglish)
-                  ? {
-                      title: eb.clientSideHinglish.title || eb.clientSide?.title || 'Client Demands & Feedback',
-                      status: eb.clientSideHinglish.status || eb.clientSide?.status || 'Active',
-                      points: (eb.clientSideHinglish.points && eb.clientSideHinglish.points.length > 0)
-                        ? eb.clientSideHinglish.points
-                        : (eb.clientSide?.points || []),
-                    }
-                  : (eb?.clientSide || {
-                      title: 'Client Demands & Feedback',
-                      status: 'Active',
-                      points: [eb?.attentionRequired || 'No immediate client blockers noted.'],
-                    });
+              // 2. Executive Overview & TLDR
+              const overviewText = isHinglish && eb?.overviewHinglish ? eb.overviewHinglish : (eb?.overview || '');
+              const tldrList: string[] = (isHinglish && eb?.tldrHinglish && eb.tldrHinglish.length > 0)
+                ? eb.tldrHinglish
+                : (eb?.tldr && eb.tldr.length > 0)
+                ? eb.tldr
+                : [isHinglish && eb?.currentSituationHinglish ? eb.currentSituationHinglish : (eb?.currentSituation || '')].filter(Boolean);
 
-                const teamTrack = (isHinglish && eb?.teamSideHinglish)
-                  ? {
-                      title: eb.teamSideHinglish.title || eb.teamSide?.title || 'Internal Team Execution',
-                      status: eb.teamSideHinglish.status || eb.teamSide?.status || 'In Progress',
-                      points: (eb.teamSideHinglish.points && eb.teamSideHinglish.points.length > 0)
-                        ? eb.teamSideHinglish.points
-                        : (eb.teamSide?.points || []),
-                    }
-                  : (eb?.teamSide || {
-                      title: 'Internal Team Execution',
-                      status: 'In Progress',
-                      points: [eb?.currentSituation || 'Team deliverables underway.'],
-                    });
+              // 3. Key Information Metrics Cards
+              const keyInfoList: KeyInformationMetric[] = (isHinglish && eb?.keyInformationHinglish && eb.keyInformationHinglish.length > 0)
+                ? eb.keyInformationHinglish
+                : (eb?.keyInformation && eb.keyInformation.length > 0)
+                ? eb.keyInformation
+                : [];
 
-                const decidedList: string[] = (isHinglish && eb?.decidedItemsHinglish && eb.decidedItemsHinglish.length > 0)
-                  ? eb.decidedItemsHinglish
-                  : (eb?.decidedItems && eb.decidedItems.length > 0)
-                  ? eb.decidedItems
-                  : (briefing?.decisions || []).filter(d => d.status === 'CONFIRMED').map(d => `${d.title}${d.context ? ` — ${d.context}` : ''}`).slice(0, 3);
+              // 4. Conversation Breakdown (Client vs Agency)
+              const clientTrack = (isHinglish && eb?.clientSideHinglish)
+                ? {
+                    title: eb.clientSideHinglish.title || eb.clientSide?.title || 'Client Demands & Feedback',
+                    status: eb.clientSideHinglish.status || eb.clientSide?.status || 'Active',
+                    position: eb.clientSideHinglish.position || eb.clientSide?.position,
+                    concerns: eb.clientSideHinglish.concerns || eb.clientSide?.concerns,
+                    proposals: eb.clientSideHinglish.proposals || eb.clientSide?.proposals,
+                    expectations: eb.clientSideHinglish.expectations || eb.clientSide?.expectations,
+                    points: (eb.clientSideHinglish.points && eb.clientSideHinglish.points.length > 0)
+                      ? eb.clientSideHinglish.points
+                      : (eb.clientSide?.points || []),
+                  }
+                : (eb?.clientSide || {
+                    title: 'Client Demands & Feedback',
+                    status: 'Active',
+                    points: [eb?.attentionRequired || 'No immediate client blockers noted.'],
+                  });
 
-                const blockersList = (isHinglish && eb?.pendingBlockersHinglish && eb.pendingBlockersHinglish.length > 0)
+              const teamTrack = (isHinglish && eb?.teamSideHinglish)
+                ? {
+                    title: eb.teamSideHinglish.title || eb.teamSide?.title || 'Internal Team Execution',
+                    status: eb.teamSideHinglish.status || eb.teamSide?.status || 'In Progress',
+                    position: eb.teamSideHinglish.position || eb.teamSide?.position,
+                    concerns: eb.teamSideHinglish.concerns || eb.teamSide?.concerns,
+                    proposals: eb.teamSideHinglish.proposals || eb.teamSide?.proposals,
+                    expectations: eb.teamSideHinglish.expectations || eb.teamSide?.expectations,
+                    points: (eb.teamSideHinglish.points && eb.teamSideHinglish.points.length > 0)
+                      ? eb.teamSideHinglish.points
+                      : (eb.teamSide?.points || []),
+                  }
+                : (eb?.teamSide || {
+                    title: 'Internal Team Execution',
+                    status: 'In Progress',
+                    points: [eb?.currentSituation || 'Team deliverables underway.'],
+                  });
+
+              // 5. Decisions & Agreements
+              const allDecisions = briefing?.decisions || [];
+
+              // 6. Pending Actions & Blockers Unified
+              const allBlockersAndActions: Array<{
+                title: string;
+                owner?: string;
+                waitingOn?: string;
+                status: string;
+                isBlocker?: boolean;
+                sourceMessageIds?: string[];
+              }> = [];
+
+              if (eb?.pendingBlockers && eb.pendingBlockers.length > 0) {
+                const blockers = isHinglish && eb.pendingBlockersHinglish && eb.pendingBlockersHinglish.length > 0
                   ? eb.pendingBlockersHinglish
-                  : (eb?.pendingBlockers && eb.pendingBlockers.length > 0)
-                  ? eb.pendingBlockers
-                  : (briefing?.pendingDiscussions || []).map(p => ({
-                      item: p.unresolvedQuestion || p.topic,
-                      waitingOn: (p.participantsInvolved || [])[0] || 'Team',
-                    }));
+                  : eb.pendingBlockers;
+                blockers.forEach(b => {
+                  allBlockersAndActions.push({
+                    title: b.item,
+                    waitingOn: b.waitingOn,
+                    status: 'BLOCKED',
+                    isBlocker: true,
+                    sourceMessageIds: (b as any).sourceMessageIds,
+                  });
+                });
+              }
 
-                return (
-                  <div className="formal-briefing-doc">
-                    {/* 1. KEY TAKEAWAYS (THE BOTTOM LINE) */}
-                    <section className="formal-section">
-                      <div className="formal-section-header">
-                        <span className="formal-section-title">Key Takeaways</span>
-                        <span className="formal-section-sub">Executive Summary</span>
+              if (briefing?.actionTracker && briefing.actionTracker.length > 0) {
+                briefing.actionTracker.forEach(act => {
+                  allBlockersAndActions.push({
+                    title: act.action,
+                    owner: act.owner !== 'Unassigned' ? act.owner : undefined,
+                    status: act.status,
+                    isBlocker: act.status === 'BLOCKED',
+                    sourceMessageIds: act.sourceMessageIds,
+                  });
+                });
+              }
+
+              // 7. Timeline & Milestones
+              const storylineList = briefing?.storyline || [];
+
+              return (
+                <div className="summary-dashboard-layout">
+                  {/* =========================================================
+                      1. GROUP CONTEXT (HIGHEST PRIORITY - TOP OF SUMMARY)
+                      ========================================================= */}
+                  <div className="summary-group-context-card">
+                    <div className="context-badge-row">
+                      <span className="context-start-badge">
+                        <Sparkles size={13} style={{ color: '#D97706' }} />
+                        <span>New to this group? Start here.</span>
+                      </span>
+                      <span className="context-coverage-tag">
+                        {briefing?.totalMessagesCount || currentGroupMessages.length || 0} messages analyzed
+                      </span>
+                    </div>
+
+                    <h2 className="context-section-heading">Group Context &amp; Background</h2>
+
+                    <div className="context-paragraphs-list">
+                      {contextParagraphs.map((para, idx) => (
+                        <p key={idx} className="context-paragraph">
+                          {renderFormattedText(para)}
+                        </p>
+                      ))}
+                    </div>
+
+                    {isLimitedHistory && (
+                      <div className="context-limited-notice">
+                        <AlertTriangle size={14} />
+                        <span>Note: This context is based on limited available messages for this group.</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* =========================================================
+                      2. EXECUTIVE OVERVIEW
+                      ========================================================= */}
+                  <div className="summary-section-card">
+                    <div className="summary-section-header">
+                      <div className="summary-section-header-left">
+                        <span className="summary-section-label">Executive Overview</span>
+                        <h3 className="summary-section-title">Key Developments &amp; Bottom Line</h3>
+                      </div>
+                      <span className="summary-section-count">
+                        {tldrList.length} Highlights
+                      </span>
+                    </div>
+
+                    {overviewText && (
+                      <div className="overview-narrative-box">
+                        <p className="overview-narrative-text">
+                          {renderFormattedText(overviewText)}
+                        </p>
+                      </div>
+                    )}
+
+                    {tldrList.length > 0 && (
+                      <ul className="overview-tldr-list">
+                        {tldrList.map((bullet, idx) => (
+                          <li key={idx} className="overview-tldr-row">
+                            <span className="overview-tldr-dot" />
+                            <span className="formal-bullet-text">{renderFormattedText(bullet)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  {/* =========================================================
+                      3. KEY INFORMATION (BUDGETS, DATES, DEADLINES, DELIVERABLES)
+                      ========================================================= */}
+                  {keyInfoList.length > 0 && (
+                    <div className="summary-section-card">
+                      <div className="summary-section-header">
+                        <div className="summary-section-header-left">
+                          <span className="summary-section-label">Key Information</span>
+                          <h3 className="summary-section-title">Budgets, Deadlines &amp; Deliverables</h3>
+                        </div>
+                        <span className="summary-section-count">
+                          {keyInfoList.length} Key Metrics
+                        </span>
                       </div>
 
-                      {tldrList.length > 0 ? (
-                        <ul className="formal-bullets-list">
-                          {tldrList.map((bullet, idx) => (
-                            <li key={idx} className="formal-bullet-row">
-                              <span className="formal-bullet-dot primary" />
-                              <span className="formal-bullet-text">{renderFormattedText(bullet)}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="formal-bullet-text">
-                          {isHinglish && eb?.currentSituationHinglish
-                            ? eb.currentSituationHinglish
-                            : eb?.currentSituation}
-                        </p>
-                      )}
-
-                      {briefing?.decisions && briefing.decisions.length > 0 && (
-                        <div className="bottom-line-decisions-preview" style={{ marginTop: '8px' }}>
-                          <span className="preview-label">Key Milestones:</span>
-                          {briefing.decisions.slice(0, 3).map((d) => (
-                            <button
-                              key={d.id}
-                              type="button"
-                              className={`preview-chip ${d.status === 'SUPERSEDED' ? 'chip-superseded' : ''}`}
-                              onClick={() => setActiveSection('decisions')}
-                              title={`Click to view in Decisions Log (${d.status})`}
-                            >
-                              {d.status === 'CONFIRMED' ? (
-                                <CheckCircle2 size={12} style={{ color: '#059669' }} />
-                              ) : d.status === 'SUPERSEDED' ? (
-                                <Clock size={12} style={{ color: '#64748b' }} />
-                              ) : (
-                                <Compass size={12} style={{ color: '#d97706' }} />
+                      <div className="key-info-grid">
+                        {keyInfoList.map((item, idx) => {
+                          const getIcon = () => {
+                            if (item.category === 'budget') return <Tag size={16} />;
+                            if (item.category === 'date' || item.category === 'deadline') return <Calendar size={16} />;
+                            if (item.category === 'deliverable') return <Layers size={16} />;
+                            return <Target size={16} />;
+                          };
+                          return (
+                            <div key={idx} className="key-info-card">
+                              <div className="key-info-top">
+                                <span className="key-info-label">{item.label}</span>
+                                <div className="key-info-icon-bubble">
+                                  {getIcon()}
+                                </div>
+                              </div>
+                              <div className="key-info-value">{renderFormattedText(item.value)}</div>
+                              {item.subtext && (
+                                <div className="key-info-subtext">{item.subtext}</div>
                               )}
-                              <span>{d.title}</span>
-                            </button>
-                          ))}
-                          {briefing.decisions.length > 3 && (
-                            <button
-                              type="button"
-                              className="preview-chip"
-                              onClick={() => setActiveSection('decisions')}
-                              style={{ color: '#4f46e5', fontWeight: 700 }}
-                            >
-                              +{briefing.decisions.length - 3} more &rarr;
-                            </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* =========================================================
+                      4. CONVERSATION BREAKDOWN (CLIENT vs AGENCY)
+                      ========================================================= */}
+                  <div className="summary-section-card">
+                    <div className="summary-section-header">
+                      <div className="summary-section-header-left">
+                        <span className="summary-section-label">Conversation Breakdown</span>
+                        <h3 className="summary-section-title">Client Perspective vs Agency Perspective</h3>
+                      </div>
+                      <span className="summary-section-count">Dual-Track View</span>
+                    </div>
+
+                    <div className="breakdown-columns-grid">
+                      {/* Left: Client Track */}
+                      <div className="breakdown-stream-card client">
+                        <div className="breakdown-stream-header">
+                          <div className="breakdown-stream-title-group">
+                            <span className="breakdown-stream-badge">CLIENT PERSPECTIVE</span>
+                            <span className="breakdown-stream-actor">{clientTrack.title}</span>
+                          </div>
+                          {clientTrack.status && (
+                            <span className="breakdown-status-tag">{clientTrack.status}</span>
                           )}
                         </div>
-                      )}
-                    </section>
 
-                    {/* 2. CONVERSATION BREAKDOWN (CLIENT vs AGENCY) */}
-                    <section className="formal-section">
-                      <div className="formal-section-header">
-                        <span className="formal-section-title">Conversation Breakdown</span>
-                        <span className="formal-section-sub">Client vs Agency Streams</span>
+                        {clientTrack.position && (
+                          <div className="breakdown-position-box">
+                            <span className="breakdown-sublabel">Their Position</span>
+                            <p className="breakdown-position-text">{renderFormattedText(clientTrack.position)}</p>
+                          </div>
+                        )}
+
+                        {clientTrack.concerns && clientTrack.concerns.length > 0 && (
+                          <div>
+                            <span className="breakdown-sublabel">Main Concerns &amp; Pushbacks</span>
+                            <ul className="breakdown-sublist">
+                              {clientTrack.concerns.map((c, i) => (
+                                <li key={i} className="breakdown-subitem">
+                                  <span className="breakdown-dot" style={{ backgroundColor: '#EF4444' }} />
+                                  <span>{renderFormattedText(c)}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {clientTrack.proposals && clientTrack.proposals.length > 0 && (
+                          <div>
+                            <span className="breakdown-sublabel">Proposals &amp; Requests</span>
+                            <ul className="breakdown-sublist">
+                              {clientTrack.proposals.map((p, i) => (
+                                <li key={i} className="breakdown-subitem">
+                                  <span className="breakdown-dot" style={{ backgroundColor: '#3B82F6' }} />
+                                  <span>{renderFormattedText(p)}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {clientTrack.expectations && clientTrack.expectations.length > 0 && (
+                          <div>
+                            <span className="breakdown-sublabel">Client Expectations</span>
+                            <ul className="breakdown-sublist">
+                              {clientTrack.expectations.map((exp, i) => (
+                                <li key={i} className="breakdown-subitem">
+                                  <span className="breakdown-dot" style={{ backgroundColor: '#F59E0B' }} />
+                                  <span>{renderFormattedText(exp)}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {clientTrack.points && clientTrack.points.length > 0 && (
+                          <div>
+                            <span className="breakdown-sublabel">Key Points &amp; Instructions</span>
+                            <ul className="breakdown-sublist">
+                              {clientTrack.points.map((pt, i) => (
+                                <li key={i} className="breakdown-subitem">
+                                  <span className="breakdown-dot" />
+                                  <span>{renderFormattedText(pt)}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
 
-                      <div className="formal-streams-grid">
-                        {/* Left: Client Track */}
-                        <div className="formal-stream-col client">
-                          <div className="formal-stream-header">
-                            <div className="formal-stream-name">
-                              <span className="formal-stream-label">CLIENT PERSPECTIVE</span>
-                              <span className="formal-stream-actor">{clientTrack.title}</span>
-                            </div>
-                            {clientTrack.status && (
-                              <span className="formal-status-tag">{clientTrack.status}</span>
-                            )}
+                      {/* Right: Agency Track */}
+                      <div className="breakdown-stream-card agency">
+                        <div className="breakdown-stream-header">
+                          <div className="breakdown-stream-title-group">
+                            <span className="breakdown-stream-badge">AGENCY PERSPECTIVE</span>
+                            <span className="breakdown-stream-actor">{teamTrack.title}</span>
                           </div>
-                          <ul className="formal-bullets-list">
-                            {clientTrack.points.map((pt, idx) => (
-                              <li key={idx} className="formal-bullet-row">
-                                <span className="formal-bullet-dot" />
-                                <span className="formal-bullet-text">{renderFormattedText(pt)}</span>
-                              </li>
-                            ))}
-                          </ul>
+                          {teamTrack.status && (
+                            <span className="breakdown-status-tag">{teamTrack.status}</span>
+                          )}
                         </div>
 
-                        {/* Right: Agency Track */}
-                        <div className="formal-stream-col agency">
-                          <div className="formal-stream-header">
-                            <div className="formal-stream-name">
-                              <span className="formal-stream-label">AGENCY EXECUTION</span>
-                              <span className="formal-stream-actor">{teamTrack.title}</span>
-                            </div>
-                            {teamTrack.status && (
-                              <span className="formal-status-tag">{teamTrack.status}</span>
-                            )}
+                        {teamTrack.position && (
+                          <div className="breakdown-position-box">
+                            <span className="breakdown-sublabel">Execution Stance</span>
+                            <p className="breakdown-position-text">{renderFormattedText(teamTrack.position)}</p>
                           </div>
-                          <ul className="formal-bullets-list">
-                            {teamTrack.points.map((pt, idx) => (
-                              <li key={idx} className="formal-bullet-row">
-                                <span className="formal-bullet-dot" />
-                                <span className="formal-bullet-text">{renderFormattedText(pt)}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
+                        )}
+
+                        {teamTrack.concerns && teamTrack.concerns.length > 0 && (
+                          <div>
+                            <span className="breakdown-sublabel">Operational Constraints &amp; Risks</span>
+                            <ul className="breakdown-sublist">
+                              {teamTrack.concerns.map((c, i) => (
+                                <li key={i} className="breakdown-subitem">
+                                  <span className="breakdown-dot" style={{ backgroundColor: '#EF4444' }} />
+                                  <span>{renderFormattedText(c)}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {teamTrack.proposals && teamTrack.proposals.length > 0 && (
+                          <div>
+                            <span className="breakdown-sublabel">Proposals &amp; Deliverables</span>
+                            <ul className="breakdown-sublist">
+                              {teamTrack.proposals.map((p, i) => (
+                                <li key={i} className="breakdown-subitem">
+                                  <span className="breakdown-dot" style={{ backgroundColor: '#10B981' }} />
+                                  <span>{renderFormattedText(p)}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {teamTrack.expectations && teamTrack.expectations.length > 0 && (
+                          <div>
+                            <span className="breakdown-sublabel">Agency Expectations</span>
+                            <ul className="breakdown-sublist">
+                              {teamTrack.expectations.map((exp, i) => (
+                                <li key={i} className="breakdown-subitem">
+                                  <span className="breakdown-dot" style={{ backgroundColor: '#F59E0B' }} />
+                                  <span>{renderFormattedText(exp)}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {teamTrack.points && teamTrack.points.length > 0 && (
+                          <div>
+                            <span className="breakdown-sublabel">Deliverables &amp; Progress</span>
+                            <ul className="breakdown-sublist">
+                              {teamTrack.points.map((pt, i) => (
+                                <li key={i} className="breakdown-subitem">
+                                  <span className="breakdown-dot" />
+                                  <span>{renderFormattedText(pt)}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
-                    </section>
+                    </div>
+                  </div>
 
-                    {/* 3. AGREED DECISIONS & SETTLED ITEMS */}
-                    {decidedList.length > 0 && (
-                      <section className="formal-section">
-                        <div className="formal-section-header">
-                          <span className="formal-section-title">Agreed &amp; Settled</span>
-                          <span className="formal-section-sub">{decidedList.length} Confirmed</span>
-                        </div>
-                        <ul className="formal-bullets-list">
-                          {decidedList.map((dec, idx) => (
-                            <li key={idx} className="formal-bullet-row settled">
-                              <CheckCircle2 size={13} className="formal-settled-icon" />
-                              <span className="formal-bullet-text">{renderFormattedText(dec)}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </section>
-                    )}
+                  {/* =========================================================
+                      5. DECISIONS & AGREEMENTS
+                      ========================================================= */}
+                  <div className="summary-section-card">
+                    <div className="summary-section-header">
+                      <div className="summary-section-header-left">
+                        <span className="summary-section-label">Decisions &amp; Agreements</span>
+                        <h3 className="summary-section-title">Confirmed Agreements vs Proposals</h3>
+                      </div>
+                      <span className="summary-section-count">
+                        {allDecisions.filter(d => d.status === 'CONFIRMED').length} Confirmed
+                      </span>
+                    </div>
 
-                    {/* 4. ACTIVE BLOCKERS & DEPENDENCIES */}
-                    {blockersList.length > 0 && (
-                      <section className="formal-section">
-                        <div className="formal-section-header">
-                          <span className="formal-section-title">Active Blockers &amp; Dependencies</span>
-                          <span className="formal-section-sub">{blockersList.length} Pending</span>
-                        </div>
-                        <ul className="formal-blockers-list">
-                          {blockersList.map((blk, idx) => (
-                            <li key={idx} className="formal-blocker-row">
-                              <AlertTriangle size={13} className="formal-blocker-icon" />
-                              <div className="formal-blocker-content">
-                                <span className="formal-blocker-title">{renderFormattedText(blk.item)}</span>
-                                {blk.waitingOn && (
-                                  <span className="formal-dependency-tag">
-                                    Awaiting action from: <strong>{blk.waitingOn}</strong>
-                                  </span>
+                    <div className="decisions-list-layout">
+                      {allDecisions.map((dec, idx) => {
+                        const isConfirmed = dec.status === 'CONFIRMED';
+                        const isSuperseded = dec.status === 'SUPERSEDED';
+                        return (
+                          <div key={dec.id || idx} className="decision-entry-row">
+                            <div className="decision-entry-left">
+                              <span className={`decision-status-chip ${dec.status.toLowerCase()}`}>
+                                {isConfirmed ? (
+                                  <CheckCircle2 size={12} />
+                                ) : isSuperseded ? (
+                                  <Clock size={12} />
+                                ) : (
+                                  <Compass size={12} />
+                                )}
+                                <span>{dec.status}</span>
+                              </span>
+                              <div>
+                                <div className="decision-title-text">{renderFormattedText(dec.title)}</div>
+                                {dec.context && (
+                                  <div className="decision-context-text">{renderFormattedText(dec.context)}</div>
                                 )}
                               </div>
-                            </li>
-                          ))}
-                        </ul>
-                      </section>
-                    )}
-                  </div>
-                );
-              })()}
+                            </div>
+                            <div className="decision-meta-right">
+                              <span className="decision-date-tag">{dec.date}</span>
+                              {renderCitationBadge(dec.sourceMessageIds)}
+                            </div>
+                          </div>
+                        );
+                      })}
 
-              {/* Decisions Made Section */}
-              {briefing?.decisions && briefing.decisions.length > 0 && (
-                <div className="briefing-decisions-section">
-                  <div className="section-title-with-icon">
-                    <CheckCircle2 size={16} style={{ color: '#10b981' }} />
-                    <h3 className="briefing-section-heading">Decisions Made</h3>
+                      {allDecisions.length === 0 && (
+                        <div style={{ padding: '16px', textAlign: 'center', color: '#64748B', fontSize: 13 }}>
+                          No formal decisions recorded yet in this conversation.
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <ul className="briefing-bullets-list">
-                    {briefing.decisions.map((dec, i) => (
-                      <li key={dec.id || i} className="briefing-bullet-item">
-                        <span className="bullet-dot" />
-                        <span className="bullet-text"><strong>{dec.title}</strong> &mdash; <span className="bullet-context">{dec.context}</span></span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
 
-              {/* Action Items Section */}
-              {briefing?.actionTracker && briefing.actionTracker.length > 0 && (
-                <div className="briefing-actions-section">
-                  <div className="section-title-with-icon">
-                    <ListTodo size={16} style={{ color: '#6366f1' }} />
-                    <h3 className="briefing-section-heading">Action Items ({briefing.actionTracker.length})</h3>
-                  </div>
-                  <div className="briefing-action-cards-list">
-                    {briefing.actionTracker.map((act, i) => (
-                      <div key={act.id || i} className="briefing-action-row">
-                        <div className="action-row-left">
-                          <input type="checkbox" className="action-checkbox" readOnly checked={act.status === 'COMPLETED'} />
-                          <span className="action-row-text">{act.action}</span>
-                        </div>
-                        <div className="action-row-right">
-                          <span className="action-owner-pill">{act.owner}</span>
-                          <span className={`action-status-pill ${act.status.toLowerCase()}`}>{act.status}</span>
-                        </div>
+                  {/* =========================================================
+                      6. PENDING ACTIONS & BLOCKERS
+                      ========================================================= */}
+                  <div className="summary-section-card">
+                    <div className="summary-section-header">
+                      <div className="summary-section-header-left">
+                        <span className="summary-section-label">Pending Actions &amp; Blockers</span>
+                        <h3 className="summary-section-title">Unresolved Tasks &amp; Active Dependencies</h3>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                      <span className="summary-section-count">
+                        {allBlockersAndActions.length} Pending
+                      </span>
+                    </div>
 
-            </div>
+                    <div className="actions-blockers-list">
+                      {allBlockersAndActions.map((item, idx) => (
+                        <div key={idx} className="action-blocker-row">
+                          <div className="action-blocker-left">
+                            <AlertTriangle size={15} style={{ color: item.isBlocker ? '#DC2626' : '#D97706', marginTop: 2, flexShrink: 0 }} />
+                            <div className="action-blocker-content">
+                              <span className="action-blocker-title">{renderFormattedText(item.title)}</span>
+                              {item.waitingOn && (
+                                <span className="action-blocker-waiting">
+                                  Awaiting action from: <strong>{item.waitingOn}</strong>
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="action-blocker-right">
+                            {item.owner && (
+                              <span className="owner-badge">{item.owner}</span>
+                            )}
+                            <span className={`status-badge ${item.status.toLowerCase()}`}>
+                              {item.status}
+                            </span>
+                            {renderCitationBadge(item.sourceMessageIds)}
+                          </div>
+                        </div>
+                      ))}
+
+                      {allBlockersAndActions.length === 0 && (
+                        <div style={{ padding: '16px', textAlign: 'center', color: '#059669', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                          <CheckCircle2 size={16} />
+                          <span>All action items completed and no active blockers logged.</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* =========================================================
+                      7. TIMELINE & MILESTONES
+                      ========================================================= */}
+                  <div className="summary-section-card">
+                    <div className="summary-section-header">
+                      <div className="summary-section-header-left">
+                        <span className="summary-section-label">Timeline &amp; Milestones</span>
+                        <h3 className="summary-section-title">Chronological Event Progression</h3>
+                      </div>
+                      <span className="summary-section-count">
+                        {storylineList.length} Milestones
+                      </span>
+                    </div>
+
+                    <div className="clean-timeline-track">
+                      {storylineList.map((step, idx) => (
+                        <div key={step.id || idx} className="clean-timeline-node">
+                          <div className="clean-timeline-dot" />
+                          <div className="clean-timeline-card">
+                            <div className="clean-timeline-meta">
+                              <span className="clean-timeline-stage">
+                                {step.stage.replace('_', ' ')}
+                              </span>
+                              <span className="clean-timeline-time">
+                                <Clock size={11} />
+                                <span>{step.timestamp}</span>
+                              </span>
+                            </div>
+                            <h4 className="clean-timeline-heading">{step.heading}</h4>
+                            <p className="clean-timeline-desc">{step.description}</p>
+                            <div className="clean-timeline-footer">
+                              <span>
+                                <strong>Participants:</strong> {step.participants.join(', ') || 'Team'}
+                              </span>
+                              {renderCitationBadge(step.sourceMessageIds)}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {storylineList.length === 0 && (
+                        <div style={{ padding: '16px', textAlign: 'center', color: '#64748B', fontSize: 13 }}>
+                          No milestone events logged for this timeframe.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                </div>
+              );
+            })()}
           </div>
         )}
 

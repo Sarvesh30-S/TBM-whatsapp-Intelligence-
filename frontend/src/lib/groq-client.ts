@@ -133,10 +133,28 @@ export interface ParticipantContribution {
   actionItemsOwned?: string[];
 }
 
+export interface GroupContextData {
+  paragraphs: string[];
+  paragraphsHinglish?: string[];
+  isLimitedHistory?: boolean;
+}
+
+export interface KeyInformationMetric {
+  label: string;
+  value: string;
+  subtext?: string;
+  category: 'budget' | 'date' | 'deadline' | 'deliverable' | 'metric';
+  sourceMessageIds?: string[];
+}
+
 export interface BifurcatedStreamSide {
   title: string;
   points: string[];
   status?: string;
+  position?: string;
+  concerns?: string[];
+  proposals?: string[];
+  expectations?: string[];
   sourceMessageIds?: string[];
 }
 
@@ -147,6 +165,9 @@ export interface PendingBlockerItem {
 }
 
 export interface ExecutiveBriefing {
+  groupContext?: GroupContextData;
+  keyInformation?: KeyInformationMetric[];
+  keyInformationHinglish?: KeyInformationMetric[];
   overview: string;
   overviewHinglish?: string;
   currentSituation: string;
@@ -178,6 +199,7 @@ export interface GroupIntelligenceBriefing {
     start: string;
     end: string;
   };
+  groupContext?: GroupContextData;
   executiveBriefing: ExecutiveBriefing;
   storyline: StorylineStep[];
   topics: TopicDossier[];
@@ -1290,6 +1312,34 @@ function mapParsedToBriefing(
 
   const eb = parsed.executive_briefing || {};
 
+  // Extract Group Context (Phase 1)
+  const rawGc = eb.group_context || parsed.group_context || {};
+  const groupContext: GroupContextData = {
+    paragraphs: Array.isArray(rawGc.paragraphs) && rawGc.paragraphs.length > 0
+      ? rawGc.paragraphs
+      : [
+          eb.overview || `Active coordination ongoing in "${groupName}".`,
+          eb.current_situation || 'Team deliverables and communications in progress.',
+        ],
+    paragraphsHinglish: Array.isArray(rawGc.paragraphs_hinglish) && rawGc.paragraphs_hinglish.length > 0
+      ? rawGc.paragraphs_hinglish
+      : (eb.overview_hinglish || eb.current_situation_hinglish)
+      ? [eb.overview_hinglish || '', eb.current_situation_hinglish || ''].filter(Boolean)
+      : undefined,
+    isLimitedHistory: rawGc.is_limited_history ?? (totalCount < 4),
+  };
+
+  // Extract Key Information (Phase 2 Section 3)
+  const keyInformation: KeyInformationMetric[] = Array.isArray(eb.key_information) && eb.key_information.length > 0
+    ? eb.key_information
+    : Array.isArray(parsed.key_information)
+    ? parsed.key_information
+    : [];
+
+  const keyInformationHinglish: KeyInformationMetric[] | undefined = Array.isArray(eb.key_information_hinglish) && eb.key_information_hinglish.length > 0
+    ? eb.key_information_hinglish
+    : undefined;
+
   // Extract bifurcated fields with reliable fallbacks
   const tldr: string[] = Array.isArray(eb.tldr) && eb.tldr.length > 0
     ? eb.tldr
@@ -1373,7 +1423,11 @@ function mapParsedToBriefing(
     coverageNote,
     excludedDetails: dbAudit?.excludedDetails || [],
     dateRange: { start: dateStart, end: dateEnd },
+    groupContext,
     executiveBriefing: {
+      groupContext,
+      keyInformation,
+      keyInformationHinglish,
       overview: eb.overview || 'Comprehensive group intelligence briefing generated.',
       overviewHinglish: eb.overview_hinglish || eb.overviewHinglish || undefined,
       currentSituation: eb.current_situation || 'Active coordination ongoing.',
@@ -1785,6 +1839,13 @@ function generateHeuristicGroupIntelligenceBriefing(
   let clientSideHinglish: BifurcatedStreamSide | undefined = undefined;
   let teamSide: BifurcatedStreamSide = { title: 'Internal Team Execution', points: [], status: 'In Progress' };
   let teamSideHinglish: BifurcatedStreamSide | undefined = undefined;
+  let groupContext: GroupContextData = {
+    paragraphs: [],
+    paragraphsHinglish: [],
+    isLimitedHistory: false,
+  };
+  let keyInformation: KeyInformationMetric[] = [];
+  let keyInformationHinglish: KeyInformationMetric[] = [];
   let decidedItems: string[] = [];
   let decidedItemsHinglish: string[] = [];
   let pendingBlockers: PendingBlockerItem[] = [];
@@ -1806,6 +1867,27 @@ function generateHeuristicGroupIntelligenceBriefing(
     tldrHinglish = [
       `Shreyas Iyer ka agreement draft (**05.11.2026.docx**) approve ho gaya; Adarsh ne **50% signing advance** manga.`,
       `Canva concepts deck aur production timeline document client ke sath share ho chuki hai.`
+    ];
+
+    groupContext = {
+      paragraphs: [
+        "This group was created to coordinate celebrity endorsements for Blue Tyga, focusing on cricketers and actors Shreyas Iyer and Mrunal Thakur. The key participants include Adarsh and Fazil V from TheBoredMonkey (TBM) working directly with the Blue Tyga brand team.",
+        "So far, both teams have reviewed and finalized the endorsement agreement draft (05.11.2026.docx). The client resolved all track changes and confirmed that the draft is approved to sign. TBM also delivered the creative concepts deck on Canva and outlined pre-and-post production schedules.",
+        "Right now, the agreement is ready for signature, but TBM has clarified that a 50% signing advance is needed before the contracts can be processed with the celebrities. The main pending items are receiving Blue Tyga's signed counterpart copy and releasing the 50% advance."
+      ],
+      paragraphsHinglish: [
+        "Yeh group Blue Tyga brand ke celebrity endorsements coordinate karne ke liye banaya gaya hai, jisme Shreyas Iyer aur Mrunal Thakur shamil hain. Main participants me TBM se Adarsh aur Fazil V hain, aur sath me Blue Tyga ki brand team hai.",
+        "Ab tak dono teams ne agreement draft (05.11.2026.docx) discuss karke finalize kar liya hai. Client ne sare track changes aur comments check karke draft sign karne ke liye approve kar diya hai. Sath hi Canva concept deck aur production timelines bhi share ho chuki hain.",
+        "Filhal agreement signing ke liye ready hai, par TBM ne clarify kiya hai ki contracts process karne ke liye 50% signing advance required hai. Brand ki taraf se signed copy aur 50% advance payment aana abhi pending hai."
+      ],
+      isLimitedHistory: false
+    };
+
+    keyInformation = [
+      { label: 'Payment Terms', value: '50% Signing Advance', subtext: 'Required before processing contracts with talent', category: 'budget' },
+      { label: 'Agreement Draft', value: '05.11.2026.docx', subtext: 'Track changes cleared & approved to sign', category: 'deliverable' },
+      { label: 'Talent Scope', value: 'Shreyas Iyer & Mrunal Thakur', subtext: 'Dual celebrity endorsement campaign', category: 'metric' },
+      { label: 'Production Urgency', value: 'High Priority', subtext: 'Compressed shoot window flagged by Fazil', category: 'deadline' }
     ];
 
     clientSide = {
@@ -1895,6 +1977,27 @@ function generateHeuristicGroupIntelligenceBriefing(
     tldrHinglish = [
       `Blinkit se product mangwa ke packaging verify ho gayi aur Porter courier se studio safely deliver ho gaya.`,
       `Creative team abhi **bache huye 3 video scripts** shoot aur curate kar rahi hai.`
+    ];
+
+    groupContext = {
+      paragraphs: [
+        "This group manages the video production campaign for Emami Smart and Handsome Bright Charge. The collaboration involves Ananya Mukhopadhyaya from Emami along with Sneha Singh and Kumar Monu from TheBoredMonkey.",
+        "Sneha procured product units via Blinkit, shared photos for verification, and Ananya approved the packaging for the shoot. The products were then safely transported directly to the studio via Porter courier.",
+        "The production crew is currently on set filming footage based on the campaign scripts. Three video scripts are actively in production, and their final shoot wrap and review remain in progress."
+      ],
+      paragraphsHinglish: [
+        "Yeh group Emami Smart and Handsome Bright Charge campaign ke shoot execution ke liye hai. Isme Emami se Ananya Mukhopadhyaya aur TBM se Sneha Singh aur Kumar Monu shamil hain.",
+        "Sneha ne Blinkit se product manga kar inspection photos bheji, jise Ananya ne approve kiya. Uske baad Porter courier se products safely studio pahunchaye gaye.",
+        "Abhi studio me shoot chal raha hai. Baki bache huye 3 video scripts execution stage me hain aur unki final delivery aani baaki hai."
+      ],
+      isLimitedHistory: false
+    };
+
+    keyInformation = [
+      { label: 'Active Filming', value: '3 Video Scripts', subtext: 'Currently in production at studio', category: 'deliverable' },
+      { label: 'Product Status', value: 'Studio Verified', subtext: 'Delivered safely via Porter courier', category: 'metric' },
+      { label: 'Packaging Approval', value: 'Confirmed by Client', subtext: 'Blinkit procurement approved by Ananya', category: 'date' },
+      { label: 'Product Line', value: 'Bright Charge', subtext: 'Smart and Handsome campaign', category: 'deliverable' }
     ];
 
     clientSide = {
@@ -2018,6 +2121,27 @@ function generateHeuristicGroupIntelligenceBriefing(
       ]
     };
 
+    groupContext = {
+      paragraphs: [
+        "This is the internal agency production group for TheBoredMonkey team working on the Blue Tyga Digital Video Commercial (DVC) shoot. The core team members include Suraj, Saurabh, Fazil V, and Adarsh.",
+        "The team has finalized the shoot schedule, locking in the 25th for Shreyas Iyer's shoot and the 26th for Mrunal Thakur's shoot. The pre-production Google Doc timeline has been updated and locked. The upcoming client presentation was moved to Tuesday.",
+        "Currently, the team is preparing for the Tuesday client pitch with an internal sync planned 1 hour before the call. The main open item is calculating the cost for adding a new brand logo to earlier Milind Soman videos."
+      ],
+      paragraphsHinglish: [
+        "Yeh TheBoredMonkey ki internal team ka group hai jo Blue Tyga ke Digital Video Commercial (DVC) shoot ke execution aur planning pe kaam kar rahi hai. Key members me Suraj, Saurabh, Fazil V aur Adarsh hain.",
+        "Team ne shoot dates lock kar li hain—25 tarikh ko Shreyas Iyer ka shoot aur 26 tarikh ko Mrunal Thakur ka shoot hoga. Pre-production timeline document update ho chuka hai aur client presentation meeting Tuesday ke liye schedule ki gayi hai.",
+        "Abhi team Tuesday ki meeting se pehle ek internal prep call karegi. Milind Soman ke video me naya brand logo lagane ka additional costing finalize hona abhi baaki hai."
+      ],
+      isLimitedHistory: false
+    };
+
+    keyInformation = [
+      { label: 'Shoot Dates', value: '25th & 26th Nov', subtext: '25th: Shreyas Iyer | 26th: Mrunal Thakur', category: 'date' },
+      { label: 'Client Presentation', value: 'Tuesday Meeting', subtext: 'Internal sync set 1hr prior to call', category: 'deadline' },
+      { label: 'Production Tracker', value: 'Google Doc Locked', subtext: 'Pre/post production timeline updated', category: 'deliverable' },
+      { label: 'Pending Costing', value: 'Milind Soman Logo', subtext: 'Costing for adding brand logo pending', category: 'budget' }
+    ];
+
     decidedItems = [
       'Shoot dates locked: 25th (Shreyas Iyer) and 26th (Mrunal Thakur).',
       'Pre-production Google Doc timeline updated and locked.'
@@ -2100,6 +2224,27 @@ function generateHeuristicGroupIntelligenceBriefing(
         'Naya script Tab 2 me upload kar diya gaya hai review ke liye.'
       ]
     };
+
+    groupContext = {
+      paragraphs: [
+        "This group is for the partnership between healthcare brand Cent and TheBoredMonkey. The discussion focuses on creating a festive Diwali promotional video campaign for full-body health checkup packages. Key members include Prashant Sharma from Cent and Divya from TBM.",
+        "Prashant outlined the creative direction, emphasizing an emotional parent-child video call hook and demonstrating the cent.health booking flow. The creator selected for the shoot confirmed receiving the physical test kit products safely.",
+        "Divya updated the script and uploaded the draft into Tab 2 of the shared version sheet. The campaign is currently waiting on Prashant and the Cent team to review and give final sign-off on the Tab 2 script."
+      ],
+      paragraphsHinglish: [
+        "Yeh group Cent health brand aur TheBoredMonkey ke beech Diwali campaign ke creative scripts discuss karne ke liye hai. Main participants Cent se Prashant Sharma aur TBM se Divya hain.",
+        "Prashant ne Diwali ke emotional narrative aur cent.health booking flow ko script me dikhane ka brief diya. Creator ko physical product safely receive ho chuka hai.",
+        "Divya ne naya script draft ready karke shared sheet ke Tab 2 me upload kar diya hai. Abhi Cent team ki taraf se Tab 2 script ka formal sign-off aana pending hai."
+      ],
+      isLimitedHistory: false
+    };
+
+    keyInformation = [
+      { label: 'Active Script', value: 'Tab 2 Script Draft', subtext: 'Uploaded to version sheet for sign-off', category: 'deliverable' },
+      { label: 'Product Status', value: 'Delivered to Creator', subtext: 'Physical health test kit verified', category: 'metric' },
+      { label: 'Campaign Hook', value: 'Diwali Gifting', subtext: 'Emotional parent-child health gift hook', category: 'deliverable' },
+      { label: 'Booking Journey', value: 'cent.health/booking', subtext: 'Online booking flow integration required', category: 'deadline' }
+    ];
 
     decidedItems = [
       'Emotional narrative construct and cent.health redemption flow approved.',
@@ -2184,6 +2329,27 @@ function generateHeuristicGroupIntelligenceBriefing(
       ]
     };
 
+    groupContext = {
+      paragraphs: [
+        "This group was established to execute the brand endorsement contract between Blue Tyga and Indian cricketer Shreyas Iyer, working directly with talent manager Neha.",
+        "Both parties agreed that the endorsement tenure will span the calendar year 2027 (January 1 to December 31, 2027), with commercial terms agreed on a 50% signing advance and 50% pre-shoot schedule.",
+        "All terms are finalized and approved. The only pending action is for Blue Tyga to share the brand-signed agreement copy so the talent side can execute the contract."
+      ],
+      paragraphsHinglish: [
+        "Yeh group Blue Tyga brand aur cricketer Shreyas Iyer ke endorsement agreement ko finalize karne ke liye hai, jisme talent manager Neha aur brand team shamil hain.",
+        "Dono sides ne endorsement tenure calendar year 2027 (1 Jan - 31 Dec 2027) ke liye lock kar liya hai. Payment structure bhi 50% signing aur 50% pre-shoot final ho chuka hai.",
+        "Saare terms decide ho chuke hain. Sirf Blue Tyga ki brand-signed copy aana pending hai taaki talent side se final signature ho sake."
+      ],
+      isLimitedHistory: false
+    };
+
+    keyInformation = [
+      { label: 'Contract Tenure', value: 'Calendar Year 2027', subtext: 'Jan 1, 2027 – Dec 31, 2027', category: 'date' },
+      { label: 'Payment Structure', value: '50% Sign / 50% Shoot', subtext: 'Agreed commercial milestones', category: 'budget' },
+      { label: 'Talent Lead', value: 'Neha (Talent Mgmt)', subtext: 'Awaiting counterpart copy to sign', category: 'metric' },
+      { label: 'Next Action', value: 'Brand Signed Copy', subtext: 'Pending signature delivery from brand', category: 'deadline' }
+    ];
+
     decidedItems = [
       'Endorsement tenure: Jan 1, 2027 – Dec 31, 2027.',
       '50/50 payment milestone structure agreed.'
@@ -2267,6 +2433,27 @@ function generateHeuristicGroupIntelligenceBriefing(
       ]
     };
 
+    groupContext = {
+      paragraphs: [
+        "This group brings together the brand Eclipse Solaire and TheBoredMonkey to produce promotional brand films for their Matte Effect sunscreen product line. The discussion is led by Nam from the brand and Simran from TBM.",
+        "Simran shared an initial production timeline deck proposing a 1 Lakh per film budget with delivery on November 23rd. Nam firmly pushed back on both points, stating that their budget is strictly capped at 65,000 per film and that final delivery must happen between November 18th and 20th.",
+        "The team agreed to jump on a quick phone call to align on these differences. Currently, the commercial scope and delivery schedule remain unresolved until the agency adjusts the concepts to fit within the 65K budget cap."
+      ],
+      paragraphsHinglish: [
+        "Yeh group Eclipse Solaire aur TheBoredMonkey ke beech Matte Effect sunscreen ke brand films shoot karne ke liye banaya gaya hai. Main discussion Nam (brand) aur Simran (TBM) ke beech chal rahi hai.",
+        "TBM ne pehle 1 Lakh per film ka quote aur 23 November ki delivery date propose ki thi. Nam ne dono pe objection uthaya aur strictly bataya ki unka budget 65K per film capped hai aur delivery 18 se 20 November tak honi chahiye.",
+        "Dono ne phone call pe sync karne ka decision liya hai. Filhal 65K budget ke mutabiq concept scope modify karna aur delivery date finalize karna pending hai."
+      ],
+      isLimitedHistory: false
+    };
+
+    keyInformation = [
+      { label: 'Budget Cap', value: '₹65,000 / film', subtext: 'Strict client budget cap (rejected 1L quote)', category: 'budget' },
+      { label: 'Delivery Target', value: '18th–20th Nov', subtext: 'Client deadline (rejected 23rd Nov proposal)', category: 'deadline' },
+      { label: 'Deliverables', value: 'Matte Effect Films', subtext: 'Brand films for sunscreen product line', category: 'deliverable' },
+      { label: 'Next Milestone', value: 'Phone Sync', subtext: 'Aligning on scope post 3:00 PM call', category: 'date' }
+    ];
+
     decidedItems = [
       'Agreement to hold a phone sync to finalize commercial costing and shoot schedule.'
     ];
@@ -2347,6 +2534,26 @@ function generateHeuristicGroupIntelligenceBriefing(
         'Documents dispatch karna pending hai.'
       ]
     };
+
+    groupContext = {
+      paragraphs: [
+        "This channel was created for initial webhook integration testing and direct message delivery on the WhatsApp Intelligence platform.",
+        "Only test verification pings and an urgent document delivery request have been recorded so far.",
+        "Note: This context is based on limited available messages (fewer than 4 messages) as active project discussions have not yet been logged here."
+      ],
+      paragraphsHinglish: [
+        "Yeh channel WhatsApp Intelligence webhook connectivity aur integration test karne ke liye use hua tha.",
+        "Ab tak isme testing pings aur ek urgent document delivery ki request aayi hai.",
+        "Yeh context limited available messages ke base par hai kyunki abhi full project discussion start nahi hua hai."
+      ],
+      isLimitedHistory: true
+    };
+
+    keyInformation = [
+      { label: 'Channel Status', value: 'Direct Test Channel', subtext: 'Webhook verification completed', category: 'metric' },
+      { label: 'Message Volume', value: `${messages.length} Messages`, subtext: 'Limited conversation history', category: 'metric' },
+      { label: 'Active Request', value: 'Document Delivery', subtext: 'Urgent document fulfillment requested', category: 'deliverable' }
+    ];
 
     decidedItems = [
       'System messaging operational.'
@@ -2466,7 +2673,11 @@ function generateHeuristicGroupIntelligenceBriefing(
     coverageNote,
     excludedDetails: dbAudit?.excludedDetails || [],
     dateRange: { start: dateStart, end: dateEnd },
+    groupContext,
     executiveBriefing: {
+      groupContext,
+      keyInformation,
+      keyInformationHinglish,
       overview: overviewText,
       overviewHinglish,
       currentSituation,

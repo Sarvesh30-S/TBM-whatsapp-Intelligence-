@@ -208,7 +208,7 @@ export default function LoginView({ onSuccess }: LoginViewProps) {
       <div style={{ width: '100%', maxWidth: 440, backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: 32, boxShadow: 'var(--shadow-elevated)' }}>
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 12, background: 'linear-gradient(135deg, #4f46e5, #3b82f6)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', marginBottom: 14, boxShadow: '0 4px 8px rgba(79, 70, 229, 0.25)' }}>
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: 'linear-gradient(135deg, #FDC727, #F59E0B)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#172033', marginBottom: 14, boxShadow: '0 4px 10px rgba(253, 199, 39, 0.35)' }}>
             <ShieldCheck size={28} />
           </div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>TBM Intelligence Portal</h1>
@@ -394,7 +394,7 @@ export default function LoginView({ onSuccess }: LoginViewProps) {
               transition: 'all 0.15s ease',
             }}
           >
-            <Sparkles size={16} style={{ color: '#4f46e5' }} />
+            <Sparkles size={16} style={{ color: '#D97706' }} />
             <span>Enter as Administrator (Instant 1-Click Access)</span>
           </button>
         </div>
