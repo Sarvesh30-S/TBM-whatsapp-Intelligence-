@@ -145,22 +145,28 @@ body {
   display: block;
 }
 
-/* 2. Full Animated Video Logo for Expanded View */
+/* 2. Full Animated Logo for Expanded View */
 .brand-expanded-logo {
   display: flex;
   align-items: center;
   justify-content: flex-start;
   flex: 1;
   min-width: 0;
-  max-width: 195px;
+  max-width: 200px;
   height: 42px;
-  overflow: hidden;
 }
 
-.brand-anim-video,
-.brand-anim-fallback {
+.brand-anim-picture {
+  display: flex;
+  align-items: center;
   width: 100%;
-  max-width: 192px;
+  max-width: 195px;
+  height: 40px;
+}
+
+.brand-anim-img {
+  width: 100%;
+  max-width: 195px;
   height: auto;
   max-height: 40px;
   object-fit: contain;

@@ -148,22 +148,16 @@ export default function Sidebar({
 
             {/* 2. Full Animated Logo for expanded drawer / desktop hover */}
             <div className="brand-expanded-logo" title="TheBoredMonkey Creations & Connections">
-              <video
-                src="/theboredmonkey-logo.mp4"
-                autoPlay
-                loop
-                muted
-                playsInline
-                preload="auto"
-                className="brand-anim-video"
-              >
-                {/* Fallback to high-res transparent animated WebP */}
+              <picture className="brand-anim-picture">
+                <source type="image/webp" srcSet="/theboredmonkey-logo.webp" />
                 <img
-                  src="/theboredmonkey-logo.webp"
+                  src="/theboredmonkey-logo.gif"
                   alt="TheBoredMonkey Creations & Connections"
-                  className="brand-anim-fallback"
+                  className="brand-anim-img"
+                  width={195}
+                  height={38}
                 />
-              </video>
+              </picture>
             </div>
           </div>
 
