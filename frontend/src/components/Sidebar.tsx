@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import TheBoredMonkeyLogo from './TheBoredMonkeyLogo';
+import TheBoredMonkeyCompactLogo from './TheBoredMonkeyCompactLogo';
 
 export type DashboardSection =
   | 'overview'
@@ -136,20 +137,14 @@ export default function Sidebar({
             role="button"
             tabIndex={0}
           >
-            {/* 1. Compact Icon View for 70px collapsed desktop rail */}
+            {/* 1. Compact Icon View for 70px collapsed desktop rail (When panel closes) */}
             <div className="brand-compact-logo" title="TheBoredMonkey">
-              <img
-                src="/theboredmonkey-tbm-badge.png"
-                alt="TheBoredMonkey"
-                className="brand-icon-img"
-                width={32}
-                height={32}
-              />
+              <TheBoredMonkeyCompactLogo size={38} />
             </div>
 
             {/* 2. Full Animated Logo for expanded drawer / desktop hover */}
             <div className="brand-expanded-logo" title="TheBoredMonkey Creations & Connections">
-              <TheBoredMonkeyLogo width={182} height={34} />
+              <TheBoredMonkeyLogo width={185} height={35} />
             </div>
           </div>
 
