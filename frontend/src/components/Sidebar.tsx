@@ -160,7 +160,6 @@ export default function Sidebar({
 
         {/* Navigation Items */}
         <nav className="sidebar-nav">
-          {!isCollapsed && <div className="nav-group-label">Workspace</div>}
           {visibleNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentSection === item.id;
