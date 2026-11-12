@@ -147,3 +147,40 @@ test('8. Accurate provenance reporting between Live Groq and Fallback', async ()
   assert.ok(fallbackBriefing.metadata.provenance.includes('Deterministic Rule Engine'));
   assert.ok(!fallbackBriefing.metadata.provenance.includes('Live Groq'));
 });
+
+test('9. Group Context generation (80-120 words, simple language, bilingual support)', async () => {
+  const groupMessages = [
+    { id: 'ctx-1', text: 'Hey team, welcome to the Blue Tyga celeb campaign group. We are executing the Shreyas Iyer shoot.', timestamp: '2026-11-05T10:00:00Z', senderName: 'Rahul' },
+    { id: 'ctx-2', text: 'Agreement is locked for ₹25,000 per deliverable with 3 reels planned. Shoot date finalized for Nov 20.', timestamp: '2026-11-05T10:30:00Z', senderName: 'Pooja' },
+    { id: 'ctx-3', text: 'Current status: We are awaiting final script sign-off from the brand manager before production kickoff.', timestamp: '2026-11-05T11:00:00Z', senderName: 'Adarsh' },
+  ];
+
+  const briefing = await analyzeGroupIntelligenceWithGroq('Client || Blue Tyga x TBM || Celeb execution', groupMessages);
+
+  assert.ok(briefing.groupContext, 'groupContext must be present');
+  assert.ok(briefing.executiveBriefing.groupContext, 'executiveBriefing.groupContext must be present');
+  assert.ok(briefing.groupContextHinglish, 'groupContextHinglish must be present');
+
+  // Word count validation: roughly 80-140 words
+  const wordCount = briefing.groupContext.trim().split(/\s+/).length;
+  assert.ok(wordCount >= 50 && wordCount <= 160, `Group context word count should be concise (got ${wordCount})`);
+
+  // Verify grounded details
+  assert.ok(briefing.groupContext.includes('Blue Tyga') || briefing.groupContext.includes('Shreyas Iyer'));
+  assert.ok(briefing.groupContext.includes('script') || briefing.groupContext.includes('deliverable') || briefing.groupContext.includes('shoot'));
+});
+
+test('10. Key Information extraction (budgets, deadlines, deliverables, and numbers)', async () => {
+  const messages = [
+    { id: 'ki-1', text: 'Fee is locked at ₹25,000 per deliverable. Total 3 reels.', timestamp: '2026-11-05T10:00:00Z', senderName: 'Finance' },
+    { id: 'ki-2', text: 'Draft cut must be submitted by Nov 18.', timestamp: '2026-11-05T10:15:00Z', senderName: 'Client' },
+  ];
+
+  const briefing = await analyzeGroupIntelligenceWithGroq('Blue Tyga DVC || TBM internal', messages);
+
+  assert.ok(briefing.keyInformation && briefing.keyInformation.length > 0, 'keyInformation must be populated');
+  assert.ok(briefing.executiveBriefing.keyInformation && briefing.executiveBriefing.keyInformation.length > 0);
+
+  const categories = briefing.keyInformation.map((k) => k.category);
+  assert.ok(categories.includes('budget') || categories.includes('date') || categories.includes('deliverable'));
+});

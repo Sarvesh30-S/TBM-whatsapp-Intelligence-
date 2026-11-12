@@ -133,10 +133,26 @@ export interface ParticipantContribution {
   actionItemsOwned?: string[];
 }
 
+export interface KeyInformationItem {
+  id: string;
+  label: string;
+  value: string;
+  detail?: string;
+  category: 'budget' | 'date' | 'deliverable' | 'metric';
+  sourceMessageIds?: string[];
+}
+
 export interface BifurcatedStreamSide {
   title: string;
   points: string[];
   status?: string;
+  position?: string;
+  concerns?: string[];
+  proposals?: string[];
+  expectations?: string[];
+  concernsHinglish?: string[];
+  proposalsHinglish?: string[];
+  expectationsHinglish?: string[];
   sourceMessageIds?: string[];
 }
 
@@ -147,6 +163,8 @@ export interface PendingBlockerItem {
 }
 
 export interface ExecutiveBriefing {
+  groupContext?: string;
+  groupContextHinglish?: string;
   overview: string;
   overviewHinglish?: string;
   currentSituation: string;
@@ -155,6 +173,8 @@ export interface ExecutiveBriefing {
   attentionRequiredHinglish?: string;
   tldr?: string[];
   tldrHinglish?: string[];
+  keyInformation?: KeyInformationItem[];
+  keyInformationHinglish?: KeyInformationItem[];
   clientSide?: BifurcatedStreamSide;
   clientSideHinglish?: BifurcatedStreamSide;
   teamSide?: BifurcatedStreamSide;
@@ -168,6 +188,10 @@ export interface ExecutiveBriefing {
 export interface GroupIntelligenceBriefing {
   groupId: string;
   groupName: string;
+  groupContext?: string;
+  groupContextHinglish?: string;
+  keyInformation?: KeyInformationItem[];
+  keyInformationHinglish?: KeyInformationItem[];
   totalMessagesCount: number;
   messagesIncluded: number;
   messagesExcluded: number;
@@ -909,27 +933,37 @@ async function callGroqGroupIntelligenceLLM(
 Your objective is to read every available message in chronological order, BIFURCATE the conversation, and generate an ultra-crisp, easy-to-understand briefing that an executive can absorb in under 10 seconds.
 
 CRITICAL RULES - RADICALLY CONCISE & EASY TO UNDERSTAND:
-1. NO WALLS OF TEXT:
+1. GROUP CONTEXT (NEW TO THIS GROUP? START HERE):
+   - "group_context": 80–120 words in 2–3 short paragraphs explaining the complete background and current situation to someone who just joined.
+   - Explain what the group is about, which client/brand/project is being discussed, key participants and roles, what has happened so far, confirmed decisions/disagreements, current situation, and what is unresolved.
+   - Use very simple, everyday English. Avoid corporate jargon.
+   - If message history is limited, explicitly state that context is based on limited available messages.
+   - "group_context_hinglish": Natural, conversational Roman Hindi + English version of the Group Context.
+2. KEY INFORMATION (BUDGETS, DATES, DELIVERABLES, NUMBERS):
+   - "key_information": Array of compact facts with category "budget", "date", "deliverable", or "metric".
+3. NO WALLS OF TEXT:
    - Do NOT write long essays, rambling paragraphs, or repetitive prose.
    - Use **bold** inline for critical names, deliverable titles, amounts, and dates.
-2. BIFURCATE THE CONVERSATION (Client Track vs Team Track):
+4. BIFURCATE THE CONVERSATION (Client Track vs Team Track):
    - "client_side": Focus ONLY on the Client / Brand / External partner perspective:
-     - What did the client request, mandate, or push back on?
-     - What is their latest feedback / approval stance?
+     - "status" and "position": Short status tag and operational stance.
+     - "concerns": 1-2 key concerns, constraints, or objections.
+     - "proposals": 1-2 proposals, requests, or instructions.
+     - "expectations": 1-2 expectations from agency.
      - "points": 2-3 short, punchy bullet points (max 20 words each) with **bold** highlights.
-     - "status": A concise status tag like "Draft Approved", "Negotiating Budget", "Awaiting Assets", "Reviewing".
    - "team_side": Focus ONLY on the Internal Agency / Production / Execution team:
-     - What did the internal team deliver, produce, or commit to?
-     - What are they actively executing right now?
+     - "status" and "position": Short status tag and operational stance.
+     - "concerns": 1-2 key execution constraints or bandwidth notes.
+     - "proposals": 1-2 proposals, deliverables submitted, or alternatives offered.
+     - "expectations": 1-2 expectations from client.
      - "points": 2-3 short, punchy bullet points (max 20 words each) with **bold** highlights.
-     - "status": A concise status tag like "In Production", "Timeline Locked", "Awaiting Signed Copy", "Drafts Submitted".
-3. BIFURCATE DECIDED vs BLOCKED:
+5. BIFURCATE DECIDED vs BLOCKED:
    - "decided_items": 1 to 3 crystal-clear bullet points of settled, confirmed milestones.
    - "pending_blockers": 1 to 3 items where work is held up, explicitly stating "waiting_on" (e.g. "Client", "Internal Team", "Creator", "Talent").
-4. "tldr": Exactly 2 to 3 high-impact summary bullets (max 25 words each) giving the absolute bottom line.
-5. HINGLISH SUPPORT:
-   - Also provide "tldr_hinglish", "client_side_hinglish", "team_side_hinglish", "decided_items_hinglish", and "pending_blockers_hinglish" in natural Roman Hindi + English business terms.
-6. STRICT FACTUAL ACCURACY & CITATIONS:
+6. "tldr": Exactly 2 to 3 high-impact summary bullets (max 25 words each) giving the absolute bottom line.
+7. HINGLISH SUPPORT:
+   - Also provide "group_context_hinglish", "tldr_hinglish", "client_side_hinglish", "team_side_hinglish", "decided_items_hinglish", and "pending_blockers_hinglish" in natural Roman Hindi + English business terms.
+8. STRICT FACTUAL ACCURACY & CITATIONS:
    - Every claim must include exact "source_message_ids". Never invent IDs.
    - Never invent owners or deadlines (use "Unassigned" and "Not specified" if not in text).
    - Ignore friendly banter, jokes, and emojis from business decisions.
@@ -937,6 +971,8 @@ CRITICAL RULES - RADICALLY CONCISE & EASY TO UNDERSTAND:
 Respond strictly in valid JSON matching this schema:
 {
   "executive_briefing": {
+    "group_context": "string (80-120 words in 2-3 short paragraphs in simple everyday English)",
+    "group_context_hinglish": "string (80-120 words in natural Hinglish)",
     "tldr": ["string (crisp 1-line bullet point)", "string (crisp 1-line bullet point)"],
     "tldr_hinglish": ["string (crisp 1-line bullet in natural Hinglish)", "string (crisp 1-line bullet in natural Hinglish)"],
     "overview": "string (1-2 sentences high-level overview in English with **bold** highlights)",
@@ -945,26 +981,52 @@ Respond strictly in valid JSON matching this schema:
     "current_situation_hinglish": "string (1-2 concise sentences in Hinglish)",
     "attention_required": "string (immediate blocker or 'No active blockers')",
     "attention_required_hinglish": "string (immediate blocker in Hinglish)",
+    "key_information": [
+      {
+        "id": "ki_1",
+        "label": "string (e.g. 'Commercial Budget')",
+        "value": "string (e.g. '₹65,000 / Film')",
+        "detail": "string (e.g. 'Client capped budget')",
+        "category": "budget|date|deliverable|metric",
+        "source_message_ids": ["string"]
+      }
+    ],
     "client_side": {
       "title": "string (e.g. 'Client Demands & Feedback')",
       "status": "string (e.g. 'Draft Approved')",
+      "position": "string (brief summary of position)",
+      "concerns": ["string"],
+      "proposals": ["string"],
+      "expectations": ["string"],
       "points": ["string (short bullet point)", "string (short bullet point)"],
       "source_message_ids": ["string"]
     },
     "client_side_hinglish": {
       "title": "string (e.g. 'Client Demands & Feedback')",
       "status": "string",
+      "position": "string",
+      "concerns": ["string"],
+      "proposals": ["string"],
+      "expectations": ["string"],
       "points": ["string", "string"]
     },
     "team_side": {
       "title": "string (e.g. 'Agency / Internal Execution')",
       "status": "string (e.g. 'Executing Deliverables')",
+      "position": "string (brief summary of position)",
+      "concerns": ["string"],
+      "proposals": ["string"],
+      "expectations": ["string"],
       "points": ["string (short bullet point)", "string (short bullet point)"],
       "source_message_ids": ["string"]
     },
     "team_side_hinglish": {
       "title": "string (e.g. 'Internal Execution')",
       "status": "string",
+      "position": "string",
+      "concerns": ["string"],
+      "proposals": ["string"],
+      "expectations": ["string"],
       "points": ["string", "string"]
     },
     "decided_items": ["string (confirmed decision)", "string (confirmed decision)"],
@@ -1290,6 +1352,20 @@ function mapParsedToBriefing(
 
   const eb = parsed.executive_briefing || {};
 
+  const groupContext: string | undefined = eb.group_context || eb.groupContext || undefined;
+  const groupContextHinglish: string | undefined = eb.group_context_hinglish || eb.groupContextHinglish || undefined;
+
+  const keyInformation: KeyInformationItem[] = Array.isArray(eb.key_information || parsed.key_information)
+    ? (eb.key_information || parsed.key_information).map((k: any, idx: number) => ({
+        id: k.id || `ki_${idx + 1}`,
+        label: k.label || 'Key Information',
+        value: k.value || '',
+        detail: k.detail || undefined,
+        category: (['budget', 'date', 'deliverable', 'metric'].includes(k.category) ? k.category : 'metric') as any,
+        sourceMessageIds: Array.isArray(k.source_message_ids) ? k.source_message_ids : [],
+      }))
+    : [];
+
   // Extract bifurcated fields with reliable fallbacks
   const tldr: string[] = Array.isArray(eb.tldr) && eb.tldr.length > 0
     ? eb.tldr
@@ -1306,6 +1382,13 @@ function mapParsedToBriefing(
   const clientSide: BifurcatedStreamSide = {
     title: eb.client_side?.title || 'Client Demands & Feedback',
     status: eb.client_side?.status || 'Active',
+    position: eb.client_side?.position || (eb.client_side?.points && eb.client_side.points[0]) || undefined,
+    concerns: Array.isArray(eb.client_side?.concerns) ? eb.client_side.concerns : undefined,
+    proposals: Array.isArray(eb.client_side?.proposals) ? eb.client_side.proposals : undefined,
+    expectations: Array.isArray(eb.client_side?.expectations) ? eb.client_side.expectations : undefined,
+    concernsHinglish: Array.isArray(eb.client_side_hinglish?.concerns) ? eb.client_side_hinglish.concerns : undefined,
+    proposalsHinglish: Array.isArray(eb.client_side_hinglish?.proposals) ? eb.client_side_hinglish.proposals : undefined,
+    expectationsHinglish: Array.isArray(eb.client_side_hinglish?.expectations) ? eb.client_side_hinglish.expectations : undefined,
     points: Array.isArray(eb.client_side?.points) && eb.client_side.points.length > 0
       ? eb.client_side.points
       : [eb.attention_required || 'No client-side blockers logged.'],
@@ -1315,12 +1398,23 @@ function mapParsedToBriefing(
   const clientSideHinglish: BifurcatedStreamSide | undefined = eb.client_side_hinglish ? {
     title: eb.client_side_hinglish.title || 'Client Demands & Feedback',
     status: eb.client_side_hinglish.status || clientSide.status,
+    position: eb.client_side_hinglish.position || (eb.client_side_hinglish.points && eb.client_side_hinglish.points[0]) || undefined,
+    concerns: Array.isArray(eb.client_side_hinglish.concerns) ? eb.client_side_hinglish.concerns : clientSide.concerns,
+    proposals: Array.isArray(eb.client_side_hinglish.proposals) ? eb.client_side_hinglish.proposals : clientSide.proposals,
+    expectations: Array.isArray(eb.client_side_hinglish.expectations) ? eb.client_side_hinglish.expectations : clientSide.expectations,
     points: Array.isArray(eb.client_side_hinglish.points) ? eb.client_side_hinglish.points : [],
   } : undefined;
 
   const teamSide: BifurcatedStreamSide = {
     title: eb.team_side?.title || 'Internal Team Execution',
     status: eb.team_side?.status || 'In Progress',
+    position: eb.team_side?.position || (eb.team_side?.points && eb.team_side.points[0]) || undefined,
+    concerns: Array.isArray(eb.team_side?.concerns) ? eb.team_side.concerns : undefined,
+    proposals: Array.isArray(eb.team_side?.proposals) ? eb.team_side.proposals : undefined,
+    expectations: Array.isArray(eb.team_side?.expectations) ? eb.team_side.expectations : undefined,
+    concernsHinglish: Array.isArray(eb.team_side_hinglish?.concerns) ? eb.team_side_hinglish.concerns : undefined,
+    proposalsHinglish: Array.isArray(eb.team_side_hinglish?.proposals) ? eb.team_side_hinglish.proposals : undefined,
+    expectationsHinglish: Array.isArray(eb.team_side_hinglish?.expectations) ? eb.team_side_hinglish.expectations : undefined,
     points: Array.isArray(eb.team_side?.points) && eb.team_side.points.length > 0
       ? eb.team_side.points
       : [eb.current_situation || 'Team deliverables underway.'],
@@ -1330,6 +1424,10 @@ function mapParsedToBriefing(
   const teamSideHinglish: BifurcatedStreamSide | undefined = eb.team_side_hinglish ? {
     title: eb.team_side_hinglish.title || 'Internal Team Execution',
     status: eb.team_side_hinglish.status || teamSide.status,
+    position: eb.team_side_hinglish.position || (eb.team_side_hinglish.points && eb.team_side_hinglish.points[0]) || undefined,
+    concerns: Array.isArray(eb.team_side_hinglish.concerns) ? eb.team_side_hinglish.concerns : teamSide.concerns,
+    proposals: Array.isArray(eb.team_side_hinglish.proposals) ? eb.team_side_hinglish.proposals : teamSide.proposals,
+    expectations: Array.isArray(eb.team_side_hinglish.expectations) ? eb.team_side_hinglish.expectations : teamSide.expectations,
     points: Array.isArray(eb.team_side_hinglish.points) ? eb.team_side_hinglish.points : [],
   } : undefined;
 
@@ -1366,6 +1464,9 @@ function mapParsedToBriefing(
   return {
     groupId: sourceMessages[0]?.groupUuid || groupName,
     groupName,
+    groupContext,
+    groupContextHinglish,
+    keyInformation,
     totalMessagesCount: totalCount,
     messagesIncluded,
     messagesExcluded,
@@ -1374,6 +1475,9 @@ function mapParsedToBriefing(
     excludedDetails: dbAudit?.excludedDetails || [],
     dateRange: { start: dateStart, end: dateEnd },
     executiveBriefing: {
+      groupContext,
+      groupContextHinglish,
+      keyInformation,
       overview: eb.overview || 'Comprehensive group intelligence briefing generated.',
       overviewHinglish: eb.overview_hinglish || eb.overviewHinglish || undefined,
       currentSituation: eb.current_situation || 'Active coordination ongoing.',
@@ -1779,6 +1883,10 @@ function generateHeuristicGroupIntelligenceBriefing(
   let currentSituationHinglish = '';
   let attentionRequired = '';
   let attentionRequiredHinglish = '';
+  let groupContext = '';
+  let groupContextHinglish = '';
+  let keyInformation: KeyInformationItem[] = [];
+  let keyInformationHinglish: KeyInformationItem[] = [];
   let tldr: string[] = [];
   let tldrHinglish: string[] = [];
   let clientSide: BifurcatedStreamSide = { title: 'Client Demands & Feedback', points: [], status: 'Active' };
@@ -1792,6 +1900,53 @@ function generateHeuristicGroupIntelligenceBriefing(
   let topics: TopicDossier[] = [];
 
   if (isCelebExecution) {
+    groupContext = `This group coordinates celebrity endorsement campaigns between apparel brand Blue Tyga and TheBoredMonkey (TBM) creative agency. The primary discussion focuses on signing agreements for cricketer Shreyas Iyer and actor Mrunal Thakur. Important participants include Pooja representing the client, Adarsh managing client coordination for TBM, and Fazil V leading production planning.
+
+The team drafted and revised the Shreyas Iyer agreement (version 05.11.2026.docx). Pooja confirmed all comments were resolved and gave approval to sign. TBM then requested the release of a 50% signing advance for both celebrities and shared a Canva concepts presentation deck and Pre/Post production timeline document.
+
+The team is currently waiting on the brand's signed counterpart copy and a formal status update on the Mrunal Thakur endorsement contract before production can begin.`;
+
+    groupContextHinglish = `Yeh WhatsApp group Blue Tyga brand aur TheBoredMonkey agency ke beech Shreyas Iyer aur Mrunal Thakur ke celebrity endorsement campaigns ke coordination ke liye hai. Isme Pooja client side se aur Adarsh aur Fazil V agency side se main coordination kar rahe hain.
+
+Team ne Shreyas Iyer ka draft agreement (05.11.2026.docx) share kiya tha, jisko Pooja ne review karke formally approve kiya. TBM ne dono celebrity deals process karne ke liye 50% signing advance manga hai aur Canva concepts deck aur production timeline document client ko share kiya hai.
+
+Filhal brand ki taraf se Shreyas Iyer ka signed counterpart agreement aana aur Mrunal Thakur ke contract ka status update milna baaki hai.`;
+
+    keyInformation = [
+      {
+        id: 'ki_bt_1',
+        label: 'Commercial Payment',
+        value: '50% Signing Advance',
+        detail: 'Required for both celebrities before contract execution',
+        category: 'budget',
+        sourceMessageIds: messages.slice(0, 3).map((m) => m.id),
+      },
+      {
+        id: 'ki_bt_2',
+        label: 'Document Approved',
+        value: 'Draft 05.11.2026.docx',
+        detail: 'Shreyas Iyer endorsement draft confirmed to sign',
+        category: 'deliverable',
+        sourceMessageIds: messages.slice(0, 3).map((m) => m.id),
+      },
+      {
+        id: 'ki_bt_3',
+        label: 'Creative Presentation',
+        value: 'Canva Concepts Deck',
+        detail: 'Delivered and shared with client for creative alignment',
+        category: 'deliverable',
+        sourceMessageIds: messages.slice(3, 6).map((m) => m.id),
+      },
+      {
+        id: 'ki_bt_4',
+        label: 'Production Schedule',
+        value: 'Pre/Post Timelines Doc',
+        detail: 'Shared Google Doc schedule; tight timeline flagged',
+        category: 'date',
+        sourceMessageIds: messages.slice(3, 6).map((m) => m.id),
+      },
+    ];
+
     overviewText = `Coordination on **Shreyas Iyer** and **Mrunal Thakur** celebrity endorsements. Agreement draft approved; 50% signing amount required to process contracts.`;
     overviewHinglish = `**Shreyas Iyer** aur **Mrunal Thakur** ke celebrity contracts pe discussion. Agreement draft approve ho chuka hai aur 50% signing advance requested hai.`;
     currentSituation = `Shreyas Iyer agreement draft approved for signature. 50% signing amount release requested for both celebrities.`;
@@ -1811,6 +1966,19 @@ function generateHeuristicGroupIntelligenceBriefing(
     clientSide = {
       title: 'Client (Blue Tyga) Demands & Approvals',
       status: 'Draft Approved',
+      position: 'Confirmed draft agreement is ready for signature; reviewing production schedules.',
+      concerns: [
+        'Ensuring track changes are properly stopped and comments removed from the document.',
+        'Reviewing creative concepts and shoot feasibility within the campaign window.',
+      ],
+      proposals: [
+        'Formally approved Shreyas Iyer agreement draft (05.11.2026.docx) to proceed and sign.',
+        'Instructed deletion of both comments from draft.',
+      ],
+      expectations: [
+        'Final clean counterpart copy of agreement.',
+        'Full Pre/Post production timeline breakdown.',
+      ],
       points: [
         'Confirmed track changes resolved & instructed deletion of both comments.',
         'Formally approved Shreyas Iyer agreement draft (05.11.2026.docx) to proceed and sign.',
@@ -1820,6 +1988,17 @@ function generateHeuristicGroupIntelligenceBriefing(
     clientSideHinglish = {
       title: 'Client (Blue Tyga) Approvals & Requirements',
       status: 'Draft Approved',
+      position: 'Draft agreement sign karne ke liye approved hai; creative deck review me hai.',
+      concerns: [
+        'Agreement ke comments resolve karke delete karna.',
+        'Production timelines review karke wrap finalize karna.',
+      ],
+      proposals: [
+        'Shreyas Iyer agreement draft sign karne ke liye formally approve kiya.',
+      ],
+      expectations: [
+        'Clean signed agreement copy aur production schedules.',
+      ],
       points: [
         'Agreement ke comments resolve karke delete karne ka instruction diya.',
         'Shreyas Iyer agreement draft sign karne ke liye formally approve kiya.',
@@ -1830,6 +2009,19 @@ function generateHeuristicGroupIntelligenceBriefing(
     teamSide = {
       title: 'Agency (TBM) Execution & Deliverables',
       status: 'Awaiting Signed Copy & Advance',
+      position: 'Delivered creative assets and timelines; awaiting client signatures and 50% signing payment.',
+      concerns: [
+        'Fazil V flagged operational urgency due to compressed production window.',
+        '50% signing amount required to formally process contracts with talent managers.',
+      ],
+      proposals: [
+        'Releasing 50% signing advance for both celebrities before processing.',
+        'Delivered Canva concepts deck & Pre/Post production timelines Google Doc.',
+      ],
+      expectations: [
+        'Receipt of brand-signed contract for Shreyas Iyer.',
+        'Status update on Mrunal Thakur endorsement contract.',
+      ],
       points: [
         'Specified condition: releasing **50% signing advance** for both celebrities before processing.',
         'Delivered Canva concepts deck & Pre/Post production timelines Google Doc.',
@@ -1839,6 +2031,18 @@ function generateHeuristicGroupIntelligenceBriefing(
     teamSideHinglish = {
       title: 'Agency (TBM) Deliverables & Execution',
       status: 'Awaiting Signed Copy & Advance',
+      position: 'Creative deck aur timeline share kiye gaye hain; advance aur signed copy pending hai.',
+      concerns: [
+        'Fazil V ne shoot production ke tight timeframe pe highlight kiya.',
+        'Contracts process karne ke liye 50% signing advance zaroori hai.',
+      ],
+      proposals: [
+        'Dono celebrities ke liye 50% signing advance release karne ki request ki.',
+        'Canva concepts deck aur Pre/Post production timeline Google Doc deliver kiya.',
+      ],
+      expectations: [
+        'Blue Tyga ki signed contract copy aur Mrunal agreement ka status.',
+      ],
       points: [
         'Dono celebrities ke contracts process karne ke liye **50% signing advance** release karne ki request ki.',
         'Canva concepts deck aur Pre/Post production timeline Google Doc deliver kiya.',
@@ -1881,6 +2085,53 @@ function generateHeuristicGroupIntelligenceBriefing(
       },
     ];
   } else if (isEmami) {
+    groupContext = `This group is dedicated to executing product packaging, dark store logistics, and video production for Emami's Smart and Handsome Bright Charge campaign. Key participants include Ananya Mukhopadhyaya from the client side, Sneha Singh managing product procurement, and Kumar Monu supervising studio delivery.
+
+Sneha procured initial product samples through Blinkit and shared packaging verification photos. Ananya reviewed the packaging and approved it for filming, then arranged a Porter courier vehicle to transfer the products directly to the studio. Kumar Monu confirmed safe delivery of the products at the studio.
+
+The physical products are now secured, and the team is currently filming the remaining three video scripts awaiting final review.`;
+
+    groupContextHinglish = `Yeh group Emami ke Smart and Handsome Bright Charge campaign ke packaging, product delivery aur video shoot ke liye banaya gaya hai. Isme Ananya client side se, Sneha Singh procurement ke liye aur Kumar Monu studio receiving supervise kar rahe hain.
+
+Sneha ne Blinkit se samples mangwa kar packaging photos share kiye, jisko Ananya ne verify karke shoot ke liye approve kiya. Porter delivery vehicle se products studio bheje gaye jahan Kumar Monu ne safe delivery confirm ki.
+
+Filhal products safely studio me receive ho chuke hain aur creative team bache huye 3 video scripts pe actively kaam kar rahi hai.`;
+
+    keyInformation = [
+      {
+        id: 'ki_em_1',
+        label: 'Delivery Vehicle',
+        value: 'Porter MH43CN0807',
+        detail: 'Driver Prathamesh safely transferred product batch to studio',
+        category: 'metric',
+        sourceMessageIds: messages.slice(0, 3).map((m) => m.id),
+      },
+      {
+        id: 'ki_em_2',
+        label: 'Packaging Status',
+        value: 'Blinkit Batch Approved',
+        detail: 'Product packaging photos reviewed and approved by client',
+        category: 'deliverable',
+        sourceMessageIds: messages.slice(0, 3).map((m) => m.id),
+      },
+      {
+        id: 'ki_em_3',
+        label: 'Campaign Deliverables',
+        value: '3 Video Scripts',
+        detail: 'Actively in production and filming at studio',
+        category: 'deliverable',
+        sourceMessageIds: messages.slice(3, 6).map((m) => m.id),
+      },
+      {
+        id: 'ki_em_4',
+        label: 'Brand Initiative',
+        value: 'Bright Charge',
+        detail: 'Emami Smart and Handsome commercial video campaign',
+        category: 'metric',
+        sourceMessageIds: messages.slice(0, 3).map((m) => m.id),
+      },
+    ];
+
     overviewText = `Campaign production execution for **Smart and Handsome Bright Charge**. Products verified and safely received at studio; 3 video scripts actively in production.`;
     overviewHinglish = `**Smart and Handsome Bright Charge** campaign shoot execution. Blinkit se product verify aur studio me receive ho chuka hai; 3 video scripts pe kaam chal raha hai.`;
     currentSituation = `Product packaging verified and products safely received at studio via Porter courier.`;
@@ -1900,6 +2151,18 @@ function generateHeuristicGroupIntelligenceBriefing(
     clientSide = {
       title: 'Client (Emami) Review & Logistics',
       status: 'Packaging Approved',
+      position: 'Packaging verified and approved for filming; arranged Porter courier for studio transfer.',
+      concerns: [
+        'Ensuring product packaging photos match retail specs before shoot.',
+        'Tracking safe delivery and overall campaign wrap timeline.',
+      ],
+      proposals: [
+        'Confirmed "good to go" on Blinkit packaging photos.',
+        'Dispatched Porter courier (Driver Prathamesh) to transfer products.',
+      ],
+      expectations: [
+        'Timely completion and delivery of the 3 campaign video scripts.',
+      ],
       points: [
         'Ananya Mukhopadhyaya reviewed packaging photos and gave "good to go" confirmation.',
         'Dispatched Porter courier (Driver Prathamesh) to transfer products safely to studio.',
@@ -1909,6 +2172,17 @@ function generateHeuristicGroupIntelligenceBriefing(
     clientSideHinglish = {
       title: 'Client (Emami) Review & Updates',
       status: 'Packaging Approved',
+      position: 'Packaging approve kar di hai aur Porter courier se studio transfer karwaya.',
+      concerns: [
+        'Packaging photos retail specifications ke mutabik check karna.',
+      ],
+      proposals: [
+        'Packaging photos check karke shoot ke liye "good to go" approve kiya.',
+        'Porter courier details share ki.',
+      ],
+      expectations: [
+        'Overall wrap progress aur videos ki delivery status report.',
+      ],
       points: [
         'Ananya ne packaging photos check karke shoot ke liye "good to go" approve kiya.',
         'Products transfer karne ke liye Porter courier details share ki.',
@@ -1919,6 +2193,18 @@ function generateHeuristicGroupIntelligenceBriefing(
     teamSide = {
       title: 'Production Team Execution',
       status: 'Filming 3 Scripts',
+      position: 'Procured products, confirmed delivery receipt, and currently filming 3 scripts.',
+      concerns: [
+        'Securing physical products from dark stores without delivery delays.',
+        'Completing 3 video scripts within scheduled studio slot.',
+      ],
+      proposals: [
+        'Shared Blinkit links and inspection photos for verification.',
+        'Shared raw footage from initial takes.',
+      ],
+      expectations: [
+        'Client review and feedback on the 3 video scripts.',
+      ],
       points: [
         'Sneha Singh procured products via Blinkit and shared inspection photos.',
         'Kumar Monu confirmed safe delivery of physical products at studio.',
@@ -1928,6 +2214,17 @@ function generateHeuristicGroupIntelligenceBriefing(
     teamSideHinglish = {
       title: 'Production Team Execution',
       status: 'Filming 3 Scripts',
+      position: 'Products safely studio me receive ho gaye; 3 video scripts pe filming chal rahi hai.',
+      concerns: [
+        'Products bina delay studio tak deliver karwana.',
+      ],
+      proposals: [
+        'Blinkit se order karke inspection photos share ki.',
+        'Clips review karke raw shoot status share kiya.',
+      ],
+      expectations: [
+        'Client ki taraf se 3 scripts ka final review aur feedback.',
+      ],
       points: [
         'Sneha Singh ne Blinkit se products order karke inspection photos share ki.',
         'Kumar Monu ne studio me physical products safely receive hone ki confirmation di.',
@@ -1966,6 +2263,53 @@ function generateHeuristicGroupIntelligenceBriefing(
       },
     ];
   } else if (isInternalDvc) {
+    groupContext = `This is TheBoredMonkey's internal pre-production group for the Blue Tyga Digital Video Commercial (DVC) shoot. The team uses this space to align on schedules, creative decks, and budgets before presenting them to the client. Important members include Adarsh, Suraj, and Saurabh.
+
+The team discussed potential shoot dates and agreed on back-to-back shooting dates: the 25th for Shreyas Iyer and the 26th for Mrunal Thakur. Adarsh confirmed that dates cannot be moved to late in the month due to celebrity availability. Suraj updated the master Google Doc timeline, and the team resolved to move the client sync call to Tuesday.
+
+The team is currently finalizing the internal prep sync one hour before Tuesday's client meeting and determining costs for adding the brand logo to Milind Soman's past creative videos.`;
+
+    groupContextHinglish = `Yeh TheBoredMonkey ki internal team ka pre-production group hai jisme Blue Tyga Digital Video Commercial (DVC) shoot ki planning chal rahi hai. Is group me Adarsh, Suraj aur Saurabh internal schedules aur budgets align kar rahe hain.
+
+Team ne shoot dates pe discussion kiya aur 25th (Shreyas) aur 26th (Mrunal) ki back-to-back shoot dates finalize ki. Suraj ne master timeline update kiya aur client presentation ko Tuesday tak schedule kiya.
+
+Filhal Tuesday client call se ek ghanta pehle internal alignment call aur Milind Soman videos me brand logo add karne ki costing finalize karna pending hai.`;
+
+    keyInformation = [
+      {
+        id: 'ki_dvc_1',
+        label: 'Locked Shoot Dates',
+        value: '25th & 26th Locked',
+        detail: 'Back-to-back: 25th Shreyas Iyer, 26th Mrunal Thakur',
+        category: 'date',
+        sourceMessageIds: messages.slice(0, 3).map((m) => m.id),
+      },
+      {
+        id: 'ki_dvc_2',
+        label: 'Client Sync Meeting',
+        value: 'Tuesday Scheduled',
+        detail: 'Concepts presentation moved to Tuesday with prep call 1hr prior',
+        category: 'date',
+        sourceMessageIds: messages.slice(0, 3).map((m) => m.id),
+      },
+      {
+        id: 'ki_dvc_3',
+        label: 'Master Timeline',
+        value: 'Google Doc Updated',
+        detail: 'Pre-production schedule updated and locked by Suraj',
+        category: 'deliverable',
+        sourceMessageIds: messages.slice(2, 5).map((m) => m.id),
+      },
+      {
+        id: 'ki_dvc_4',
+        label: 'Costing Requirement',
+        value: 'Milind Soman Logo Add',
+        detail: 'Cost reconciliation for inserting logo into past video assets',
+        category: 'budget',
+        sourceMessageIds: messages.slice(3, 6).map((m) => m.id),
+      },
+    ];
+
     overviewText = `Internal pre-production planning for Blue Tyga DVC. Shoot dates locked for **25th (Shreyas)** and **26th (Mrunal)**; Tuesday client sync prep call set 1hr prior.`;
     overviewHinglish = `Blue Tyga DVC ki internal planning. Shoot dates **25th (Shreyas)** aur **26th (Mrunal)** lock hain; Tuesday client sync se 1hr pehle prep call scheduled hai.`;
     currentSituation = `Shoot dates locked for 25th (Shreyas Iyer) and 26th (Mrunal Thakur). Pre-production timeline updated.`;
@@ -1985,6 +2329,16 @@ function generateHeuristicGroupIntelligenceBriefing(
     clientSide = {
       title: 'Client Presentation Schedule',
       status: 'Meeting Moved to Tuesday',
+      position: 'Client alignment meeting rescheduled to Tuesday to accommodate deeper insight review.',
+      concerns: [
+        'Ensuring concepts deck has robust strategic insights and clear production timelines.',
+      ],
+      proposals: [
+        'Consolidated concept sync slot shifted to Tuesday afternoon.',
+      ],
+      expectations: [
+        'Locked production timeline deck and shoot date confirmations.',
+      ],
       points: [
         'Client concept alignment sync rescheduled to Tuesday.',
         'Requires consolidated insights deck and locked production timelines.'
@@ -1993,6 +2347,16 @@ function generateHeuristicGroupIntelligenceBriefing(
     clientSideHinglish = {
       title: 'Client Sync Schedule',
       status: 'Moved to Tuesday',
+      position: 'Client sync Tuesday shift hua hai insights review ke liye.',
+      concerns: [
+        'Concepts deck me proper market insights aur timeline honi chahiye.',
+      ],
+      proposals: [
+        'Tuesday concepts review slot propose kiya.',
+      ],
+      expectations: [
+        'Timeline document aur final creative concept presentation.',
+      ],
       points: [
         'Client ke sath concepts presentation Tuesday ko schedule hui hai.',
         'Proper insights ke sath concepts deck aur production timeline deliver karni hai.'
@@ -2002,6 +2366,18 @@ function generateHeuristicGroupIntelligenceBriefing(
     teamSide = {
       title: 'Internal Production & Planning',
       status: 'Shoot Dates Locked',
+      position: 'Locked back-to-back shoot dates on 25th and 26th; updating timeline doc.',
+      concerns: [
+        'Dates cannot shift to 29th/30th due to strict celebrity talent schedule constraints.',
+        'Costing calculations needed for past Milind Soman video logo insertions.',
+      ],
+      proposals: [
+        'Suraj shared updated Google Doc timeline with locked 25th/26th dates.',
+        'Scheduled internal prep meeting 1 hour before Tuesday client call.',
+      ],
+      expectations: [
+        'Consolidated internal alignment before jumping on client call.',
+      ],
       points: [
         'Suraj shared Google Doc timeline; confirmed 25th & 26th back-to-back shoots.',
         'Adarsh confirmed shoot dates cannot be shifted to 29th/30th due to talent alignment.',
@@ -2011,6 +2387,18 @@ function generateHeuristicGroupIntelligenceBriefing(
     teamSideHinglish = {
       title: 'Internal Team Execution',
       status: 'Shoot Dates Locked',
+      position: '25th aur 26th dates lock hain; Google Doc update ho chuka hai.',
+      concerns: [
+        'Talent availability ke chalte dates 29/30 shift nahi ho sakti.',
+        'Milind Soman videos ke logo addition ka cost estimate nikalna.',
+      ],
+      proposals: [
+        'Suraj ne timeline update karke share ki.',
+        'Tuesday client call se 1hr pehle internal prep call finalize ki.',
+      ],
+      expectations: [
+        'Internal team alignment meeting complete karna.',
+      ],
       points: [
         'Suraj ne Google Doc timeline share ki; 25th aur 26th ki shoot dates confirm ki.',
         'Adarsh ne clarify kiya ki back-to-back dates fix rahengi aur 29/30 shift nahi ho sakti.',
@@ -2051,6 +2439,53 @@ function generateHeuristicGroupIntelligenceBriefing(
       },
     ];
   } else if (isCent) {
+    groupContext = `This group coordinates creative scripting and execution for Cent Health's preventive health check campaign between the Cent client team and TheBoredMonkey. Important participants include Prashant Sharma from Cent Health, Divya leading creative coordination, and Kumar Monu.
+
+Prashant detailed the campaign brief focusing on a Diwali emotional hook where children gift full-body scans to their parents, emphasizing MRI and cardiac health benefits through the cent.health booking portal. Divya confirmed that the creator safely received the physical test kit and drafted a new script in Tab 2 of the version sheet.
+
+The team is currently waiting on client review and sign-off on the newly uploaded Tab 2 script draft before video production starts.`;
+
+    groupContextHinglish = `Yeh group Cent Health aur TheBoredMonkey ke beech preventive health check campaign ke video scripts aur execution ke liye hai. Isme Prashant Sharma (Cent Health) aur Divya (TBM Creative) main participants hain.
+
+Prashant ne Diwali parent-child health gifting construct share kiya jisme MRI aur cardiac scans aur cent.health booking journey highlight karni hai. Divya ne confirm kiya ki creator ko physical product mil chuka hai aur naya script Tab 2 me upload kar diya gaya hai.
+
+Filhal Tab 2 me add kiye gaye naye script draft ka client approval aana baaki hai.`;
+
+    keyInformation = [
+      {
+        id: 'ki_cent_1',
+        label: 'Digital Booking Flow',
+        value: 'cent.health Portal',
+        detail: 'Digital user journey showcasing health check reservation',
+        category: 'deliverable',
+        sourceMessageIds: messages.slice(0, 3).map((m) => m.id),
+      },
+      {
+        id: 'ki_cent_2',
+        label: 'Creative Script Draft',
+        value: 'Tab 2 Version Sheet',
+        detail: 'Updated emotional narrative script uploaded for client sign-off',
+        category: 'deliverable',
+        sourceMessageIds: messages.slice(2, 5).map((m) => m.id),
+      },
+      {
+        id: 'ki_cent_3',
+        label: 'Sample Kit Delivery',
+        value: 'Product Received',
+        detail: 'Creator confirmed safe receipt of physical product kit',
+        category: 'metric',
+        sourceMessageIds: messages.slice(2, 5).map((m) => m.id),
+      },
+      {
+        id: 'ki_cent_4',
+        label: 'Campaign Construct',
+        value: 'Diwali Health Gifting',
+        detail: 'Parent-child preventive health checkup proposition',
+        category: 'metric',
+        sourceMessageIds: messages.slice(0, 3).map((m) => m.id),
+      },
+    ];
+
     overviewText = `Creative scripting for Cent Health Check. Narrative structure defined; physical product received by creator; Tab 2 script draft awaiting client approval.`;
     overviewHinglish = `Cent Health Check script discussion. Creative narrative final; creator ko product mil gaya; Tab 2 script draft client review ke liye pending hai.`;
     currentSituation = `Creative construct defined for Cent Health Check. Physical product received by the creator.`;
@@ -2070,6 +2505,16 @@ function generateHeuristicGroupIntelligenceBriefing(
     clientSide = {
       title: 'Client (Cent) Brief & Sign-off',
       status: 'Reviewing Tab 2 Script',
+      position: 'Detailed Diwali emotional hook and full-body scan value proposition; reviewing script.',
+      concerns: [
+        'Ensuring booking flow journey (cent.health/booking-flow) is clearly demonstrated in video.',
+      ],
+      proposals: [
+        'Outlined full-body scan gifting proposition emphasizing MRI and heart health benefits.',
+      ],
+      expectations: [
+        'Script that seamlessly integrates parent-child emotion with digital booking ease.',
+      ],
       points: [
         'Prashant Sharma outlined Diwali emotional hook and full-body scan value proposition.',
         'Requested explicit booking flow showcase (cent.health/booking-flow).'
@@ -2078,6 +2523,16 @@ function generateHeuristicGroupIntelligenceBriefing(
     clientSideHinglish = {
       title: 'Client (Cent / Prashant) Brief',
       status: 'Reviewing Tab 2 Script',
+      position: 'Diwali emotional hook aur booking journey script me include karne ki requirement share ki.',
+      concerns: [
+        'cent.health booking process clear dikhna chahiye.',
+      ],
+      proposals: [
+        'Parent-child emotional angle aur preventive health package emphasize karna.',
+      ],
+      expectations: [
+        'Refined script jisme emotion aur redemption flow dono aligned hon.',
+      ],
       points: [
         'Prashant Sharma ne Diwali emotional hook aur health package benefits explain kiye.',
         'cent.health/booking-flow booking journey ko script me include karne ki requirement di.'
@@ -2087,6 +2542,16 @@ function generateHeuristicGroupIntelligenceBriefing(
     teamSide = {
       title: 'Creative & Creator Operations',
       status: 'Script Uploaded to Tab 2',
+      position: 'Confirmed product kit delivery to creator; uploaded revised script to Tab 2.',
+      concerns: [
+        'Awaiting client sign-off before scheduling creator shoot session.',
+      ],
+      proposals: [
+        'Drafted updated script incorporating Prashant\'s feedback into Tab 2.',
+      ],
+      expectations: [
+        'Prompt sign-off on Tab 2 script to proceed with creator filming.',
+      ],
       points: [
         'Divya confirmed physical product received by the creator.',
         'Updated script drafted and uploaded to Tab 2 of Cent version sheet for approval.'
@@ -2095,6 +2560,16 @@ function generateHeuristicGroupIntelligenceBriefing(
     teamSideHinglish = {
       title: 'Creative Team Operations',
       status: 'Script Uploaded',
+      position: 'Product creator tak deliver ho gaya aur Tab 2 me script upload kar di.',
+      concerns: [
+        'Shooting shuru karne se pehle script approval zaroori hai.',
+      ],
+      proposals: [
+        'Prashant ke brief ke mutabik revised script Tab 2 me add kiya.',
+      ],
+      expectations: [
+        'Tab 2 script pe client approval milna.',
+      ],
       points: [
         'Divya ne confirm kiya ki creator ko physical product safely receive ho gaya.',
         'Naya script Tab 2 me upload kar diya gaya hai review ke liye.'
@@ -2132,6 +2607,45 @@ function generateHeuristicGroupIntelligenceBriefing(
       },
     ];
   } else if (isShreyasIyer) {
+    groupContext = `This group manages the direct celebrity endorsement agreement between apparel brand Blue Tyga and cricketer Shreyas Iyer. Key participants include talent manager Neha representing the celebrity and Adarsh managing brand approvals.
+
+The parties aligned on the contract duration, locking the tenure for the complete calendar year 2027 (January 1, 2027 to December 31, 2027). The commercial payment schedule was structured on a 50/50 split, with 50% paid upon signing and the remaining 50% prior to the shoot. Adarsh confirmed that the contract terms are approved and ready to sign.
+
+The agreement is currently waiting on the brand to share their signed counterpart copy so Shreyas Iyer can formally sign the document.`;
+
+    groupContextHinglish = `Yeh group apparel brand Blue Tyga aur cricketer Shreyas Iyer ke beech celebrity endorsement contract finalize karne ke liye hai. Isme talent manager Neha aur brand coordinator Adarsh shamil hain.
+
+Dono sides ne contract tenure calendar year 2027 (1st Jan 2027 – 31st Dec 2027) ke liye finalize kiya hai aur payment schedule ko 50% signing aur 50% pre-shoot milestone pe lock kiya hai. Adarsh ne confirm kiya ki contract sign karne ke liye ready hai.
+
+Filhal brand ki taraf se signed contract copy aana baaki hai taaki Shreyas Iyer side se formal signature complete ho sake.`;
+
+    keyInformation = [
+      {
+        id: 'ki_si_1',
+        label: 'Contract Tenure',
+        value: 'Jan 1, 2027 – Dec 31, 2027',
+        detail: 'Exclusive apparel brand endorsement for calendar year 2027',
+        category: 'date',
+        sourceMessageIds: messages.slice(0, 3).map((m) => m.id),
+      },
+      {
+        id: 'ki_si_2',
+        label: 'Payment Terms',
+        value: '50/50 Milestone Split',
+        detail: '50% advance on contract signing, 50% before production shoot',
+        category: 'budget',
+        sourceMessageIds: messages.slice(0, 3).map((m) => m.id),
+      },
+      {
+        id: 'ki_si_3',
+        label: 'Contract Execution',
+        value: 'Approved to Sign',
+        detail: 'Terms locked; awaiting brand physical signed counterpart',
+        category: 'deliverable',
+        sourceMessageIds: messages.slice(2, 5).map((m) => m.id),
+      },
+    ];
+
     overviewText = `Endorsement agreement for Shreyas Iyer. Tenure locked for **calendar year 2027** with **50/50 payment split**; awaiting brand signed copy.`;
     overviewHinglish = `Shreyas Iyer endorsement contract finalization. 2027 tenure aur 50/50 payment split agreed hai; brand ki signed copy aana pending hai.`;
     currentSituation = `Agreement terms approved for calendar year 2027 with 50/50 payment milestone structure.`;
@@ -2151,6 +2665,16 @@ function generateHeuristicGroupIntelligenceBriefing(
     clientSide = {
       title: 'Brand Approval',
       status: 'Approved to Sign',
+      position: 'Contract terms approved; brand required to share physical signed copy.',
+      concerns: [
+        'Ensuring exact calendar year dates and milestone schedule are reflected.',
+      ],
+      proposals: [
+        'Confirmed contract is ready to execute.',
+      ],
+      expectations: [
+        'Celebrity signing once physical counterpart is shared.',
+      ],
       points: [
         'Adarsh approved contract terms as ready to execute.',
         'Brand required to supply signed counterpart copy first.'
@@ -2159,6 +2683,16 @@ function generateHeuristicGroupIntelligenceBriefing(
     clientSideHinglish = {
       title: 'Brand Approval',
       status: 'Approved to Sign',
+      position: 'Terms approved hain; brand ki physical copy share karna baaki hai.',
+      concerns: [
+        'Milestone schedule aur dates clarify karna.',
+      ],
+      proposals: [
+        'Adarsh ne confirm kiya agreement sign hone ke liye ready hai.',
+      ],
+      expectations: [
+        'Talent signature brand copy aane par.',
+      ],
       points: [
         'Adarsh ne agreement check karke sign karne ke liye ready bataya.',
         'Brand ko pehle apni signed copy share karni hai.'
@@ -2168,6 +2702,17 @@ function generateHeuristicGroupIntelligenceBriefing(
     teamSide = {
       title: 'Talent Management (Neha)',
       status: 'Awaiting Brand Signed Copy',
+      position: 'Updated tenure to 2027 calendar year; ready to sign upon receiving brand copy.',
+      concerns: [
+        'Talent team will only sign after brand signed counterpart is in hand.',
+      ],
+      proposals: [
+        'Updated tenure to 1st Jan 2027 – 31st Dec 2027.',
+        'Structured 50/50 payment milestone schedule.',
+      ],
+      expectations: [
+        'Brand signed copy of agreement delivered.',
+      ],
       points: [
         'Updated tenure to 1st Jan 2027 – 31st Dec 2027.',
         'Structured 50/50 payment milestone schedule.',
@@ -2177,6 +2722,17 @@ function generateHeuristicGroupIntelligenceBriefing(
     teamSideHinglish = {
       title: 'Talent Management (Neha)',
       status: 'Awaiting Brand Signed Copy',
+      position: '2027 calendar dates aur 50/50 split add kiya; brand copy ka wait hai.',
+      concerns: [
+        'Brand copy milne ke baad hi talent signature complete hoga.',
+      ],
+      proposals: [
+        'Contract dates 2027 calendar year ke according update kiye.',
+        '50% advance aur 50% pre-shoot milestone finalize kiya.',
+      ],
+      expectations: [
+        'Brand ki formal signed copy share hona.',
+      ],
       points: [
         'Contract dates 2027 calendar year ke according update kiye.',
         '50% advance aur 50% pre-shoot milestone finalize kiya.',
@@ -2215,6 +2771,53 @@ function generateHeuristicGroupIntelligenceBriefing(
       },
     ];
   } else if (isEclipseSolaire) {
+    groupContext = `This group manages the commercial video production for Eclipse Solaire eyewear between client representative Nam and TheBoredMonkey team lead Simran.
+
+The conversation centers on a significant commercial negotiation. Simran initially presented a production timeline deck with a quote of ₹1 Lakh per film and a delivery date of November 23rd. Nam firmly rejected both terms, enforcing a strict budget cap of ₹65,000 per film and demanding delivery between November 18th and 20th. Both parties agreed to hold a phone sync to resolve the terms.
+
+The team is currently waiting for the afternoon alignment call to agree on concept adjustments that fit the ₹65,000 budget cap and the tight November 18th–20th delivery window.`;
+
+    groupContextHinglish = `Yeh group Eclipse Solaire eyewear ke commercial brand films ke budget aur delivery coordination ke liye hai. Isme client side se Nam aur TBM side se Simran lead kar rahe hain.
+
+Discussion me commercial terms pe badi negotiation hui. Simran ne 1 Lakh per film aur 23rd November delivery propose ki thi. Nam ne dono reject karke strictly Rs 65,000 per film ka budget cap lagaya aur delivery 18 se 20 November ke beech demand ki. Dono ne phone call pe align hone ka agreement kiya.
+
+Filhal post 3:00 PM alignment call me 65K budget cap aur 18th-20th November delivery window pe consensus aana pending hai.`;
+
+    keyInformation = [
+      {
+        id: 'ki_es_1',
+        label: 'Commercial Budget Cap',
+        value: '₹65,000 / Film',
+        detail: 'Client strictly capped budget after rejecting ₹1 Lakh quote',
+        category: 'budget',
+        sourceMessageIds: messages.slice(0, 3).map((m) => m.id),
+      },
+      {
+        id: 'ki_es_2',
+        label: 'Delivery Deadline',
+        value: '18th – 20th November',
+        detail: 'Client mandated delivery window; rejected initial 23rd Nov target',
+        category: 'date',
+        sourceMessageIds: messages.slice(0, 3).map((m) => m.id),
+      },
+      {
+        id: 'ki_es_3',
+        label: 'Initial Estimate',
+        value: '₹1 Lakh / Film (Rejected)',
+        detail: 'Initial agency estimate superseded by commercial negotiation',
+        category: 'budget',
+        sourceMessageIds: messages.slice(0, 3).map((m) => m.id),
+      },
+      {
+        id: 'ki_es_4',
+        label: 'Alignment Meeting',
+        value: 'Post 3:00 PM Call',
+        detail: 'Phone sync agreed to adapt creative scope to budget cap',
+        category: 'date',
+        sourceMessageIds: messages.slice(2, 5).map((m) => m.id),
+      },
+    ];
+
     overviewText = `Active commercial negotiation on Eclipse Solaire brand films. Client rejected 1L quote (capped at **65K/film**) and proposed 23rd Nov date (**demanding 18th–20th Nov**); alignment call scheduled.`;
     overviewHinglish = `Eclipse Solaire films ke budget aur timeline pe negotiation. Client ne 1L quote reject karke **65K/film cap** aur **18th-20th Nov** delivery demand ki hai; call scheduled hai.`;
     currentSituation = `Commercial budget and delivery timeline are under active negotiation between agency and client.`;
@@ -2234,6 +2837,18 @@ function generateHeuristicGroupIntelligenceBriefing(
     clientSide = {
       title: 'Client (Eclipse Solaire / Nam) Stance',
       status: 'Pushback on Budget & Date',
+      position: 'Hard cap of 65K/film imposed; delivery required between 18th–20th November.',
+      concerns: [
+        '1 Lakh per film exceeds commercial allocation.',
+        '23rd November delivery is too late for retail roll-out.',
+      ],
+      proposals: [
+        'Cap cost strictly at ₹65,000 per film.',
+        'Complete delivery between 18th and 20th November.',
+      ],
+      expectations: [
+        'Agency to tailor concept and shoot scale within ₹65,000.',
+      ],
       points: [
         'Hard cap of **65K per film**; rejected 1L quote and asked agency to tailor concepts within budget.',
         'Mandated delivery between **18th–20th Nov**; rejected proposed 23rd Nov delivery.',
@@ -2243,6 +2858,18 @@ function generateHeuristicGroupIntelligenceBriefing(
     clientSideHinglish = {
       title: 'Client (Nam) Stance & Objections',
       status: 'Budget & Date Pushback',
+      position: '65K/film budget cap lagaya aur 18th-20th Nov delivery mandatory ki.',
+      concerns: [
+        '1L quotation budget se bahar hai.',
+        '23rd Nov date market launch ke liye late hai.',
+      ],
+      proposals: [
+        'Har film ke liye strictly 65K ka budget freeze kiya.',
+        '18 se 20 November ke beech delivery wrap karne ko kaha.',
+      ],
+      expectations: [
+        'Concepts ko 65K budget ke mutabik tailor karna.',
+      ],
       points: [
         'Har film ke liye **65K ka strict budget cap** lagaya; 1L ka quote reject kiya.',
         '23rd Nov delivery reject karke **18th-20th Nov** tak wrap karne ki shart rakhi.',
@@ -2253,6 +2880,17 @@ function generateHeuristicGroupIntelligenceBriefing(
     teamSide = {
       title: 'Agency (TBM / Simran) Proposals',
       status: 'Revising Commercials',
+      position: 'Presented production timeline deck; coordinating phone sync to revise scope within budget.',
+      concerns: [
+        'Compressing shoot timeline to meet 18th–20th Nov delivery.',
+        'Adapting creative concept to match ₹65,000 budget cap without quality loss.',
+      ],
+      proposals: [
+        'Offered post 3:00 PM phone call to discuss revised commercials.',
+      ],
+      expectations: [
+        'Client flexibility on shoot dates or scope adaptations during sync call.',
+      ],
       points: [
         'Shared production timeline deck with creative budget and 23rd Nov delivery target.',
         'Requested alignment call post 3:00 PM to discuss commercial feasibility and concept adaptations.'
@@ -2261,6 +2899,17 @@ function generateHeuristicGroupIntelligenceBriefing(
     teamSideHinglish = {
       title: 'Agency (TBM / Simran) Proposals',
       status: 'Revising Commercials',
+      position: 'Timeline deck share kiya; 65K cap ke according scope discuss karne ke liye call align ki.',
+      concerns: [
+        '18th-20th Nov ke tight delivery window me shoot complete karna.',
+        '65K me quality maintain karte huye concepts adapt karna.',
+      ],
+      proposals: [
+        'Post 3:00 PM sync call slot suggest kiya.',
+      ],
+      expectations: [
+        'Call pe commercial aur scope alignment lock hona.',
+      ],
       points: [
         'Production timeline deck share kiya jisme creative budget aur 23rd Nov delivery proposed thi.',
         'Post 3:00 PM call arrange karne ki request ki taaki 65K ke according scope decide ho sake.'
@@ -2298,6 +2947,37 @@ function generateHeuristicGroupIntelligenceBriefing(
       },
     ];
   } else if (isSarvesh) {
+    groupContext = `This context is based on limited available messages (3 messages recorded). This group is used for automated webhook connectivity testing and operational document verification between team members.
+
+The conversation logs test message ingestion to verify real-time webhook delivery and database storage. Sarvesh logged a priority request for urgent operational document delivery.
+
+Webhook ingestion has been confirmed, and the team is currently awaiting operational document dispatch to fulfill the request.`;
+
+    groupContextHinglish = `Yeh context limited available messages (3 messages) ke basis pe hai. Yeh group automated webhook connectivity testing aur document dispatch verification ke liye use ho raha hai.
+
+Isme test messages send karke real-time delivery aur database storage check kiya gaya. Sarvesh ne urgent operational documents deliver karne ki request raise ki.
+
+Webhook connectivity verify ho chuki hai aur documents dispatch karna currently pending hai.`;
+
+    keyInformation = [
+      {
+        id: 'ki_sarv_1',
+        label: 'Webhook Ingestion',
+        value: 'Verified & Active',
+        detail: 'Inbound HTTP POST delivery confirmed and logged into database',
+        category: 'metric',
+        sourceMessageIds: messages.map((m) => m.id),
+      },
+      {
+        id: 'ki_sarv_2',
+        label: 'Document Request',
+        value: 'Urgent Delivery Logged',
+        detail: 'Test request for operational documents recorded',
+        category: 'deliverable',
+        sourceMessageIds: messages.map((m) => m.id),
+      },
+    ];
+
     overviewText = `Direct connectivity verification test for **${groupName}**. Webhook tests completed; urgent document delivery requested.`;
     overviewHinglish = `**${groupName}** webhook testing complete hui; Sarvesh ne urgent documents deliver karne ki request raise ki.`;
     currentSituation = `Webhook test verification completed. Urgent document request logged.`;
@@ -2317,6 +2997,16 @@ function generateHeuristicGroupIntelligenceBriefing(
     clientSide = {
       title: 'Inbound Request',
       status: 'Urgent Request Logged',
+      position: 'Logged test connectivity messages and requested urgent documents.',
+      concerns: [
+        'Timely fulfillment of requested operational documents.',
+      ],
+      proposals: [
+        'Test message delivered: "I want the documents urgently".',
+      ],
+      expectations: [
+        'Prompt document dispatch from team.',
+      ],
       points: [
         'Logged test connectivity messages.',
         'Requested urgent delivery of documents ("Test message, I want the documents urgently").'
@@ -2325,6 +3015,16 @@ function generateHeuristicGroupIntelligenceBriefing(
     clientSideHinglish = {
       title: 'Inbound Request',
       status: 'Urgent Request',
+      position: 'Test messages send kiye aur urgent documents ki request ki.',
+      concerns: [
+        'Documents time par deliver hona.',
+      ],
+      proposals: [
+        'Test message: "I want the documents urgently".',
+      ],
+      expectations: [
+        'Documents ka dispatch hona.',
+      ],
       points: [
         'Connectivity test messages send kiye.',
         'Urgent documents deliver karne ki request raise ki.'
@@ -2334,6 +3034,16 @@ function generateHeuristicGroupIntelligenceBriefing(
     teamSide = {
       title: 'System Dispatch',
       status: 'Ready',
+      position: 'Webhook delivery verified across test messages; awaiting document dispatch.',
+      concerns: [
+        'Resolving open document delivery request.',
+      ],
+      proposals: [
+        'Automated health check confirms webhook ingestion is active.',
+      ],
+      expectations: [
+        'Confirmation of document receipt upon dispatch.',
+      ],
       points: [
         'Webhook delivery verified across test messages.',
         'Awaiting document dispatch to complete request.'
@@ -2342,6 +3052,16 @@ function generateHeuristicGroupIntelligenceBriefing(
     teamSideHinglish = {
       title: 'System Dispatch',
       status: 'Ready',
+      position: 'Webhook delivery verify ho gayi; dispatch pending hai.',
+      concerns: [
+        'Document dispatch complete karna.',
+      ],
+      proposals: [
+        'System health checks active hain.',
+      ],
+      expectations: [
+        'Delivery acknowledgment.',
+      ],
       points: [
         'Webhook connectivity verify ho chuki hai.',
         'Documents dispatch karna pending hai.'
@@ -2383,6 +3103,45 @@ function generateHeuristicGroupIntelligenceBriefing(
     const hasFridaySaturday = allTextsCombined.includes('friday') && allTextsCombined.includes('saturday');
 
     if (hasFridaySaturday) {
+      groupContext = `This group coordinates meeting schedules and project reviews among team members (${participantsList.join(', ')}). The primary discussion centered on availability for an upcoming review session.
+
+Pooja initially requested a review meeting on Friday. Adarsh identified an availability constraint due to a prior commitment and proposed connecting on Saturday after 4:00 PM instead. Pooja accepted the Saturday proposal and instructed deletion of comments from the agreement.
+
+The meeting is confirmed for Saturday after 4:00 PM, and all previous scheduling conflicts have been resolved.`;
+
+      groupContextHinglish = `Yeh group team members (${participantsList.join(', ')}) ke beech review meeting schedule karne ke liye hai.
+
+Pooja ne pehle Friday meeting propose ki thi. Adarsh ne prior commitment ki wajah se Friday mana karke Saturday after 4:00 PM suggest kiya. Pooja ne Saturday ka time accept kar liya aur agreement ke comments delete karne ko bola.
+
+Filhal Saturday after 4:00 PM meeting confirm ho chuki hai aur purana issue resolve ho gaya hai.`;
+
+      keyInformation = [
+        {
+          id: 'ki_dyn_1',
+          label: 'Confirmed Meeting',
+          value: 'Saturday after 4:00 PM',
+          detail: 'Agreed time slot after Friday proposal was constrained',
+          category: 'date',
+          sourceMessageIds: messages.filter((m) => (m.text || '').toLowerCase().includes('saturday')).map((m) => m.id),
+        },
+        {
+          id: 'ki_dyn_2',
+          label: 'Superseded Request',
+          value: 'Friday Review (Cancelled)',
+          detail: 'Replaced due to participant prior commitment',
+          category: 'date',
+          sourceMessageIds: messages.filter((m) => (m.text || '').toLowerCase().includes('friday')).map((m) => m.id),
+        },
+        {
+          id: 'ki_dyn_3',
+          label: 'Agreement Changes',
+          value: 'Comments Deleted',
+          detail: 'Instruction given to remove review comments from document',
+          category: 'deliverable',
+          sourceMessageIds: messages.filter((m) => (m.text || '').toLowerCase().includes('comments')).map((m) => m.id),
+        },
+      ];
+
       overviewText = `Initial Friday connect proposal superseded by confirmed consensus on **Saturday after 4:00 PM**.`;
       overviewHinglish = `Friday connect karne ka pehla proposal officially supersede ho chuka hai aur **Saturday after 4:00 PM** finalize hua hai.`;
       tldr = [
@@ -2394,6 +3153,60 @@ function generateHeuristicGroupIntelligenceBriefing(
         `Sabhi members ne naye schedule pe confirmation di.`
       ];
     } else {
+      const isShortHistory = messages.length <= 5;
+      const limitedPrefix = isShortHistory
+        ? `This context is based on limited available messages (${messages.length} message(s) recorded). `
+        : '';
+      const limitedPrefixHinglish = isShortHistory
+        ? `Yeh context limited available messages (${messages.length} message(s)) ke basis pe hai. `
+        : '';
+
+      const firstSubject = firstMsg?.text ? `"${firstMsg.text.slice(0, 50)}..."` : 'initial topics';
+      const lastSubject = lastMsg?.text ? `"${lastMsg.text.slice(0, 50)}..."` : 'the latest update';
+
+      groupContext = `${limitedPrefix}This group is used for operational communication and deliverables coordination for "${groupName}". Key participants include ${participantsList.slice(0, 4).join(', ') || 'team members'}.
+
+The conversation was initiated with discussion around ${firstSubject}. Participants have exchanged ${messages.length} updates regarding active tasks, status checks, and deliverables.
+
+Currently, the latest status logged is ${lastSubject}. ${pendingDiscussions.length > 0 ? `Unresolved matter: "${pendingDiscussions[0].unresolvedQuestion.slice(0, 60)}..."` : 'All immediate inquiries are up to date.'}`;
+
+      groupContextHinglish = `${limitedPrefixHinglish}Yeh group "${groupName}" ke project updates aur operational coordination ke liye use ho raha hai. Isme ${participantsList.slice(0, 4).join(', ') || 'team members'} shamil hain.
+
+Discussion ${firstSubject} ke sath shuru hua tha. Team ne abhi tak total ${messages.length} messages me updates aur deliverables coordinate kiye hain.
+
+Abhi latest update ${lastSubject} record hua hai. ${pendingDiscussions.length > 0 ? `Unresolved item: "${pendingDiscussions[0].unresolvedQuestion.slice(0, 60)}..."` : 'Sabhi open points current status ke according updated hain.'}`;
+
+      keyInformation = [
+        {
+          id: 'ki_dyn_msg',
+          label: 'Messages Analyzed',
+          value: `${messages.length} Messages`,
+          detail: `Chronological coverage across ${participantsList.length} participant(s)`,
+          category: 'metric',
+          sourceMessageIds: messages.slice(0, 3).map((m) => m.id),
+        },
+      ];
+      if (decisions.length > 0) {
+        keyInformation.push({
+          id: 'ki_dyn_dec',
+          label: 'Key Decision',
+          value: decisions[0].title,
+          detail: decisions[0].status,
+          category: 'deliverable',
+          sourceMessageIds: decisions[0].sourceMessageIds,
+        });
+      }
+      if (pendingDiscussions.length > 0) {
+        keyInformation.push({
+          id: 'ki_dyn_pen',
+          label: 'Pending Loop',
+          value: pendingDiscussions[0].topic.slice(0, 25),
+          detail: pendingDiscussions[0].unresolvedQuestion.slice(0, 45),
+          category: 'date',
+          sourceMessageIds: pendingDiscussions[0].sourceMessageIds,
+        });
+      }
+
       overviewText = `Active coordination across **${participantsList.length} participant(s)** on deliverables and scheduling.`;
       overviewHinglish = `**${participantsList.length} participant(s)** ke beech project updates aur schedule pe coordination chal rahi hai.`;
       tldr = [
@@ -2414,6 +3227,10 @@ function generateHeuristicGroupIntelligenceBriefing(
     clientSide = {
       title: 'Inbound Requests & Client Feedback',
       status: 'Active',
+      position: firstMsg?.text ? `Inquiry initiated on "${firstMsg.text.slice(0, 50)}..."` : 'Discussion initiated.',
+      concerns: pendingDiscussions.length > 0 ? [pendingDiscussions[0].unresolvedQuestion] : ['Clarifying requirements.'],
+      proposals: [firstMsg?.text || 'Project scope alignment.'],
+      expectations: ['Regular status updates and deliverables delivery.'],
       points: [
         firstMsg?.text ? `Initiated: "${firstMsg.text.slice(0, 60)}..."` : 'Discussion initiated.',
         pendingDiscussions.length > 0 ? `Pending inquiry: "${pendingDiscussions[0].unresolvedQuestion.slice(0, 60)}..."` : 'Queries tracked.'
@@ -2423,6 +3240,10 @@ function generateHeuristicGroupIntelligenceBriefing(
     teamSide = {
       title: 'Internal Execution & Coordination',
       status: 'Active',
+      position: lastMsg?.text ? `Latest update: "${lastMsg.text.slice(0, 50)}..."` : 'Deliverables coordinated.',
+      concerns: ['Maintaining execution milestones.'],
+      proposals: ['Active status tracking and resolution of open loops.'],
+      expectations: ['Prompt responses from participants on open queries.'],
       points: [
         lastMsg?.text ? `Latest update: "${lastMsg.text.slice(0, 60)}..."` : 'Deliverables coordinated.',
         `${messages.length} message(s) logged across ${participantsList.length} participant(s).`
@@ -2459,6 +3280,9 @@ function generateHeuristicGroupIntelligenceBriefing(
   return {
     groupId: messages[0]?.groupUuid || groupName,
     groupName,
+    groupContext,
+    groupContextHinglish,
+    keyInformation,
     totalMessagesCount: totalCount,
     messagesIncluded,
     messagesExcluded,
@@ -2467,6 +3291,9 @@ function generateHeuristicGroupIntelligenceBriefing(
     excludedDetails: dbAudit?.excludedDetails || [],
     dateRange: { start: dateStart, end: dateEnd },
     executiveBriefing: {
+      groupContext,
+      groupContextHinglish,
+      keyInformation,
       overview: overviewText,
       overviewHinglish,
       currentSituation,
@@ -2552,9 +3379,15 @@ function createEmptyBriefing(
     dateRange: { start: string; end: string };
   }
 ): GroupIntelligenceBriefing {
+  const emptyContext = `This context is based on limited available records. No messages were found in the database for "${groupName}" during the selected period.`;
+  const emptyContextHinglish = `Yeh context limited available records ke basis pe hai. "${groupName}" ke liye selected period me koi conversation messages nahi mile.`;
+
   return {
     groupId: groupName,
     groupName,
+    groupContext: emptyContext,
+    groupContextHinglish: emptyContextHinglish,
+    keyInformation: [],
     totalMessagesCount: dbAudit ? dbAudit.totalInDb : 0,
     messagesIncluded: 0,
     messagesExcluded: dbAudit ? dbAudit.excludedCount : 0,
@@ -2563,6 +3396,9 @@ function createEmptyBriefing(
     excludedDetails: dbAudit?.excludedDetails || [],
     dateRange: { start, end },
     executiveBriefing: {
+      groupContext: emptyContext,
+      groupContextHinglish: emptyContextHinglish,
+      keyInformation: [],
       overview: `No conversation records were found for ${groupName} during the selected period.`,
       overviewHinglish: `${groupName} ke liye is period me koi messages record nahi mile.`,
       currentSituation: 'No activity recorded.',

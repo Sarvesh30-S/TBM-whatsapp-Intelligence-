@@ -38,6 +38,7 @@ import {
   PendingDiscussion,
   ImportantDevelopment,
   ParticipantContribution,
+  KeyInformationItem,
 } from '@/lib/groq-client';
 import { useAuth } from '@/context/AuthContext';
 
@@ -627,259 +628,699 @@ export default function MessageSummaryView({
                 </span>
               </div>
 
-              {/* The Bottom Line: Executive Hook */}
+              {analyzing && (
+                <div className="summary-analyzing-banner">
+                  <RotateCw size={13} className="animate-spin" style={{ color: '#7667e8' }} />
+                  <span>Synthesizing conversation intelligence for <strong>{selectedGroup}</strong>...</span>
+                </div>
+              )}
+
+              {/* =========================================================================
+                  RESTRUCTURED AI SUMMARY DASHBOARD (7 PHASES IN EXACT REQUIRED ORDER)
+                  1. Group Context (Highest Priority - Prominent Top Section)
+                  2. Executive Overview
+                  3. Key Information
+                  4. Conversation Breakdown
+                  5. Decisions & Agreements
+                  6. Pending Actions & Blockers
+                  7. Timeline & Milestones
+                  ========================================================================= */}
               {(() => {
                 const eb = briefing?.executiveBriefing;
                 const isHinglish = summaryLanguage === 'hinglish';
+
+                // 1. Group Context Text & Paragraphs (Phase 1)
+                const rawGroupContext = isHinglish
+                  ? (eb?.groupContextHinglish || briefing?.groupContextHinglish || eb?.groupContext || briefing?.groupContext || '')
+                  : (eb?.groupContext || briefing?.groupContext || '');
+
+                const groupContextParagraphs = rawGroupContext
+                  ? rawGroupContext.split(/\n\n+/).map((p) => p.trim()).filter(Boolean)
+                  : [
+                      `This WhatsApp group serves as the active coordination hub for ${selectedGroup}. Discussions focus on active deliverables, client feedback, review milestones, and operational alignment.`,
+                      `Key stakeholders and team members align on scope, deliverables, and timelines. Review the sections below for the executive breakdown, commercial metrics, confirmed decisions, and pending action items.`
+                    ];
+
+                const isLimitedHistory = currentGroupMessages.length > 0 && currentGroupMessages.length <= 5;
+
+                // 2. Executive Overview Content (Phase 2)
+                const overviewNarrative = isHinglish
+                  ? (eb?.overviewHinglish || eb?.overview || '')
+                  : (eb?.overview || '');
+
+                const currentSituationText = isHinglish
+                  ? (eb?.currentSituationHinglish || eb?.currentSituation || '')
+                  : (eb?.currentSituation || '');
+
                 const tldrList: string[] = (isHinglish && eb?.tldrHinglish && eb.tldrHinglish.length > 0)
                   ? eb.tldrHinglish
                   : (eb?.tldr && eb.tldr.length > 0)
                   ? eb.tldr
-                  : [isHinglish && eb?.currentSituationHinglish ? eb.currentSituationHinglish : (eb?.currentSituation || '')];
+                  : [currentSituationText || overviewNarrative].filter(Boolean);
 
-                const clientTrack = (isHinglish && eb?.clientSideHinglish)
-                  ? {
-                      title: eb.clientSideHinglish.title || eb.clientSide?.title || 'Client Demands & Feedback',
-                      status: eb.clientSideHinglish.status || eb.clientSide?.status || 'Active',
-                      points: (eb.clientSideHinglish.points && eb.clientSideHinglish.points.length > 0)
-                        ? eb.clientSideHinglish.points
-                        : (eb.clientSide?.points || []),
+                // 3. Key Information (Budgets, pricing, dates, deliverables, metrics) (Phase 3)
+                const rawKeyInfo = isHinglish
+                  ? (eb?.keyInformationHinglish || briefing?.keyInformationHinglish || eb?.keyInformation || briefing?.keyInformation || [])
+                  : (eb?.keyInformation || briefing?.keyInformation || []);
+
+                const keyInfoItems: KeyInformationItem[] = (() => {
+                  if (rawKeyInfo && rawKeyInfo.length > 0) return rawKeyInfo;
+                  const derived: KeyInformationItem[] = [];
+                  (briefing?.decisions || []).forEach((d) => {
+                    const text = `${d.title} ${d.context}`;
+                    const budgetMatch = text.match(/(₹\s?[\d,]+|\$\s?[\d,]+|\b\d+k\b|\b\d+\s?lakhs?\b|retainer|commercials?)/i);
+                    if (budgetMatch && derived.filter((x) => x.category === 'budget').length < 2) {
+                      derived.push({
+                        id: `derived-b-${d.id}`,
+                        category: 'budget',
+                        label: d.title,
+                        value: budgetMatch[0],
+                        detail: d.context,
+                        sourceMessageIds: d.sourceMessageIds,
+                      });
                     }
-                  : (eb?.clientSide || {
-                      title: 'Client Demands & Feedback',
-                      status: 'Active',
-                      points: [eb?.attentionRequired || 'No immediate client blockers noted.'],
-                    });
-
-                const teamTrack = (isHinglish && eb?.teamSideHinglish)
-                  ? {
-                      title: eb.teamSideHinglish.title || eb.teamSide?.title || 'Internal Team Execution',
-                      status: eb.teamSideHinglish.status || eb.teamSide?.status || 'In Progress',
-                      points: (eb.teamSideHinglish.points && eb.teamSideHinglish.points.length > 0)
-                        ? eb.teamSideHinglish.points
-                        : (eb.teamSide?.points || []),
+                  });
+                  (briefing?.actionTracker || []).forEach((a) => {
+                    if (a.deadline && a.deadline !== 'Not specified' && derived.filter((x) => x.category === 'date').length < 2) {
+                      derived.push({
+                        id: `derived-d-${a.id}`,
+                        category: 'date',
+                        label: a.action,
+                        value: a.deadline,
+                        detail: `Owner: ${a.owner}`,
+                        sourceMessageIds: a.sourceMessageIds,
+                      });
                     }
-                  : (eb?.teamSide || {
-                      title: 'Internal Team Execution',
-                      status: 'In Progress',
-                      points: [eb?.currentSituation || 'Team deliverables underway.'],
-                    });
+                  });
+                  (briefing?.decisions || []).forEach((d) => {
+                    const text = `${d.title} ${d.context}`;
+                    if (/(reel|post|video|draft|script|agreement|cut|shoot|creative)/i.test(text) && derived.filter((x) => x.category === 'deliverable').length < 2) {
+                      derived.push({
+                        id: `derived-del-${d.id}`,
+                        category: 'deliverable',
+                        label: 'Deliverable Target',
+                        value: d.title,
+                        detail: d.context,
+                        sourceMessageIds: d.sourceMessageIds,
+                      });
+                    }
+                  });
+                  return derived;
+                })();
 
-                const decidedList: string[] = (isHinglish && eb?.decidedItemsHinglish && eb.decidedItemsHinglish.length > 0)
-                  ? eb.decidedItemsHinglish
-                  : (eb?.decidedItems && eb.decidedItems.length > 0)
-                  ? eb.decidedItems
-                  : (briefing?.decisions || []).filter(d => d.status === 'CONFIRMED').map(d => `${d.title}${d.context ? ` — ${d.context}` : ''}`).slice(0, 3);
+                // 4. Conversation Breakdown (Client Perspective vs Agency Perspective) (Phase 4)
+                const clientSideData = isHinglish ? (eb?.clientSideHinglish || eb?.clientSide) : eb?.clientSide;
+                const teamSideData = isHinglish ? (eb?.teamSideHinglish || eb?.teamSide) : eb?.teamSide;
 
-                const blockersList = (isHinglish && eb?.pendingBlockersHinglish && eb.pendingBlockersHinglish.length > 0)
+                const clientTrack = {
+                  title: clientSideData?.title || 'Client Perspective',
+                  status: clientSideData?.status || 'Active',
+                  position: clientSideData?.position || (clientSideData?.points && clientSideData.points[0]) || 'Reviewing submitted deliverables and providing campaign direction.',
+                  concerns: (isHinglish && clientSideData?.concernsHinglish && clientSideData.concernsHinglish.length > 0)
+                    ? clientSideData.concernsHinglish
+                    : (clientSideData?.concerns && clientSideData.concerns.length > 0)
+                    ? clientSideData.concerns
+                    : (clientSideData?.points ? clientSideData.points.slice(0, 2) : []),
+                  proposals: (isHinglish && clientSideData?.proposalsHinglish && clientSideData.proposalsHinglish.length > 0)
+                    ? clientSideData.proposalsHinglish
+                    : (clientSideData?.proposals && clientSideData.proposals.length > 0)
+                    ? clientSideData.proposals
+                    : (clientSideData?.points ? clientSideData.points.slice(1, 3) : []),
+                  expectations: (isHinglish && clientSideData?.expectationsHinglish && clientSideData.expectationsHinglish.length > 0)
+                    ? clientSideData.expectationsHinglish
+                    : (clientSideData?.expectations || []),
+                  sourceMessageIds: clientSideData?.sourceMessageIds,
+                };
+
+                const teamTrack = {
+                  title: teamSideData?.title || 'Agency Execution (TheBoredMonkey)',
+                  status: teamSideData?.status || 'In Progress',
+                  position: teamSideData?.position || (teamSideData?.points && teamSideData.points[0]) || 'Executing production deliverables and coordinating cross-functional milestones.',
+                  concerns: (isHinglish && teamSideData?.concernsHinglish && teamSideData.concernsHinglish.length > 0)
+                    ? teamSideData.concernsHinglish
+                    : (teamSideData?.concerns && teamSideData.concerns.length > 0)
+                    ? teamSideData.concerns
+                    : (teamSideData?.points ? teamSideData.points.slice(0, 2) : []),
+                  proposals: (isHinglish && teamSideData?.proposalsHinglish && teamSideData.proposalsHinglish.length > 0)
+                    ? teamSideData.proposalsHinglish
+                    : (teamSideData?.proposals && teamSideData.proposals.length > 0)
+                    ? teamSideData.proposals
+                    : (teamSideData?.points ? teamSideData.points.slice(1, 3) : []),
+                  expectations: (isHinglish && teamSideData?.expectationsHinglish && teamSideData.expectationsHinglish.length > 0)
+                    ? teamSideData.expectationsHinglish
+                    : (teamSideData?.expectations || []),
+                  sourceMessageIds: teamSideData?.sourceMessageIds,
+                };
+
+                // 5. Decisions & Agreements (Confirmed vs Proposals) (Phase 5)
+                const confirmedDecisions = (briefing?.decisions || []).filter((d) => d.status === 'CONFIRMED');
+                const otherDecisions = (briefing?.decisions || []).filter((d) => d.status !== 'CONFIRMED');
+
+                // 6. Pending Actions & Blockers (Phase 6)
+                const unresolvedActions = (briefing?.actionTracker || []).filter((a) => a.status !== 'COMPLETED');
+                const activeBlockers = (isHinglish && eb?.pendingBlockersHinglish && eb.pendingBlockersHinglish.length > 0)
                   ? eb.pendingBlockersHinglish
                   : (eb?.pendingBlockers && eb.pendingBlockers.length > 0)
                   ? eb.pendingBlockers
-                  : (briefing?.pendingDiscussions || []).map(p => ({
+                  : (briefing?.pendingDiscussions || []).map((p) => ({
                       item: p.unresolvedQuestion || p.topic,
                       waitingOn: (p.participantsInvolved || [])[0] || 'Team',
+                      sourceMessageIds: p.sourceMessageIds,
                     }));
 
+                // 7. Timeline & Milestones (Phase 7)
+                const storylineSteps = briefing?.storyline || [];
+
                 return (
-                  <div className="formal-briefing-doc">
-                    {/* 1. KEY TAKEAWAYS (THE BOTTOM LINE) */}
-                    <section className="formal-section">
-                      <div className="formal-section-header">
-                        <span className="formal-section-title">Key Takeaways</span>
-                        <span className="formal-section-sub">Executive Summary</span>
+                  <div className="modern-saas-summary-stack">
+                    {/* -------------------------------------------------------------
+                        1. GROUP CONTEXT (Highest Priority - Prominent Top Section)
+                        ------------------------------------------------------------- */}
+                    <section className="summary-group-context-card">
+                      <div className="group-context-top-bar">
+                        <div className="group-context-start-badge">
+                          <Sparkles size={13} className="context-badge-icon" />
+                          <span>New to this group? Start here.</span>
+                        </div>
+                        <span className="group-context-section-label">GROUP CONTEXT</span>
                       </div>
 
-                      {tldrList.length > 0 ? (
-                        <ul className="formal-bullets-list">
-                          {tldrList.map((bullet, idx) => (
-                            <li key={idx} className="formal-bullet-row">
-                              <span className="formal-bullet-dot primary" />
-                              <span className="formal-bullet-text">{renderFormattedText(bullet)}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="formal-bullet-text">
-                          {isHinglish && eb?.currentSituationHinglish
-                            ? eb.currentSituationHinglish
-                            : eb?.currentSituation}
-                        </p>
-                      )}
+                      <div className="group-context-body">
+                        {groupContextParagraphs.map((para, idx) => (
+                          <p key={idx} className="group-context-paragraph">
+                            {renderFormattedText(para)}
+                          </p>
+                        ))}
+                      </div>
 
-                      {briefing?.decisions && briefing.decisions.length > 0 && (
-                        <div className="bottom-line-decisions-preview" style={{ marginTop: '8px' }}>
-                          <span className="preview-label">Key Milestones:</span>
-                          {briefing.decisions.slice(0, 3).map((d) => (
-                            <button
-                              key={d.id}
-                              type="button"
-                              className={`preview-chip ${d.status === 'SUPERSEDED' ? 'chip-superseded' : ''}`}
-                              onClick={() => setActiveSection('decisions')}
-                              title={`Click to view in Decisions Log (${d.status})`}
-                            >
-                              {d.status === 'CONFIRMED' ? (
-                                <CheckCircle2 size={12} style={{ color: '#059669' }} />
-                              ) : d.status === 'SUPERSEDED' ? (
-                                <Clock size={12} style={{ color: '#64748b' }} />
-                              ) : (
-                                <Compass size={12} style={{ color: '#d97706' }} />
-                              )}
-                              <span>{d.title}</span>
-                            </button>
-                          ))}
-                          {briefing.decisions.length > 3 && (
-                            <button
-                              type="button"
-                              className="preview-chip"
-                              onClick={() => setActiveSection('decisions')}
-                              style={{ color: '#4f46e5', fontWeight: 700 }}
-                            >
-                              +{briefing.decisions.length - 3} more &rarr;
-                            </button>
-                          )}
+                      {isLimitedHistory && (
+                        <div className="group-context-limited-bar">
+                          <AlertTriangle size={12} />
+                          <span>Context is based on limited available messages ({currentGroupMessages.length} total messages in this group).</span>
                         </div>
                       )}
                     </section>
 
-                    {/* 2. CONVERSATION BREAKDOWN (CLIENT vs AGENCY) */}
-                    <section className="formal-section">
-                      <div className="formal-section-header">
-                        <span className="formal-section-title">Conversation Breakdown</span>
-                        <span className="formal-section-sub">Client vs Agency Streams</span>
+                    {/* -------------------------------------------------------------
+                        2. EXECUTIVE OVERVIEW
+                        ------------------------------------------------------------- */}
+                    <section className="summary-dashboard-card">
+                      <div className="summary-card-header">
+                        <div className="card-header-left">
+                          <h2 className="summary-card-title">Executive Overview</h2>
+                          <span className="summary-card-subtitle">Key developments &amp; current situation</span>
+                        </div>
                       </div>
 
-                      <div className="formal-streams-grid">
-                        {/* Left: Client Track */}
-                        <div className="formal-stream-col client">
-                          <div className="formal-stream-header">
-                            <div className="formal-stream-name">
-                              <span className="formal-stream-label">CLIENT PERSPECTIVE</span>
-                              <span className="formal-stream-actor">{clientTrack.title}</span>
+                      <div className="executive-overview-content">
+                        {overviewNarrative && (
+                          <p className="overview-narrative-text">
+                            {renderFormattedText(overviewNarrative)}
+                          </p>
+                        )}
+
+                        {tldrList.length > 0 && (
+                          <div className="overview-takeaways-group">
+                            <span className="overview-takeaways-title">Key Highlights</span>
+                            <ul className="overview-highlights-list">
+                              {tldrList.map((bullet, idx) => (
+                                <li key={idx} className="overview-highlight-row">
+                                  <span className="overview-bullet-dot" />
+                                  <span className="overview-bullet-text">{renderFormattedText(bullet)}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {currentSituationText && currentSituationText !== overviewNarrative && (
+                          <div className="overview-situation-callout">
+                            <span className="situation-badge">CURRENT STATUS</span>
+                            <p className="situation-text">{renderFormattedText(currentSituationText)}</p>
+                          </div>
+                        )}
+                      </div>
+                    </section>
+
+                    {/* -------------------------------------------------------------
+                        3. KEY INFORMATION (Compact Information Cards)
+                        ------------------------------------------------------------- */}
+                    <section className="summary-dashboard-card">
+                      <div className="summary-card-header">
+                        <div className="card-header-left">
+                          <h2 className="summary-card-title">Key Information</h2>
+                          <span className="summary-card-subtitle">Budgets, pricing, delivery dates, deliverables &amp; critical metrics</span>
+                        </div>
+                      </div>
+
+                      {keyInfoItems.length > 0 ? (
+                        <div className="key-info-grid">
+                          {keyInfoItems.map((item) => {
+                            const cat = item.category || 'metric';
+                            return (
+                              <div key={item.id} className={`key-info-card cat-${cat}`}>
+                                <div className="key-info-card-header">
+                                  <span className={`key-info-cat-pill pill-${cat}`}>
+                                    {cat === 'budget' && '💰 BUDGET / PRICING'}
+                                    {cat === 'date' && '📅 DELIVERY DATE / DEADLINE'}
+                                    {cat === 'deliverable' && '📦 DELIVERABLE'}
+                                    {cat === 'metric' && '📊 METRIC / NUMBER'}
+                                  </span>
+                                  {renderCitationBadge(item.sourceMessageIds)}
+                                </div>
+                                <div className="key-info-card-value" title={item.value}>
+                                  {item.value}
+                                </div>
+                                <div className="key-info-card-label">{item.label}</div>
+                                {item.detail && (
+                                  <div className="key-info-card-detail">{item.detail}</div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="summary-empty-state">
+                          <FileText size={15} />
+                          <span>No explicit commercial pricing, delivery deadlines, or fixed deliverables mentioned in conversation.</span>
+                        </div>
+                      )}
+                    </section>
+
+                    {/* -------------------------------------------------------------
+                        4. CONVERSATION BREAKDOWN (Client vs Agency Separate)
+                        ------------------------------------------------------------- */}
+                    <section className="summary-dashboard-card">
+                      <div className="summary-card-header">
+                        <div className="card-header-left">
+                          <h2 className="summary-card-title">Conversation Breakdown</h2>
+                          <span className="summary-card-subtitle">Client Perspective &amp; Agency Perspective &mdash; side-by-side comparison</span>
+                        </div>
+                      </div>
+
+                      <div className="breakdown-streams-grid">
+                        {/* Client Perspective Column */}
+                        <div className="stream-perspective-col client-perspective">
+                          <div className="perspective-stream-header">
+                            <div className="perspective-title-wrap">
+                              <div className="perspective-icon-wrap client">
+                                <Building2 size={15} />
+                              </div>
+                              <div>
+                                <span className="perspective-stream-kicker">CLIENT PERSPECTIVE</span>
+                                <h3 className="perspective-actor-heading">{clientTrack.title}</h3>
+                              </div>
                             </div>
                             {clientTrack.status && (
-                              <span className="formal-status-tag">{clientTrack.status}</span>
+                              <span className="perspective-status-pill client">{clientTrack.status}</span>
                             )}
                           </div>
-                          <ul className="formal-bullets-list">
-                            {clientTrack.points.map((pt, idx) => (
-                              <li key={idx} className="formal-bullet-row">
-                                <span className="formal-bullet-dot" />
-                                <span className="formal-bullet-text">{renderFormattedText(pt)}</span>
-                              </li>
-                            ))}
-                          </ul>
+
+                          <div className="perspective-stream-body">
+                            {/* Position */}
+                            <div className="perspective-facet-block">
+                              <span className="facet-label">Current Position</span>
+                              <p className="facet-content-text">{renderFormattedText(clientTrack.position)}</p>
+                            </div>
+
+                            {/* Main Concerns */}
+                            {clientTrack.concerns.length > 0 && (
+                              <div className="perspective-facet-block">
+                                <span className="facet-label">Main Concerns &amp; Constraints</span>
+                                <ul className="facet-bullets-list">
+                                  {clientTrack.concerns.map((c, i) => (
+                                    <li key={i} className="facet-bullet-row">
+                                      <span className="facet-bullet-dot client" />
+                                      <span className="facet-bullet-text">{renderFormattedText(c)}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {/* Proposals */}
+                            {clientTrack.proposals.length > 0 && (
+                              <div className="perspective-facet-block">
+                                <span className="facet-label">Proposals &amp; Feedback</span>
+                                <ul className="facet-bullets-list">
+                                  {clientTrack.proposals.map((p, i) => (
+                                    <li key={i} className="facet-bullet-row">
+                                      <span className="facet-bullet-dot client" />
+                                      <span className="facet-bullet-text">{renderFormattedText(p)}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {/* Expectations */}
+                            {clientTrack.expectations.length > 0 && (
+                              <div className="perspective-facet-block">
+                                <span className="facet-label">Next Expectations</span>
+                                <ul className="facet-bullets-list">
+                                  {clientTrack.expectations.map((exp, i) => (
+                                    <li key={i} className="facet-bullet-row">
+                                      <span className="facet-bullet-dot client" />
+                                      <span className="facet-bullet-text">{renderFormattedText(exp)}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
                         </div>
 
-                        {/* Right: Agency Track */}
-                        <div className="formal-stream-col agency">
-                          <div className="formal-stream-header">
-                            <div className="formal-stream-name">
-                              <span className="formal-stream-label">AGENCY EXECUTION</span>
-                              <span className="formal-stream-actor">{teamTrack.title}</span>
+                        {/* Agency Perspective Column */}
+                        <div className="stream-perspective-col agency-perspective">
+                          <div className="perspective-stream-header">
+                            <div className="perspective-title-wrap">
+                              <div className="perspective-icon-wrap agency">
+                                <Briefcase size={15} />
+                              </div>
+                              <div>
+                                <span className="perspective-stream-kicker">AGENCY PERSPECTIVE</span>
+                                <h3 className="perspective-actor-heading">{teamTrack.title}</h3>
+                              </div>
                             </div>
                             {teamTrack.status && (
-                              <span className="formal-status-tag">{teamTrack.status}</span>
+                              <span className="perspective-status-pill agency">{teamTrack.status}</span>
                             )}
                           </div>
-                          <ul className="formal-bullets-list">
-                            {teamTrack.points.map((pt, idx) => (
-                              <li key={idx} className="formal-bullet-row">
-                                <span className="formal-bullet-dot" />
-                                <span className="formal-bullet-text">{renderFormattedText(pt)}</span>
-                              </li>
-                            ))}
-                          </ul>
+
+                          <div className="perspective-stream-body">
+                            {/* Position */}
+                            <div className="perspective-facet-block">
+                              <span className="facet-label">Operational Posture</span>
+                              <p className="facet-content-text">{renderFormattedText(teamTrack.position)}</p>
+                            </div>
+
+                            {/* Main Concerns / Constraints */}
+                            {teamTrack.concerns.length > 0 && (
+                              <div className="perspective-facet-block">
+                                <span className="facet-label">Constraints &amp; Scope Boundaries</span>
+                                <ul className="facet-bullets-list">
+                                  {teamTrack.concerns.map((c, i) => (
+                                    <li key={i} className="facet-bullet-row">
+                                      <span className="facet-bullet-dot agency" />
+                                      <span className="facet-bullet-text">{renderFormattedText(c)}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {/* Proposals */}
+                            {teamTrack.proposals.length > 0 && (
+                              <div className="perspective-facet-block">
+                                <span className="facet-label">Solutions &amp; Deliverables</span>
+                                <ul className="facet-bullets-list">
+                                  {teamTrack.proposals.map((p, i) => (
+                                    <li key={i} className="facet-bullet-row">
+                                      <span className="facet-bullet-dot agency" />
+                                      <span className="facet-bullet-text">{renderFormattedText(p)}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {/* Expectations */}
+                            {teamTrack.expectations.length > 0 && (
+                              <div className="perspective-facet-block">
+                                <span className="facet-label">Next Expectations From Client</span>
+                                <ul className="facet-bullets-list">
+                                  {teamTrack.expectations.map((exp, i) => (
+                                    <li key={i} className="facet-bullet-row">
+                                      <span className="facet-bullet-dot agency" />
+                                      <span className="facet-bullet-text">{renderFormattedText(exp)}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </section>
 
-                    {/* 3. AGREED DECISIONS & SETTLED ITEMS */}
-                    {decidedList.length > 0 && (
-                      <section className="formal-section">
-                        <div className="formal-section-header">
-                          <span className="formal-section-title">Agreed &amp; Settled</span>
-                          <span className="formal-section-sub">{decidedList.length} Confirmed</span>
+                    {/* -------------------------------------------------------------
+                        5. DECISIONS & AGREEMENTS (Only Confirmed Decisions)
+                        ------------------------------------------------------------- */}
+                    <section className="summary-dashboard-card">
+                      <div className="summary-card-header">
+                        <div className="card-header-left">
+                          <h2 className="summary-card-title">Decisions &amp; Agreements</h2>
+                          <span className="summary-card-subtitle">
+                            Confirmed agreements ({confirmedDecisions.length} Confirmed)
+                          </span>
                         </div>
-                        <ul className="formal-bullets-list">
-                          {decidedList.map((dec, idx) => (
-                            <li key={idx} className="formal-bullet-row settled">
-                              <CheckCircle2 size={13} className="formal-settled-icon" />
-                              <span className="formal-bullet-text">{renderFormattedText(dec)}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </section>
-                    )}
+                        <button
+                          type="button"
+                          className="summary-card-action-btn"
+                          onClick={() => setActiveSection('decisions')}
+                        >
+                          View Decisions Log &rarr;
+                        </button>
+                      </div>
 
-                    {/* 4. ACTIVE BLOCKERS & DEPENDENCIES */}
-                    {blockersList.length > 0 && (
-                      <section className="formal-section">
-                        <div className="formal-section-header">
-                          <span className="formal-section-title">Active Blockers &amp; Dependencies</span>
-                          <span className="formal-section-sub">{blockersList.length} Pending</span>
+                      {confirmedDecisions.length > 0 ? (
+                        <div className="confirmed-decisions-stack">
+                          {confirmedDecisions.map((dec) => (
+                            <div key={dec.id} className="confirmed-decision-row">
+                              <div className="decision-status-col">
+                                <CheckCircle2 size={16} className="decision-confirmed-check" />
+                              </div>
+                              <div className="decision-content-col">
+                                <div className="decision-top-meta-line">
+                                  <span className="decision-status-tag-confirmed">CONFIRMED</span>
+                                  <h4 className="decision-heading-text">{dec.title}</h4>
+                                </div>
+                                {dec.context && (
+                                  <p className="decision-context-paragraph">{renderFormattedText(dec.context)}</p>
+                                )}
+                                <div className="decision-bottom-meta-line">
+                                  <span className="decision-date-tag">
+                                    <Calendar size={11} /> {dec.date}
+                                  </span>
+                                  {dec.participants && dec.participants.length > 0 && (
+                                    <span className="decision-participants-tag">
+                                      <Users size={11} /> {dec.participants.join(', ')}
+                                    </span>
+                                  )}
+                                  {renderCitationBadge(dec.sourceMessageIds)}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                        <ul className="formal-blockers-list">
-                          {blockersList.map((blk, idx) => (
-                            <li key={idx} className="formal-blocker-row">
-                              <AlertTriangle size={13} className="formal-blocker-icon" />
-                              <div className="formal-blocker-content">
-                                <span className="formal-blocker-title">{renderFormattedText(blk.item)}</span>
+                      ) : (
+                        <div className="summary-empty-state">
+                          <CheckCircle2 size={15} style={{ color: '#10b981' }} />
+                          <span>No binding decisions have been formally confirmed yet in this group.</span>
+                        </div>
+                      )}
+
+                      {/* Distinct secondary section for non-confirmed suggestions */}
+                      {otherDecisions.length > 0 && (
+                        <div className="unconfirmed-proposals-container">
+                          <div className="unconfirmed-header">
+                            <span className="unconfirmed-title">
+                              Pending Proposals &amp; Superseded Items ({otherDecisions.length})
+                            </span>
+                            <span className="unconfirmed-disclaimer">
+                              *Unconfirmed proposals and superseded suggestions (not binding agreements)
+                            </span>
+                          </div>
+                          <div className="unconfirmed-proposals-grid">
+                            {otherDecisions.map((p) => (
+                              <div key={p.id} className={`unconfirmed-item-card ${p.status.toLowerCase()}`}>
+                                <div className="unconfirmed-card-top">
+                                  <span className={`unconfirmed-badge ${p.status.toLowerCase()}`}>
+                                    {p.status}
+                                  </span>
+                                  <span className="unconfirmed-date">{p.date}</span>
+                                </div>
+                                <div className="unconfirmed-card-title">{p.title}</div>
+                                {p.context && <p className="unconfirmed-card-context">{p.context}</p>}
+                                <div className="unconfirmed-card-footer">
+                                  {renderCitationBadge(p.sourceMessageIds)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </section>
+
+                    {/* -------------------------------------------------------------
+                        6. PENDING ACTIONS & BLOCKERS
+                        ------------------------------------------------------------- */}
+                    <section className="summary-dashboard-card">
+                      <div className="summary-card-header">
+                        <div className="card-header-left">
+                          <h2 className="summary-card-title">Pending Actions &amp; Blockers</h2>
+                          <span className="summary-card-subtitle">
+                            Unresolved tasks, assigned owners, and operational blockers
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          className="summary-card-action-btn"
+                          onClick={() => setActiveSection('actions')}
+                        >
+                          View Action Tracker &rarr;
+                        </button>
+                      </div>
+
+                      {/* Active Blockers Callout */}
+                      {activeBlockers.length > 0 && (
+                        <div className="summary-blockers-callout">
+                          <div className="blockers-callout-header">
+                            <AlertTriangle size={15} className="blocker-warning-icon" />
+                            <span className="blockers-callout-heading">Active Blockers &amp; Dependencies</span>
+                          </div>
+                          <div className="blockers-callout-list">
+                            {activeBlockers.map((blk, idx) => (
+                              <div key={idx} className="blocker-callout-row">
+                                <span className="blocker-title-text">{renderFormattedText(blk.item)}</span>
                                 {blk.waitingOn && (
-                                  <span className="formal-dependency-tag">
+                                  <span className="blocker-dependency-badge">
                                     Awaiting action from: <strong>{blk.waitingOn}</strong>
                                   </span>
                                 )}
+                                {renderCitationBadge(blk.sourceMessageIds)}
                               </div>
-                            </li>
-                          ))}
-                        </ul>
-                      </section>
-                    )}
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Unresolved Tasks Table */}
+                      {unresolvedActions.length > 0 ? (
+                        <div className="summary-actions-table-box">
+                          <table className="modern-actions-table">
+                            <thead>
+                              <tr>
+                                <th style={{ width: '42%' }}>Task Description</th>
+                                <th style={{ width: '18%' }}>Responsible Owner</th>
+                                <th style={{ width: '16%' }}>Current Status</th>
+                                <th style={{ width: '14%' }}>Deadline</th>
+                                <th style={{ width: '10%' }}>Source</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {unresolvedActions.map((task) => {
+                                const s = (task.status || 'PENDING').toUpperCase();
+                                const statusClass =
+                                  s === 'IN_PROGRESS' ? 'status-in-progress' :
+                                  s === 'BLOCKED' ? 'status-blocked' : 'status-pending';
+
+                                return (
+                                  <tr key={task.id} className="action-table-row">
+                                    <td className="action-task-col">
+                                      <span className="action-task-text">{task.action}</span>
+                                      {task.status === 'BLOCKED' && (
+                                        <span className="action-blocked-hint">Blocked: awaiting inputs</span>
+                                      )}
+                                    </td>
+                                    <td className="action-owner-col">
+                                      <span className={`action-owner-tag ${task.owner === 'Unassigned' ? 'unassigned' : ''}`}>
+                                        {task.owner || 'Unassigned'}
+                                      </span>
+                                    </td>
+                                    <td className="action-status-col">
+                                      <span className={`action-status-pill ${statusClass}`}>
+                                        {s.replace('_', ' ')}
+                                      </span>
+                                    </td>
+                                    <td className="action-deadline-col">
+                                      <span className="action-deadline-label">{task.deadline || 'Not specified'}</span>
+                                    </td>
+                                    <td className="action-citation-col">
+                                      {renderCitationBadge(task.sourceMessageIds)}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="summary-empty-state">
+                          <CheckCircle2 size={15} style={{ color: '#10b981' }} />
+                          <span>No pending tasks or unresolved action items recorded for this group.</span>
+                        </div>
+                      )}
+                    </section>
+
+                    {/* -------------------------------------------------------------
+                        7. TIMELINE & MILESTONES (Clean Vertical Timeline)
+                        ------------------------------------------------------------- */}
+                    <section className="summary-dashboard-card">
+                      <div className="summary-card-header">
+                        <div className="card-header-left">
+                          <h2 className="summary-card-title">Timeline &amp; Milestones</h2>
+                          <span className="summary-card-subtitle">
+                            Important events and deadlines in a clean vertical timeline
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          className="summary-card-action-btn"
+                          onClick={() => setActiveSection('storyline')}
+                        >
+                          View Full Storyline &rarr;
+                        </button>
+                      </div>
+
+                      {storylineSteps.length > 0 ? (
+                        <div className="vertical-milestones-timeline">
+                          {storylineSteps.map((step, idx) => {
+                            const isLast = idx === storylineSteps.length - 1;
+                            const stageName = (step.stage || 'DISCUSSION').replace(/_/g, ' ');
+
+                            return (
+                              <div key={step.id || idx} className={`vertical-timeline-item ${isLast ? 'last-node' : ''}`}>
+                                <div className="vertical-timeline-track">
+                                  <div className="vertical-timeline-dot" />
+                                  {!isLast && <div className="vertical-timeline-stem" />}
+                                </div>
+
+                                <div className="vertical-timeline-card">
+                                  <div className="vertical-timeline-card-header">
+                                    <span className="timeline-stage-tag">{stageName}</span>
+                                    <span className="timeline-date-label">
+                                      <Clock size={11} />
+                                      {step.timestamp}
+                                    </span>
+                                  </div>
+
+                                  <h4 className="timeline-event-title">{step.heading}</h4>
+                                  <p className="timeline-event-desc">{renderFormattedText(step.description)}</p>
+
+                                  <div className="timeline-event-footer">
+                                    {step.participants && step.participants.length > 0 && (
+                                      <span className="timeline-participants-meta">
+                                        <Users size={11} /> {step.participants.join(', ')}
+                                      </span>
+                                    )}
+                                    {renderCitationBadge(step.sourceMessageIds)}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="summary-empty-state">
+                          <Clock size={15} />
+                          <span>Timeline milestones will populate as the conversation develops.</span>
+                        </div>
+                      )}
+                    </section>
                   </div>
                 );
               })()}
-
-              {/* Decisions Made Section */}
-              {briefing?.decisions && briefing.decisions.length > 0 && (
-                <div className="briefing-decisions-section">
-                  <div className="section-title-with-icon">
-                    <CheckCircle2 size={16} style={{ color: '#10b981' }} />
-                    <h3 className="briefing-section-heading">Decisions Made</h3>
-                  </div>
-                  <ul className="briefing-bullets-list">
-                    {briefing.decisions.map((dec, i) => (
-                      <li key={dec.id || i} className="briefing-bullet-item">
-                        <span className="bullet-dot" />
-                        <span className="bullet-text"><strong>{dec.title}</strong> &mdash; <span className="bullet-context">{dec.context}</span></span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Action Items Section */}
-              {briefing?.actionTracker && briefing.actionTracker.length > 0 && (
-                <div className="briefing-actions-section">
-                  <div className="section-title-with-icon">
-                    <ListTodo size={16} style={{ color: '#6366f1' }} />
-                    <h3 className="briefing-section-heading">Action Items ({briefing.actionTracker.length})</h3>
-                  </div>
-                  <div className="briefing-action-cards-list">
-                    {briefing.actionTracker.map((act, i) => (
-                      <div key={act.id || i} className="briefing-action-row">
-                        <div className="action-row-left">
-                          <input type="checkbox" className="action-checkbox" readOnly checked={act.status === 'COMPLETED'} />
-                          <span className="action-row-text">{act.action}</span>
-                        </div>
-                        <div className="action-row-right">
-                          <span className="action-owner-pill">{act.owner}</span>
-                          <span className={`action-status-pill ${act.status.toLowerCase()}`}>{act.status}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
 
             </div>
           </div>

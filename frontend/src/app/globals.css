@@ -7426,3 +7426,966 @@ body {
     min-width: 100%;
   }
 }
+
+
+/* =========================================================================
+   Redesigned Premium SaaS WhatsApp Intelligence Dashboard (Phases 1 - 7)
+   Colors: Primary #7667E8 | Text #172033 | Secondary #64748B | Card #F8FAFC | Border #E8ECF2
+   ========================================================================= */
+
+.modern-saas-summary-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+.summary-analyzing-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: #faf9fe;
+  border: 1px solid #e4e7f5;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #5b4bd8;
+  margin-bottom: 8px;
+}
+
+/* Phase 1: Group Context (Most Prominent Top Section) */
+.summary-group-context-card {
+  background-color: #f9f9fd;
+  border: 1px solid #e4e7f5;
+  border-left: 4px solid #7667e8;
+  border-radius: 10px;
+  padding: 20px 22px;
+  box-shadow: 0 1px 3px rgba(118, 103, 232, 0.05);
+}
+
+.group-context-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.group-context-start-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #ecebfd;
+  color: #5b4bd8;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+  letter-spacing: -0.01em;
+}
+
+.group-context-start-badge .context-badge-icon {
+  color: #7667e8;
+}
+
+.group-context-section-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #7667e8;
+}
+
+.group-context-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.group-context-paragraph {
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: #172033;
+  margin: 0;
+}
+
+.group-context-paragraph strong {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.group-context-limited-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed #e2e8f0;
+  font-size: 11px;
+  color: #64748b;
+  font-style: italic;
+}
+
+/* Phase 2: Executive Overview & Generic Dashboard Card */
+.summary-dashboard-card {
+  background-color: #ffffff;
+  border: 1px solid #e8ecf2;
+  border-radius: 10px;
+  padding: 20px 22px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.summary-card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.card-header-left {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.summary-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #172033;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.summary-card-subtitle {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.summary-card-action-btn {
+  background: none;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: #7667e8;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.summary-card-action-btn:hover {
+  background-color: #f5f3ff;
+  color: #5b4bd8;
+}
+
+.executive-overview-content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.overview-narrative-text {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: #172033;
+  margin: 0;
+}
+
+.overview-takeaways-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background-color: #f8fafc;
+  border: 1px solid #e8ecf2;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.overview-takeaways-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+}
+
+.overview-highlights-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.overview-highlight-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #172033;
+}
+
+.overview-bullet-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: #7667e8;
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+
+.overview-bullet-text {
+  flex: 1;
+}
+
+.overview-situation-callout {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  background-color: #f8fafc;
+  border-left: 3px solid #7667e8;
+  border-radius: 0 6px 6px 0;
+  padding: 10px 14px;
+  font-size: 12.5px;
+}
+
+.situation-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #7667e8;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+.situation-text {
+  color: #334155;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Phase 3: Key Information Grid & Cards */
+.key-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+}
+
+.key-info-card {
+  background-color: #f8fafc;
+  border: 1px solid #e8ecf2;
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.key-info-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.key-info-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.key-info-cat-pill {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.key-info-cat-pill.pill-budget {
+  background-color: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.key-info-cat-pill.pill-date {
+  background-color: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+.key-info-cat-pill.pill-deliverable {
+  background-color: #f5f3ff;
+  color: #5b4bd8;
+  border: 1px solid #ddd6fe;
+}
+
+.key-info-cat-pill.pill-metric {
+  background-color: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.key-info-card-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: #172033;
+  line-height: 1.3;
+}
+
+.key-info-card-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.key-info-card-detail {
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+/* Phase 4: Conversation Breakdown (Client vs Agency Streams) */
+.breakdown-streams-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .breakdown-streams-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.stream-perspective-col {
+  background-color: #f8fafc;
+  border: 1px solid #e8ecf2;
+  border-radius: 10px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stream-perspective-col.client-perspective {
+  border-top: 3px solid #0284c7;
+}
+
+.stream-perspective-col.agency-perspective {
+  border-top: 3px solid #7667e8;
+}
+
+.perspective-stream-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e8ecf2;
+  gap: 8px;
+}
+
+.perspective-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.perspective-icon-wrap {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.perspective-icon-wrap.client {
+  background-color: #e0f2fe;
+  color: #0284c7;
+}
+
+.perspective-icon-wrap.agency {
+  background-color: #ecebfd;
+  color: #7667e8;
+}
+
+.perspective-stream-kicker {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  display: block;
+}
+
+.perspective-actor-heading {
+  font-size: 13px;
+  font-weight: 700;
+  color: #172033;
+  margin: 0;
+}
+
+.perspective-status-pill {
+  font-size: 9.5px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.perspective-status-pill.client {
+  background-color: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.perspective-status-pill.agency {
+  background-color: #ede9fe;
+  color: #5b4bd8;
+  border: 1px solid #ddd6fe;
+}
+
+.perspective-stream-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.perspective-facet-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.facet-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+}
+
+.facet-content-text {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #172033;
+  margin: 0;
+}
+
+.facet-bullets-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.facet-bullet-row {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #172033;
+}
+
+.facet-bullet-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+
+.facet-bullet-dot.client {
+  background-color: #0284c7;
+}
+
+.facet-bullet-dot.agency {
+  background-color: #7667e8;
+}
+
+.facet-bullet-text {
+  flex: 1;
+}
+
+/* Phase 5: Decisions & Agreements (Confirmed vs Unconfirmed) */
+.confirmed-decisions-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.confirmed-decision-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background-color: #f8fafc;
+  border: 1px solid #e8ecf2;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.decision-status-col {
+  padding-top: 2px;
+  flex-shrink: 0;
+}
+
+.decision-confirmed-check {
+  color: #10b981;
+}
+
+.decision-content-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.decision-top-meta-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.decision-status-tag-confirmed {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background-color: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  letter-spacing: 0.04em;
+}
+
+.decision-heading-text {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #172033;
+  margin: 0;
+}
+
+.decision-context-paragraph {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #334155;
+  margin: 0;
+}
+
+.decision-bottom-meta-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #64748b;
+  flex-wrap: wrap;
+}
+
+.decision-date-tag,
+.decision-participants-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.unconfirmed-proposals-container {
+  margin-top: 16px;
+  padding: 14px 16px;
+  background-color: #fafbfc;
+  border: 1px dashed #d1d5db;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.unconfirmed-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.unconfirmed-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.unconfirmed-disclaimer {
+  font-size: 10.5px;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.unconfirmed-proposals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.unconfirmed-item-card {
+  background-color: #ffffff;
+  border: 1px solid #e8ecf2;
+  border-radius: 6px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11.5px;
+}
+
+.unconfirmed-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.unconfirmed-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+
+.unconfirmed-badge.proposed {
+  background-color: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.unconfirmed-badge.superseded {
+  background-color: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+}
+
+.unconfirmed-date {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.unconfirmed-card-title {
+  font-weight: 600;
+  color: #334155;
+}
+
+.unconfirmed-card-context {
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.unconfirmed-card-footer {
+  margin-top: 4px;
+}
+
+/* Phase 6: Pending Actions & Blockers */
+.summary-blockers-callout {
+  background-color: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.blockers-callout-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.blocker-warning-icon {
+  color: #d97706;
+}
+
+.blockers-callout-heading {
+  font-size: 12px;
+  font-weight: 700;
+  color: #92400e;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.blockers-callout-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.blocker-callout-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  flex-wrap: wrap;
+}
+
+.blocker-title-text {
+  color: #172033;
+  font-weight: 500;
+}
+
+.blocker-dependency-badge {
+  font-size: 11px;
+  color: #92400e;
+  background-color: #fef3c7;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #fde68a;
+}
+
+.summary-actions-table-box {
+  border: 1px solid #e8ecf2;
+  border-radius: 8px;
+  overflow-x: auto;
+  background-color: #ffffff;
+}
+
+.modern-actions-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  text-align: left;
+}
+
+.modern-actions-table th {
+  background-color: #f8fafc;
+  color: #64748b;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 10px 14px;
+  border-bottom: 1px solid #e8ecf2;
+}
+
+.modern-actions-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.action-table-row:last-child td {
+  border-bottom: none;
+}
+
+.action-table-row:hover {
+  background-color: #fbfbfe;
+}
+
+.action-task-col {
+  color: #172033;
+  font-weight: 500;
+}
+
+.action-task-text {
+  display: block;
+}
+
+.action-blocked-hint {
+  font-size: 10.5px;
+  color: #dc2626;
+  font-style: italic;
+  display: block;
+  margin-top: 2px;
+}
+
+.action-owner-tag {
+  font-size: 11px;
+  font-weight: 600;
+  color: #334155;
+  background-color: #f1f5f9;
+  padding: 2px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.action-owner-tag.unassigned {
+  color: #94a3b8;
+  background-color: #f8fafc;
+  border: 1px dashed #cbd5e1;
+}
+
+.action-status-pill {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.action-status-pill.status-pending {
+  background-color: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.action-status-pill.status-in-progress {
+  background-color: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+.action-status-pill.status-blocked {
+  background-color: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.action-deadline-label {
+  font-size: 11.5px;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+/* Phase 7: Timeline & Milestones (Clean Vertical Timeline) */
+.vertical-milestones-timeline {
+  display: flex;
+  flex-direction: column;
+  padding-left: 6px;
+}
+
+.vertical-timeline-item {
+  display: flex;
+  gap: 14px;
+  position: relative;
+}
+
+.vertical-timeline-track {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 14px;
+  flex-shrink: 0;
+}
+
+.vertical-timeline-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #7667e8;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 2px #7667e8;
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.vertical-timeline-stem {
+  width: 2px;
+  flex: 1;
+  background-color: #e8ecf2;
+  margin: 4px 0;
+}
+
+.vertical-timeline-card {
+  flex: 1;
+  background-color: #f8fafc;
+  border: 1px solid #e8ecf2;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vertical-timeline-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.timeline-stage-tag {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #7667e8;
+  background-color: #ecebfd;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+}
+
+.timeline-date-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.timeline-event-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #172033;
+  margin: 0;
+}
+
+.timeline-event-desc {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #334155;
+  margin: 0;
+}
+
+.timeline-event-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+  padding-top: 6px;
+  border-top: 1px solid #f1f5f9;
+  flex-wrap: wrap;
+}
+
+.timeline-participants-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.summary-empty-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  background-color: #f8fafc;
+  border: 1px dashed #e2e8f0;
+  border-radius: 8px;
+  color: #64748b;
+  font-size: 12px;
+}
