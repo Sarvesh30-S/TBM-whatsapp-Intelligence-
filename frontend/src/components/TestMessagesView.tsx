@@ -455,14 +455,6 @@ export default function TestMessagesView({
         <div className="chat-workspace-title-row">
           <div className="chat-workspace-title-block">
             <h2 className="chat-workspace-title">Active Groups &amp; Live Chat</h2>
-            <div className="chat-workspace-stats-pill desktop-only">
-              <span className="live-dot" />
-              <span>Live Sync</span>
-              <span className="stats-divider">•</span>
-              <span>{conversations.length} Active Groups</span>
-              <span className="stats-divider">•</span>
-              <span>{allMessages.length} Messages Synced</span>
-            </div>
           </div>
 
           <div className="chat-workspace-actions">
