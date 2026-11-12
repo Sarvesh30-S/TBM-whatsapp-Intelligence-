@@ -14,6 +14,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import TheBoredMonkeyLogo from './TheBoredMonkeyLogo';
 
 export type DashboardSection =
   | 'overview'
@@ -148,16 +149,7 @@ export default function Sidebar({
 
             {/* 2. Full Animated Logo for expanded drawer / desktop hover */}
             <div className="brand-expanded-logo" title="TheBoredMonkey Creations & Connections">
-              <picture className="brand-anim-picture">
-                <source type="image/webp" srcSet="/theboredmonkey-logo.webp" />
-                <img
-                  src="/theboredmonkey-logo.gif"
-                  alt="TheBoredMonkey Creations & Connections"
-                  className="brand-anim-img"
-                  width={176}
-                  height={32}
-                />
-              </picture>
+              <TheBoredMonkeyLogo width={182} height={34} />
             </div>
           </div>
 

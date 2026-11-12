@@ -103,20 +103,22 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
   min-height: 64px;
   position: relative;
+  text-align: center;
 }
 
 .brand-header-left {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
   flex: 1;
   min-width: 0;
   cursor: pointer;
   user-select: none;
   margin: 0 auto;
+  text-align: center;
 }
 
 /* 1. Compact Icon for Collapsed Desktop Rail */
@@ -154,31 +156,35 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
   flex: 1;
   min-width: 0;
-  max-width: 190px;
+  max-width: 195px;
   margin: 0 auto;
   height: 36px;
+  text-align: center;
 }
 
-.brand-anim-picture {
-  display: inline-flex;
+.brand-expanded-logo .tbm-logo-wrapper {
+  margin: 0 auto;
+  display: flex;
   align-items: center;
   justify-content: center;
-  height: 32px;
-  margin: 0 auto;
+  width: 100%;
 }
 
-.brand-anim-img {
-  width: auto;
-  height: 32px;
-  max-width: 175px;
-  object-fit: contain;
-  display: block;
-  image-rendering: -webkit-optimize-contrast;
-  image-rendering: crisp-edges;
-  transform: translateZ(0);
-  -webkit-backface-visibility: hidden;
+.mobile-close-btn {
+  display: none;
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  z-index: 5;
 }
 
 @media (min-width: 901px) {
@@ -221,13 +227,7 @@ body {
   }
 }
 
-.mobile-close-btn {
-  display: none;
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-}
+
 
 /* Sidebar Navigation */
 .sidebar-nav {
@@ -1701,6 +1701,10 @@ body {
 
   .mobile-close-btn {
     display: flex !important;
+    position: absolute !important;
+    right: 14px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
     align-items: center;
     justify-content: center;
     width: 32px;
@@ -1711,6 +1715,7 @@ body {
     border: none;
     cursor: pointer;
     flex-shrink: 0;
+    z-index: 5;
   }
 
   .mobile-close-btn:hover {
