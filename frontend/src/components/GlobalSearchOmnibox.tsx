@@ -234,7 +234,7 @@ export default function GlobalSearchOmnibox({
                       setQuery('');
                     }}
                   >
-                    <div className="omnibox-icon-box indigo">
+                    <div className="omnibox-icon-box amber">
                       <Users size={14} />
                     </div>
                     <div className="omnibox-item-text">
@@ -317,7 +317,7 @@ export default function GlobalSearchOmnibox({
                         setQuery('');
                       }}
                     >
-                      <div className="omnibox-icon-box indigo">
+                      <div className="omnibox-icon-box amber">
                         <Users size={14} />
                       </div>
                       <div className="omnibox-item-text">
@@ -393,7 +393,7 @@ export default function GlobalSearchOmnibox({
                         setQuery('');
                       }}
                     >
-                      <div className="omnibox-icon-box violet">
+                      <div className="omnibox-icon-box amber">
                         <Sparkles size={14} />
                       </div>
                       <div className="omnibox-item-text">

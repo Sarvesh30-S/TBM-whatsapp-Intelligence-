@@ -634,7 +634,7 @@ export default function MessageSummaryView({
 
               {analyzing && (
                 <div className="summary-analyzing-banner">
-                  <RotateCw size={13} className="animate-spin" style={{ color: '#7667e8' }} />
+                  <RotateCw size={13} className="animate-spin" style={{ color: '#D97706' }} />
                   <span>Synthesizing conversation intelligence for <strong>{selectedGroup}</strong>...</span>
                 </div>
               )}
