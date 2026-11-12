@@ -126,17 +126,45 @@ export default function Sidebar({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        {/* Brand Header */}
+        {/* Brand Header: TheBoredMonkey Official Animated Logo */}
         <div className="sidebar-brand">
-          <div className="brand-header-left">
-            <div className="brand-icon-wrapper" title="TBM WhatsApp Intelligence">
-              <Sparkles className="brand-icon" size={19} />
+          <div
+            className="brand-header-left"
+            onClick={() => onSelectSection('overview')}
+            title="TheBoredMonkey - WhatsApp Intelligence"
+            role="button"
+            tabIndex={0}
+          >
+            {/* 1. Compact Icon View for 70px collapsed desktop rail */}
+            <div className="brand-compact-logo" title="TheBoredMonkey">
+              <img
+                src="/theboredmonkey-tbm-badge.png"
+                alt="TheBoredMonkey"
+                className="brand-icon-img"
+                width={36}
+                height={36}
+              />
             </div>
-            {!isCollapsed && (
-              <div className="brand-text">
-                <div className="brand-title">TBM WhatsApp Intelligence</div>
-              </div>
-            )}
+
+            {/* 2. Full Animated Logo for expanded drawer / desktop hover */}
+            <div className="brand-expanded-logo" title="TheBoredMonkey Creations & Connections">
+              <video
+                src="/theboredmonkey-logo.mp4"
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="auto"
+                className="brand-anim-video"
+              >
+                {/* Fallback to high-res transparent animated WebP */}
+                <img
+                  src="/theboredmonkey-logo.webp"
+                  alt="TheBoredMonkey Creations & Connections"
+                  className="brand-anim-fallback"
+                />
+              </video>
+            </div>
           </div>
 
           <button

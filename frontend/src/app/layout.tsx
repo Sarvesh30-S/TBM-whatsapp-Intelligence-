@@ -2,8 +2,13 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "TBM WhatsApp Intelligence Platform",
+  title: "TheBoredMonkey | WhatsApp Intelligence Platform",
   description: "Enterprise WhatsApp Communication Intelligence and Group Summarization",
+  icons: {
+    icon: "/theboredmonkey-tbm-badge.png",
+    shortcut: "/theboredmonkey-tbm-badge.png",
+    apple: "/theboredmonkey-tbm-badge.png",
+  },
 };
 
 export const viewport: Viewport = {
