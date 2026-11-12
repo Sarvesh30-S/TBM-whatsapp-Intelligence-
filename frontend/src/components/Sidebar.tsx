@@ -154,8 +154,8 @@ export default function Sidebar({
                   src="/theboredmonkey-logo.gif"
                   alt="TheBoredMonkey Creations & Connections"
                   className="brand-anim-img"
-                  width={195}
-                  height={38}
+                  width={134}
+                  height={25}
                 />
               </picture>
             </div>
