@@ -8389,3 +8389,254 @@ body {
   color: #64748b;
   font-size: 12px;
 }
+
+/* =========================================================================
+   DOCUMENT-STYLE EDITORIAL MEMO REDESIGN
+   Clean, minimal, professional executive memorandum
+   ========================================================================= */
+
+.document-memo-container {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 40px 48px;
+  max-width: 880px;
+  margin: 0 auto;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.memo-metadata-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: #64748b;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+
+.memo-meta-date {
+  font-weight: 500;
+  color: #475569;
+}
+
+.memo-meta-separator {
+  color: #cbd5e1;
+}
+
+.memo-meta-coverage {
+  color: #64748b;
+}
+
+.document-memo-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.memo-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.memo-section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.memo-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #172033;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.memo-header-label-right {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.memo-badge-subtle {
+  font-size: 11px;
+  font-weight: 500;
+  color: #7667e8;
+  background-color: #f5f4fe;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.memo-section-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.memo-paragraph {
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: #334155;
+  margin: 0;
+}
+
+.memo-bullet-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.memo-bullet-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: #334155;
+}
+
+.memo-bullet-dot {
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.6;
+  flex-shrink: 0;
+}
+
+.memo-bullet-text {
+  flex: 1;
+}
+
+.memo-divider {
+  border: none;
+  border-top: 1px solid #e2e8f0;
+  margin: 26px 0;
+}
+
+/* 05. PENDING ACTIONS */
+.memo-tasks-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.memo-task-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.memo-task-top-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.memo-task-title-bold {
+  font-size: 14px;
+  font-weight: 700;
+  color: #172033;
+}
+
+.memo-task-status-right {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.memo-task-owner-line {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 1px;
+}
+
+.memo-task-explanation-line {
+  font-size: 13px;
+  line-height: 1.55;
+  color: #334155;
+  margin-top: 2px;
+}
+
+.memo-task-divider {
+  border: none;
+  border-top: 1px solid #e2e8f0;
+  margin: 14px 0 0 0;
+}
+
+/* 06. TIMELINE & MILESTONES */
+.memo-timeline-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.memo-timeline-entry {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.memo-timeline-date {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  width: 140px;
+  flex-shrink: 0;
+}
+
+.memo-timeline-content {
+  flex: 1;
+  color: #334155;
+}
+
+.memo-timeline-heading {
+  font-weight: 700;
+  color: #172033;
+}
+
+.memo-timeline-desc {
+  color: #475569;
+}
+
+.memo-toggle-btn {
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.memo-toggle-btn:hover {
+  background-color: #f8fafc;
+  color: #172033;
+  border-color: #cbd5e1;
+}
+
+@media (max-width: 768px) {
+  .document-memo-container {
+    padding: 24px 20px;
+  }
+  .memo-timeline-entry {
+    flex-direction: column;
+    gap: 2px;
+  }
+  .memo-timeline-date {
+    width: auto;
+  }
+}
+

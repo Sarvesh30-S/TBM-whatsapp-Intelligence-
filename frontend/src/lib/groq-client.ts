@@ -173,6 +173,8 @@ export interface ExecutiveBriefing {
   attentionRequiredHinglish?: string;
   tldr?: string[];
   tldrHinglish?: string[];
+  conversationSummary?: string[];
+  conversationSummaryHinglish?: string[];
   keyInformation?: KeyInformationItem[];
   keyInformationHinglish?: KeyInformationItem[];
   clientSide?: BifurcatedStreamSide;
@@ -190,6 +192,8 @@ export interface GroupIntelligenceBriefing {
   groupName: string;
   groupContext?: string;
   groupContextHinglish?: string;
+  conversationSummary?: string[];
+  conversationSummaryHinglish?: string[];
   keyInformation?: KeyInformationItem[];
   keyInformationHinglish?: KeyInformationItem[];
   totalMessagesCount: number;
@@ -934,47 +938,39 @@ Your objective is to read every available message in chronological order, BIFURC
 
 CRITICAL RULES - RADICALLY CONCISE & EASY TO UNDERSTAND:
 1. GROUP CONTEXT (NEW TO THIS GROUP? START HERE):
-   - "group_context": 80–120 words in 2–3 short paragraphs explaining the complete background and current situation to someone who just joined.
-   - Explain what the group is about, which client/brand/project is being discussed, key participants and roles, what has happened so far, confirmed decisions/disagreements, current situation, and what is unresolved.
-   - Use very simple, everyday English. Avoid corporate jargon.
+   - "group_context": Approximately 60–90 words in 1–2 short paragraphs explaining the complete background and current situation to someone who just joined.
+   - Explain what the group is about, which client/brand/project is being discussed, key participants and roles, important developments, and the current situation.
+   - Use simple, everyday English. Avoid corporate jargon.
    - If message history is limited, explicitly state that context is based on limited available messages.
-   - "group_context_hinglish": Natural, conversational Roman Hindi + English version of the Group Context.
-2. KEY INFORMATION (BUDGETS, DATES, DELIVERABLES, NUMBERS):
+   - "group_context_hinglish": Natural, conversational Roman Hindi + English version of the Group Context (60–90 words).
+2. KEY TAKEAWAYS (EXECUTIVE SUMMARY):
+   - "tldr": 2–5 important developments with selective bold highlights for amounts, dates, and decisions.
+   - "tldr_hinglish": Same in natural Hinglish.
+3. CONVERSATION SUMMARY (UNIFIED):
+   - "conversation_summary": 3–6 concise bullet points combining discussion flow from ALL participants (requests, disagreements, proposals, updates). Do NOT divide by client or agency.
+   - "conversation_summary_hinglish": Same in natural Hinglish.
+4. KEY INFORMATION:
    - "key_information": Array of compact facts with category "budget", "date", "deliverable", or "metric".
-3. NO WALLS OF TEXT:
-   - Do NOT write long essays, rambling paragraphs, or repetitive prose.
-   - Use **bold** inline for critical names, deliverable titles, amounts, and dates.
-4. BIFURCATE THE CONVERSATION (Client Track vs Team Track):
-   - "client_side": Focus ONLY on the Client / Brand / External partner perspective:
-     - "status" and "position": Short status tag and operational stance.
-     - "concerns": 1-2 key concerns, constraints, or objections.
-     - "proposals": 1-2 proposals, requests, or instructions.
-     - "expectations": 1-2 expectations from agency.
-     - "points": 2-3 short, punchy bullet points (max 20 words each) with **bold** highlights.
-   - "team_side": Focus ONLY on the Internal Agency / Production / Execution team:
-     - "status" and "position": Short status tag and operational stance.
-     - "concerns": 1-2 key execution constraints or bandwidth notes.
-     - "proposals": 1-2 proposals, deliverables submitted, or alternatives offered.
-     - "expectations": 1-2 expectations from client.
-     - "points": 2-3 short, punchy bullet points (max 20 words each) with **bold** highlights.
-5. BIFURCATE DECIDED vs BLOCKED:
+5. BIFURCATED & EXTENDED DATA:
    - "decided_items": 1 to 3 crystal-clear bullet points of settled, confirmed milestones.
-   - "pending_blockers": 1 to 3 items where work is held up, explicitly stating "waiting_on" (e.g. "Client", "Internal Team", "Creator", "Talent").
-6. "tldr": Exactly 2 to 3 high-impact summary bullets (max 25 words each) giving the absolute bottom line.
-7. HINGLISH SUPPORT:
-   - Also provide "group_context_hinglish", "tldr_hinglish", "client_side_hinglish", "team_side_hinglish", "decided_items_hinglish", and "pending_blockers_hinglish" in natural Roman Hindi + English business terms.
-8. STRICT FACTUAL ACCURACY & CITATIONS:
+   - "pending_blockers": Items where work is held up, explicitly stating "waiting_on".
+   - "client_side" and "team_side": Supporting analytical perspectives.
+6. HINGLISH SUPPORT:
+   - Provide Hinglish equivalents for all primary narrative fields.
+7. STRICT FACTUAL ACCURACY & CITATIONS:
    - Every claim must include exact "source_message_ids". Never invent IDs.
-   - Never invent owners or deadlines (use "Unassigned" and "Not specified" if not in text).
+   - Never invent owners or deadlines (use "Owner not specified" and "Not specified" if not in text).
    - Ignore friendly banter, jokes, and emojis from business decisions.
 
 Respond strictly in valid JSON matching this schema:
 {
   "executive_briefing": {
-    "group_context": "string (80-120 words in 2-3 short paragraphs in simple everyday English)",
-    "group_context_hinglish": "string (80-120 words in natural Hinglish)",
+    "group_context": "string (60-90 words in 1-2 short paragraphs in simple everyday English)",
+    "group_context_hinglish": "string (60-90 words in natural Hinglish)",
     "tldr": ["string (crisp 1-line bullet point)", "string (crisp 1-line bullet point)"],
     "tldr_hinglish": ["string (crisp 1-line bullet in natural Hinglish)", "string (crisp 1-line bullet in natural Hinglish)"],
+    "conversation_summary": ["string (concise bullet combining discussion flow)", "string (concise bullet)"],
+    "conversation_summary_hinglish": ["string (concise bullet in Hinglish)", "string (concise bullet in Hinglish)"],
     "overview": "string (1-2 sentences high-level overview in English with **bold** highlights)",
     "overview_hinglish": "string (1-2 sentences high-level overview in Hinglish)",
     "current_situation": "string (1-2 concise sentences on current status)",
@@ -1355,6 +1351,14 @@ function mapParsedToBriefing(
   const groupContext: string | undefined = eb.group_context || eb.groupContext || undefined;
   const groupContextHinglish: string | undefined = eb.group_context_hinglish || eb.groupContextHinglish || undefined;
 
+  const conversationSummary: string[] = Array.isArray(eb.conversation_summary || eb.conversationSummary)
+    ? (eb.conversation_summary || eb.conversationSummary)
+    : [];
+
+  const conversationSummaryHinglish: string[] | undefined = Array.isArray(eb.conversation_summary_hinglish || eb.conversationSummaryHinglish)
+    ? (eb.conversation_summary_hinglish || eb.conversationSummaryHinglish)
+    : undefined;
+
   const keyInformation: KeyInformationItem[] = Array.isArray(eb.key_information || parsed.key_information)
     ? (eb.key_information || parsed.key_information).map((k: any, idx: number) => ({
         id: k.id || `ki_${idx + 1}`,
@@ -1466,6 +1470,8 @@ function mapParsedToBriefing(
     groupName,
     groupContext,
     groupContextHinglish,
+    conversationSummary,
+    conversationSummaryHinglish,
     keyInformation,
     totalMessagesCount: totalCount,
     messagesIncluded,
@@ -1477,6 +1483,8 @@ function mapParsedToBriefing(
     executiveBriefing: {
       groupContext,
       groupContextHinglish,
+      conversationSummary,
+      conversationSummaryHinglish,
       keyInformation,
       overview: eb.overview || 'Comprehensive group intelligence briefing generated.',
       overviewHinglish: eb.overview_hinglish || eb.overviewHinglish || undefined,
@@ -1885,6 +1893,8 @@ function generateHeuristicGroupIntelligenceBriefing(
   let attentionRequiredHinglish = '';
   let groupContext = '';
   let groupContextHinglish = '';
+  let conversationSummary: string[] = [];
+  let conversationSummaryHinglish: string[] = [];
   let keyInformation: KeyInformationItem[] = [];
   let keyInformationHinglish: KeyInformationItem[] = [];
   let tldr: string[] = [];
@@ -1902,15 +1912,25 @@ function generateHeuristicGroupIntelligenceBriefing(
   if (isCelebExecution) {
     groupContext = `This group coordinates celebrity endorsement campaigns between apparel brand Blue Tyga and TheBoredMonkey (TBM) creative agency. The primary discussion focuses on signing agreements for cricketer Shreyas Iyer and actor Mrunal Thakur. Important participants include Pooja representing the client, Adarsh managing client coordination for TBM, and Fazil V leading production planning.
 
-The team drafted and revised the Shreyas Iyer agreement (version 05.11.2026.docx). Pooja confirmed all comments were resolved and gave approval to sign. TBM then requested the release of a 50% signing advance for both celebrities and shared a Canva concepts presentation deck and Pre/Post production timeline document.
-
-The team is currently waiting on the brand's signed counterpart copy and a formal status update on the Mrunal Thakur endorsement contract before production can begin.`;
+Pooja approved the Shreyas Iyer agreement draft (05.11.2026.docx) to sign. TBM requested a 50% signing advance for both celebrities and shared creative concepts and production timelines. The team is currently waiting on the brand's signed counterpart copy and a status update on Mrunal Thakur's agreement before production can begin.`;
 
     groupContextHinglish = `Yeh WhatsApp group Blue Tyga brand aur TheBoredMonkey agency ke beech Shreyas Iyer aur Mrunal Thakur ke celebrity endorsement campaigns ke coordination ke liye hai. Isme Pooja client side se aur Adarsh aur Fazil V agency side se main coordination kar rahe hain.
 
-Team ne Shreyas Iyer ka draft agreement (05.11.2026.docx) share kiya tha, jisko Pooja ne review karke formally approve kiya. TBM ne dono celebrity deals process karne ke liye 50% signing advance manga hai aur Canva concepts deck aur production timeline document client ko share kiya hai.
+Pooja ne Shreyas Iyer draft agreement (05.11.2026.docx) sign karne ke liye formally approve kiya. TBM ne dono celebrity deals process karne ke liye 50% signing advance manga aur concepts deck aur production timeline document share kiya. Filhal brand ki taraf se signed contract copy aur Mrunal Thakur ke agreement ka status update milna baaki hai.`;
 
-Filhal brand ki taraf se Shreyas Iyer ka signed counterpart agreement aana aur Mrunal Thakur ke contract ka status update milna baaki hai.`;
+    conversationSummary = [
+      'Pooja (Bluetyga) confirmed all track changes were resolved and approved the Shreyas Iyer endorsement draft (05.11.2026.docx) to sign.',
+      'Adarsh (TBM) specified that a 50% signing advance is required for both celebrities before contracts can be formally processed.',
+      'TBM delivered the Canva concepts deck and shared the Pre/Post production timeline Google Doc for client review.',
+      'Fazil V flagged operational urgency due to a tight production window; awaiting client signed counterpart and Mrunal contract status.'
+    ];
+
+    conversationSummaryHinglish = [
+      'Pooja (Bluetyga) ne track changes resolve karke Shreyas Iyer endorsement agreement (05.11.2026.docx) sign karne ke liye formally approve kiya.',
+      'Adarsh ne clarify kiya ki dono celebrity deals process karne ke liye 50% signing advance release hona zaroori hai.',
+      'TBM ne Canva concepts presentation deck aur Pre/Post production timeline Google Doc client ke sath share kiya.',
+      'Fazil V ne tight production schedule pe operational urgency flag ki; client ki signed copy aur Mrunal agreement update pending hai.'
+    ];
 
     keyInformation = [
       {
@@ -2085,17 +2105,27 @@ Filhal brand ki taraf se Shreyas Iyer ka signed counterpart agreement aana aur M
       },
     ];
   } else if (isEmami) {
-    groupContext = `This group is dedicated to executing product packaging, dark store logistics, and video production for Emami's Smart and Handsome Bright Charge campaign. Key participants include Ananya Mukhopadhyaya from the client side, Sneha Singh managing product procurement, and Kumar Monu supervising studio delivery.
+    groupContext = `This group manages product packaging, courier logistics, and video production for Emami's Smart and Handsome Bright Charge campaign. Key participants include Ananya Mukhopadhyaya from Emami, Sneha Singh managing product procurement, and Kumar Monu supervising studio delivery.
 
-Sneha procured initial product samples through Blinkit and shared packaging verification photos. Ananya reviewed the packaging and approved it for filming, then arranged a Porter courier vehicle to transfer the products directly to the studio. Kumar Monu confirmed safe delivery of the products at the studio.
-
-The physical products are now secured, and the team is currently filming the remaining three video scripts awaiting final review.`;
+Sneha procured product samples via Blinkit and shared packaging photos, which Ananya approved for filming. The products were delivered safely to the studio by Porter courier. The team is currently filming the remaining three video scripts awaiting final review.`;
 
     groupContextHinglish = `Yeh group Emami ke Smart and Handsome Bright Charge campaign ke packaging, product delivery aur video shoot ke liye banaya gaya hai. Isme Ananya client side se, Sneha Singh procurement ke liye aur Kumar Monu studio receiving supervise kar rahe hain.
 
-Sneha ne Blinkit se samples mangwa kar packaging photos share kiye, jisko Ananya ne verify karke shoot ke liye approve kiya. Porter delivery vehicle se products studio bheje gaye jahan Kumar Monu ne safe delivery confirm ki.
+Sneha ne Blinkit se samples mangwa kar packaging photos share kiye, jisko Ananya ne verify karke shoot ke liye approve kiya. Porter courier se products safely studio deliver ho gaye. Filhal team bache huye 3 video scripts pe actively kaam kar rahi hai.`;
 
-Filhal products safely studio me receive ho chuke hain aur creative team bache huye 3 video scripts pe actively kaam kar rahi hai.`;
+    conversationSummary = [
+      'Sneha Singh procured initial product samples via Blinkit and shared packaging photos for verification.',
+      'Ananya Mukhopadhyaya reviewed the photos and confirmed the packaging is approved for filming.',
+      'Client arranged a Porter delivery vehicle (Driver Prathamesh) to transfer the products directly to the studio.',
+      'Kumar Monu confirmed safe delivery receipt at the studio; the production team is actively filming the remaining 3 video scripts.'
+    ];
+
+    conversationSummaryHinglish = [
+      'Sneha Singh ne Blinkit se samples mangwa kar packaging photos verification ke liye share ki.',
+      'Ananya Mukhopadhyaya ne photos check karke shoot ke liye "good to go" confirmation di.',
+      'Client ne Porter courier vehicle se products direct studio transfer karwaye.',
+      'Kumar Monu ne studio me physical products receive kiye; creative team bache huye 3 video scripts pe shoot kar rahi hai.'
+    ];
 
     keyInformation = [
       {
@@ -2263,17 +2293,27 @@ Filhal products safely studio me receive ho chuke hain aur creative team bache h
       },
     ];
   } else if (isInternalDvc) {
-    groupContext = `This is TheBoredMonkey's internal pre-production group for the Blue Tyga Digital Video Commercial (DVC) shoot. The team uses this space to align on schedules, creative decks, and budgets before presenting them to the client. Important members include Adarsh, Suraj, and Saurabh.
+    groupContext = `This is TheBoredMonkey's internal pre-production group for the Blue Tyga Digital Video Commercial (DVC) shoot. Important team members include Adarsh, Suraj, and Saurabh.
 
-The team discussed potential shoot dates and agreed on back-to-back shooting dates: the 25th for Shreyas Iyer and the 26th for Mrunal Thakur. Adarsh confirmed that dates cannot be moved to late in the month due to celebrity availability. Suraj updated the master Google Doc timeline, and the team resolved to move the client sync call to Tuesday.
-
-The team is currently finalizing the internal prep sync one hour before Tuesday's client meeting and determining costs for adding the brand logo to Milind Soman's past creative videos.`;
+The team locked back-to-back shoot dates on the 25th for Shreyas Iyer and the 26th for Mrunal Thakur, which cannot be moved due to celebrity availability. Suraj updated the master Google Doc timeline, and the client concept sync was moved to Tuesday. The team is currently prepping for Tuesday's client meeting and estimating costs for Milind Soman logo additions.`;
 
     groupContextHinglish = `Yeh TheBoredMonkey ki internal team ka pre-production group hai jisme Blue Tyga Digital Video Commercial (DVC) shoot ki planning chal rahi hai. Is group me Adarsh, Suraj aur Saurabh internal schedules aur budgets align kar rahe hain.
 
-Team ne shoot dates pe discussion kiya aur 25th (Shreyas) aur 26th (Mrunal) ki back-to-back shoot dates finalize ki. Suraj ne master timeline update kiya aur client presentation ko Tuesday tak schedule kiya.
+Team ne 25th (Shreyas) aur 26th (Mrunal) ki back-to-back shoot dates lock ki, jo talent constraints ki wajah se shift nahi ho sakti. Suraj ne Google Doc timeline update ki aur client sync Tuesday fix kiya. Filhal Tuesday meeting se pehle prep call aur Milind Soman logo addition costing pending hai.`;
 
-Filhal Tuesday client call se ek ghanta pehle internal alignment call aur Milind Soman videos me brand logo add karne ki costing finalize karna pending hai.`;
+    conversationSummary = [
+      'Adarsh, Suraj, and Saurabh reviewed pre-production scheduling for the Blue Tyga DVC shoot.',
+      'The team locked back-to-back shoot dates on the 25th (Shreyas Iyer) and 26th (Mrunal Thakur), noting dates cannot move to the 29th/30th due to talent constraints.',
+      'Suraj updated the master pre-production schedule in the Google Doc timeline.',
+      'The client concept alignment sync was rescheduled to Tuesday, with an internal team prep call scheduled 1 hour prior.'
+    ];
+
+    conversationSummaryHinglish = [
+      'Adarsh, Suraj aur Saurabh ne Blue Tyga DVC shoot ke liye internal pre-production scheduling discuss ki.',
+      'Team ne 25th (Shreyas) aur 26th (Mrunal) ki back-to-back shoot dates lock ki, aur confirm kiya ki celebrity availability ke chalte dates change nahi ho sakti.',
+      'Suraj ne Google Doc timeline document me master pre-production dates update ki.',
+      'Client concepts presentation Tuesday ko move hui, jisse 1 ghanta pehle internal team prep sync call rakhi gayi hai.'
+    ];
 
     keyInformation = [
       {
@@ -2439,17 +2479,27 @@ Filhal Tuesday client call se ek ghanta pehle internal alignment call aur Milind
       },
     ];
   } else if (isCent) {
-    groupContext = `This group coordinates creative scripting and execution for Cent Health's preventive health check campaign between the Cent client team and TheBoredMonkey. Important participants include Prashant Sharma from Cent Health, Divya leading creative coordination, and Kumar Monu.
+    groupContext = `This group coordinates creative scripting for Cent Health's preventive health check campaign between Prashant Sharma from Cent Health and Divya from TheBoredMonkey.
 
-Prashant detailed the campaign brief focusing on a Diwali emotional hook where children gift full-body scans to their parents, emphasizing MRI and cardiac health benefits through the cent.health booking portal. Divya confirmed that the creator safely received the physical test kit and drafted a new script in Tab 2 of the version sheet.
-
-The team is currently waiting on client review and sign-off on the newly uploaded Tab 2 script draft before video production starts.`;
+Prashant shared the Diwali emotional gifting brief highlighting MRI and cardiac scans through the cent.health portal. Divya confirmed the creator received the physical product kit and uploaded an updated script to Tab 2 of the version sheet. The team is currently waiting for client review and approval on the Tab 2 script draft.`;
 
     groupContextHinglish = `Yeh group Cent Health aur TheBoredMonkey ke beech preventive health check campaign ke video scripts aur execution ke liye hai. Isme Prashant Sharma (Cent Health) aur Divya (TBM Creative) main participants hain.
 
-Prashant ne Diwali parent-child health gifting construct share kiya jisme MRI aur cardiac scans aur cent.health booking journey highlight karni hai. Divya ne confirm kiya ki creator ko physical product mil chuka hai aur naya script Tab 2 me upload kar diya gaya hai.
+Prashant ne Diwali health gifting brief share kiya jisme MRI, cardiac scans aur booking flow highlight karna hai. Divya ne creator ko product kit deliver hone ki confirmation di aur Tab 2 me script upload kiya. Filhal Tab 2 script draft pe client sign-off aana baaki hai.`;
 
-Filhal Tab 2 me add kiye gaye naye script draft ka client approval aana baaki hai.`;
+    conversationSummary = [
+      'Prashant Sharma outlined the brief for Cent Health Check, emphasizing a Diwali emotional hook of children gifting full-body scans to parents.',
+      'The client requested clear showcase of the digital booking journey on the cent.health portal.',
+      'Divya confirmed that the creator safely received the physical test kit for filming.',
+      'TBM creative team drafted the updated narrative script and uploaded it to Tab 2 of the version sheet for client approval.'
+    ];
+
+    conversationSummaryHinglish = [
+      'Prashant Sharma ne Cent Health Check campaign ka brief share kiya jisme Diwali emotional health gifting aur full-body scans highlight karne hain.',
+      'Client ne video me cent.health portal booking journey clearly showcase karne ko kaha.',
+      'Divya ne confirm kiya ki creator ko physical testing kit safely receive ho chuka hai.',
+      'Creative team ne naya script update karke Cent version sheet ke Tab 2 me client approval ke liye upload kiya.'
+    ];
 
     keyInformation = [
       {
@@ -2607,17 +2657,27 @@ Filhal Tab 2 me add kiye gaye naye script draft ka client approval aana baaki ha
       },
     ];
   } else if (isShreyasIyer) {
-    groupContext = `This group manages the direct celebrity endorsement agreement between apparel brand Blue Tyga and cricketer Shreyas Iyer. Key participants include talent manager Neha representing the celebrity and Adarsh managing brand approvals.
+    groupContext = `This group manages the direct celebrity endorsement agreement between apparel brand Blue Tyga and cricketer Shreyas Iyer, coordinated between talent manager Neha and brand manager Adarsh.
 
-The parties aligned on the contract duration, locking the tenure for the complete calendar year 2027 (January 1, 2027 to December 31, 2027). The commercial payment schedule was structured on a 50/50 split, with 50% paid upon signing and the remaining 50% prior to the shoot. Adarsh confirmed that the contract terms are approved and ready to sign.
-
-The agreement is currently waiting on the brand to share their signed counterpart copy so Shreyas Iyer can formally sign the document.`;
+Both parties agreed on a contract duration for the full calendar year 2027 (January 1 to December 31, 2027) with a 50/50 payment split (50% on signing, 50% pre-shoot). The agreement terms are approved, and the team is currently waiting for the brand to provide their signed counterpart copy.`;
 
     groupContextHinglish = `Yeh group apparel brand Blue Tyga aur cricketer Shreyas Iyer ke beech celebrity endorsement contract finalize karne ke liye hai. Isme talent manager Neha aur brand coordinator Adarsh shamil hain.
 
-Dono sides ne contract tenure calendar year 2027 (1st Jan 2027 – 31st Dec 2027) ke liye finalize kiya hai aur payment schedule ko 50% signing aur 50% pre-shoot milestone pe lock kiya hai. Adarsh ne confirm kiya ki contract sign karne ke liye ready hai.
+Dono sides ne contract tenure calendar year 2027 (1st Jan 2027 – 31st Dec 2027) ke liye finalize kiya hai aur payment schedule ko 50% signing aur 50% pre-shoot milestone pe lock kiya hai. Filhal brand ki taraf se signed contract copy aana baaki hai taaki formal signature complete ho sake.`;
 
-Filhal brand ki taraf se signed contract copy aana baaki hai taaki Shreyas Iyer side se formal signature complete ho sake.`;
+    conversationSummary = [
+      'Neha (talent management) and Adarsh (brand coordination) finalized the direct endorsement terms for cricketer Shreyas Iyer.',
+      'Both sides locked the contract tenure for the calendar year 2027 (January 1, 2027 – December 31, 2027).',
+      'Payment terms were agreed on a 50/50 milestone structure (50% on signing, 50% prior to production shoot).',
+      'Adarsh confirmed the draft agreement is approved to execute, with talent signing pending receipt of the brand\'s signed counterpart.'
+    ];
+
+    conversationSummaryHinglish = [
+      'Neha (talent management) aur Adarsh ne cricketer Shreyas Iyer ke direct endorsement terms finalize kiye.',
+      'Dono sides ne contract tenure calendar year 2027 (1st Jan 2027 – 31st Dec 2027) ke liye lock kiya.',
+      'Commercial payment schedule 50% signing aur 50% pre-shoot milestone pe agree hua.',
+      'Adarsh ne confirm kiya agreement sign karne ke liye ready hai; talent signature brand ki signed copy aane par execute hoga.'
+    ];
 
     keyInformation = [
       {
@@ -2771,17 +2831,27 @@ Filhal brand ki taraf se signed contract copy aana baaki hai taaki Shreyas Iyer 
       },
     ];
   } else if (isEclipseSolaire) {
-    groupContext = `This group manages the commercial video production for Eclipse Solaire eyewear between client representative Nam and TheBoredMonkey team lead Simran.
+    groupContext = `This group handles commercial video production for Eclipse Solaire eyewear between client representative Nam and TheBoredMonkey team lead Simran.
 
-The conversation centers on a significant commercial negotiation. Simran initially presented a production timeline deck with a quote of ₹1 Lakh per film and a delivery date of November 23rd. Nam firmly rejected both terms, enforcing a strict budget cap of ₹65,000 per film and demanding delivery between November 18th and 20th. Both parties agreed to hold a phone sync to resolve the terms.
-
-The team is currently waiting for the afternoon alignment call to agree on concept adjustments that fit the ₹65,000 budget cap and the tight November 18th–20th delivery window.`;
+Simran proposed a quote of ₹1 Lakh per film and a November 23rd delivery date. Nam rejected both, enforcing a strict budget cap of ₹65,000 per film and demanding delivery between November 18th and 20th. Both parties agreed to an afternoon sync call to adjust concepts to fit within the ₹65,000 budget and compressed timeline.`;
 
     groupContextHinglish = `Yeh group Eclipse Solaire eyewear ke commercial brand films ke budget aur delivery coordination ke liye hai. Isme client side se Nam aur TBM side se Simran lead kar rahe hain.
 
-Discussion me commercial terms pe badi negotiation hui. Simran ne 1 Lakh per film aur 23rd November delivery propose ki thi. Nam ne dono reject karke strictly Rs 65,000 per film ka budget cap lagaya aur delivery 18 se 20 November ke beech demand ki. Dono ne phone call pe align hone ka agreement kiya.
+Simran ne 1 Lakh per film aur 23rd Nov delivery propose ki. Nam ne dono reject karke ₹65,000 per film ka budget cap lagaya aur 18-20 November delivery demand ki. Dono ne phone call pe align hone ka decision liya. Filhal post 3:00 PM sync call me 65K budget cap aur timeline finalize karna pending hai.`;
 
-Filhal post 3:00 PM alignment call me 65K budget cap aur 18th-20th November delivery window pe consensus aana pending hai.`;
+    conversationSummary = [
+      'Simran presented the initial production timeline deck proposing ₹1 Lakh per film and a delivery target of November 23rd.',
+      'Nam rejected both terms, placing a strict commercial cap of ₹65,000 per film and requiring delivery between November 18th and 20th.',
+      'Simran explained production constraints and proposed holding an alignment phone call to adjust concepts within the budget cap.',
+      'Both parties agreed to connect for a sync call post 3:00 PM to finalize feasible creative scope and delivery milestones.'
+    ];
+
+    conversationSummaryHinglish = [
+      'Simran ne initial production timeline deck share kiya jisme 1 Lakh per film aur 23rd November delivery proposed thi.',
+      'Nam ne dono terms reject karke ₹65,000 per film ka strict budget cap lagaya aur 18 se 20 November ke beech delivery demand ki.',
+      'Simran ne production schedule explain kiya aur budget cap ke according concept adjust karne ke liye alignment call suggest ki.',
+      'Dono sides ne post 3:00 PM phone call pe connect karke revised scope aur timeline finalize karne pe sahmati di.'
+    ];
 
     keyInformation = [
       {
@@ -2947,17 +3017,25 @@ Filhal post 3:00 PM alignment call me 65K budget cap aur 18th-20th November deli
       },
     ];
   } else if (isSarvesh) {
-    groupContext = `This context is based on limited available messages (3 messages recorded). This group is used for automated webhook connectivity testing and operational document verification between team members.
+    groupContext = `This context is based on limited available messages (3 messages recorded). This group is used for webhook connectivity testing and operational document verification between team members.
 
-The conversation logs test message ingestion to verify real-time webhook delivery and database storage. Sarvesh logged a priority request for urgent operational document delivery.
-
-Webhook ingestion has been confirmed, and the team is currently awaiting operational document dispatch to fulfill the request.`;
+Real-time webhook delivery was tested and verified in the database. Sarvesh submitted a priority request for urgent operational documents, and the team is currently awaiting document dispatch.`;
 
     groupContextHinglish = `Yeh context limited available messages (3 messages) ke basis pe hai. Yeh group automated webhook connectivity testing aur document dispatch verification ke liye use ho raha hai.
 
-Isme test messages send karke real-time delivery aur database storage check kiya gaya. Sarvesh ne urgent operational documents deliver karne ki request raise ki.
+Real-time webhook ingestion test kiya gaya aur database storage verify hui. Sarvesh ne urgent documents deliver karne ki request raise ki, jiska dispatch currently pending hai.`;
 
-Webhook connectivity verify ho chuki hai aur documents dispatch karna currently pending hai.`;
+    conversationSummary = [
+      'Automated connectivity and webhook verification messages were transmitted to validate real-time ingestion.',
+      'Sarvesh submitted a priority request for urgent operational document delivery.',
+      'System health checks confirmed active database ingestion, with document dispatch pending fulfillment.'
+    ];
+
+    conversationSummaryHinglish = [
+      'Real-time webhook ingestion test karne ke liye automated connectivity messages transmit kiye gaye.',
+      'Sarvesh ne urgent operational documents deliver karne ki request raise ki.',
+      'System logging active confirm hui aur documents dispatch complete hona pending hai.'
+    ];
 
     keyInformation = [
       {
@@ -3152,6 +3230,18 @@ Filhal Saturday after 4:00 PM meeting confirm ho chuki hai aur purana issue reso
         `Friday connect karne ka pehla plan change hoke **Saturday after 4:00 PM** final hua.`,
         `Sabhi members ne naye schedule pe confirmation di.`
       ];
+      conversationSummary = [
+        'Pooja initiated discussion requesting a project review meeting on Friday.',
+        'Adarsh flagged an availability conflict due to prior commitments and proposed rescheduling to Saturday after 4:00 PM.',
+        'Pooja accepted the Saturday time slot and instructed deletion of comments from the agreement.',
+        'Participants confirmed the updated meeting schedule and resolved all pending timeline blockers.'
+      ];
+      conversationSummaryHinglish = [
+        'Pooja ne Friday ko project review meeting conduct karne ki request raise ki thi.',
+        'Adarsh ne prior commitment ki wajah se Friday availability constraint flag kiya aur Saturday after 4:00 PM propose kiya.',
+        'Pooja ne Saturday ka rescheduled slot accept kiya aur agreement ke comments delete karne ko kaha.',
+        'Sabhi participants ne naye schedule pe consensus confirm kiya aur issue resolve hua.'
+      ];
     } else {
       const isShortHistory = messages.length <= 5;
       const limitedPrefix = isShortHistory
@@ -3216,6 +3306,16 @@ Abhi latest update ${lastSubject} record hua hai. ${pendingDiscussions.length > 
       tldrHinglish = [
         `Discussion ki shuruat ${firstMsg?.senderName || 'team'} ne ki.`,
         `Latest update ${lastMsg?.senderName || 'team'} dwara record hua.`
+      ];
+      conversationSummary = [
+        firstMsg ? `Discussion initiated by ${firstMsg.senderName || 'team member'} regarding "${firstMsg.text?.slice(0, 60)}...".` : 'Discussion initiated.',
+        `Participants exchanged ${messages.length} update(s) coordinating task status and operational deliverables.`,
+        lastMsg ? `Latest status update logged from ${lastMsg.senderName || 'team member'}: "${lastMsg.text?.slice(0, 60)}...".` : 'Latest update recorded.'
+      ];
+      conversationSummaryHinglish = [
+        firstMsg ? `${firstMsg.senderName || 'Team'} dwara project discussion shuru hua.` : 'Discussion shuru hua.',
+        `Team members ne abhi tak total ${messages.length} messages me coordination aur deliverables exchange kiye.`,
+        lastMsg ? `Latest update ${lastMsg.senderName || 'team'} se mila.` : 'Latest update record hua.'
       ];
     }
 
@@ -3282,6 +3382,8 @@ Abhi latest update ${lastSubject} record hua hai. ${pendingDiscussions.length > 
     groupName,
     groupContext,
     groupContextHinglish,
+    conversationSummary,
+    conversationSummaryHinglish,
     keyInformation,
     totalMessagesCount: totalCount,
     messagesIncluded,
@@ -3293,6 +3395,8 @@ Abhi latest update ${lastSubject} record hua hai. ${pendingDiscussions.length > 
     executiveBriefing: {
       groupContext,
       groupContextHinglish,
+      conversationSummary,
+      conversationSummaryHinglish,
       keyInformation,
       overview: overviewText,
       overviewHinglish,
@@ -3387,6 +3491,8 @@ function createEmptyBriefing(
     groupName,
     groupContext: emptyContext,
     groupContextHinglish: emptyContextHinglish,
+    conversationSummary: [],
+    conversationSummaryHinglish: [],
     keyInformation: [],
     totalMessagesCount: dbAudit ? dbAudit.totalInDb : 0,
     messagesIncluded: 0,
@@ -3398,6 +3504,8 @@ function createEmptyBriefing(
     executiveBriefing: {
       groupContext: emptyContext,
       groupContextHinglish: emptyContextHinglish,
+      conversationSummary: [],
+      conversationSummaryHinglish: [],
       keyInformation: [],
       overview: `No conversation records were found for ${groupName} during the selected period.`,
       overviewHinglish: `${groupName} ke liye is period me koi messages record nahi mile.`,

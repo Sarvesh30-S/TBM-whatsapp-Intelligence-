@@ -115,6 +115,7 @@ export default function MessageSummaryView({
   const [analyzing, setAnalyzing] = useState<boolean>(false);
   const [briefing, setBriefing] = useState<GroupIntelligenceBriefing | null>(null);
   const [briefingError, setBriefingError] = useState<string>('');
+  const [isTimelineExpanded, setIsTimelineExpanded] = useState<boolean>(false);
 
   // Custom modern group dropdown state
   const [isGroupDropdownOpen, setIsGroupDropdownOpen] = useState<boolean>(false);
@@ -619,12 +620,15 @@ export default function MessageSummaryView({
         {/* SECTION 1: EXECUTIVE BRIEFING (DEFAULT VIEW) */}
         {activeSection === 'briefing' && (
           <div className="editorial-briefing-pane">
-            <div className="briefing-paper-card">
-              <div className="briefing-title-meta">
-                <span className="document-tag">OVERALL CONVERSATION SUMMARY</span>
-                <span className="document-timestamp">
-                  Coverage: {new Date(briefing?.dateRange.start || Date.now()).toLocaleDateString()} &mdash;{' '}
-                  {new Date(briefing?.dateRange.end || Date.now()).toLocaleDateString()}
+            <div className="document-memo-container">
+              {/* Document Header & Metadata Information */}
+              <div className="memo-metadata-bar">
+                <span className="memo-meta-date">
+                  Date Range: {new Date(briefing?.dateRange.start || Date.now()).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} &mdash; {new Date(briefing?.dateRange.end || Date.now()).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                </span>
+                <span className="memo-meta-separator">|</span>
+                <span className="memo-meta-coverage">
+                  Coverage: {briefing?.coverageNote || `${briefing?.messagesIncluded || 0} of ${briefing?.totalMessagesCount || 0} messages processed`}
                 </span>
               </div>
 
@@ -636,20 +640,20 @@ export default function MessageSummaryView({
               )}
 
               {/* =========================================================================
-                  RESTRUCTURED AI SUMMARY DASHBOARD (7 PHASES IN EXACT REQUIRED ORDER)
-                  1. Group Context (Highest Priority - Prominent Top Section)
-                  2. Executive Overview
-                  3. Key Information
-                  4. Conversation Breakdown
-                  5. Decisions & Agreements
-                  6. Pending Actions & Blockers
-                  7. Timeline & Milestones
+                  DOCUMENT-STYLE EDITORIAL SUMMARY MEMO
+                  Exact Section Order:
+                  01. GROUP CONTEXT
+                  02. KEY TAKEAWAYS
+                  03. CONVERSATION SUMMARY
+                  04. AGREED & SETTLED
+                  05. PENDING ACTIONS
+                  06. TIMELINE & MILESTONES
                   ========================================================================= */}
               {(() => {
                 const eb = briefing?.executiveBriefing;
                 const isHinglish = summaryLanguage === 'hinglish';
 
-                // 1. Group Context Text & Paragraphs (Phase 1)
+                // 01. GROUP CONTEXT (60-90 words, 1-2 short paragraphs in simple language)
                 const rawGroupContext = isHinglish
                   ? (eb?.groupContextHinglish || briefing?.groupContextHinglish || eb?.groupContext || briefing?.groupContext || '')
                   : (eb?.groupContext || briefing?.groupContext || '');
@@ -661,667 +665,265 @@ export default function MessageSummaryView({
                       `Key stakeholders and team members align on scope, deliverables, and timelines. Review the sections below for the executive breakdown, commercial metrics, confirmed decisions, and pending action items.`
                     ];
 
-                const isLimitedHistory = currentGroupMessages.length > 0 && currentGroupMessages.length <= 5;
-
-                // 2. Executive Overview Content (Phase 2)
-                const overviewNarrative = isHinglish
-                  ? (eb?.overviewHinglish || eb?.overview || '')
-                  : (eb?.overview || '');
-
+                // 02. KEY TAKEAWAYS (Executive Summary)
                 const currentSituationText = isHinglish
                   ? (eb?.currentSituationHinglish || eb?.currentSituation || '')
                   : (eb?.currentSituation || '');
+                const overviewNarrative = isHinglish
+                  ? (eb?.overviewHinglish || eb?.overview || '')
+                  : (eb?.overview || '');
 
                 const tldrList: string[] = (isHinglish && eb?.tldrHinglish && eb.tldrHinglish.length > 0)
                   ? eb.tldrHinglish
                   : (eb?.tldr && eb.tldr.length > 0)
                   ? eb.tldr
-                  : [currentSituationText || overviewNarrative].filter(Boolean);
+                  : [overviewNarrative || currentSituationText].filter(Boolean);
 
-                // 3. Key Information (Budgets, pricing, dates, deliverables, metrics) (Phase 3)
-                const rawKeyInfo = isHinglish
-                  ? (eb?.keyInformationHinglish || briefing?.keyInformationHinglish || eb?.keyInformation || briefing?.keyInformation || [])
-                  : (eb?.keyInformation || briefing?.keyInformation || []);
+                // 03. CONVERSATION SUMMARY (Unified 3-6 concise bullets combining all participants)
+                const rawConvSummary = isHinglish
+                  ? (eb?.conversationSummaryHinglish || briefing?.conversationSummaryHinglish || eb?.conversationSummary || briefing?.conversationSummary || [])
+                  : (eb?.conversationSummary || briefing?.conversationSummary || []);
 
-                const keyInfoItems: KeyInformationItem[] = (() => {
-                  if (rawKeyInfo && rawKeyInfo.length > 0) return rawKeyInfo;
-                  const derived: KeyInformationItem[] = [];
-                  (briefing?.decisions || []).forEach((d) => {
-                    const text = `${d.title} ${d.context}`;
-                    const budgetMatch = text.match(/(₹\s?[\d,]+|\$\s?[\d,]+|\b\d+k\b|\b\d+\s?lakhs?\b|retainer|commercials?)/i);
-                    if (budgetMatch && derived.filter((x) => x.category === 'budget').length < 2) {
-                      derived.push({
-                        id: `derived-b-${d.id}`,
-                        category: 'budget',
-                        label: d.title,
-                        value: budgetMatch[0],
-                        detail: d.context,
-                        sourceMessageIds: d.sourceMessageIds,
-                      });
-                    }
-                  });
-                  (briefing?.actionTracker || []).forEach((a) => {
-                    if (a.deadline && a.deadline !== 'Not specified' && derived.filter((x) => x.category === 'date').length < 2) {
-                      derived.push({
-                        id: `derived-d-${a.id}`,
-                        category: 'date',
-                        label: a.action,
-                        value: a.deadline,
-                        detail: `Owner: ${a.owner}`,
-                        sourceMessageIds: a.sourceMessageIds,
-                      });
-                    }
-                  });
-                  (briefing?.decisions || []).forEach((d) => {
-                    const text = `${d.title} ${d.context}`;
-                    if (/(reel|post|video|draft|script|agreement|cut|shoot|creative)/i.test(text) && derived.filter((x) => x.category === 'deliverable').length < 2) {
-                      derived.push({
-                        id: `derived-del-${d.id}`,
-                        category: 'deliverable',
-                        label: 'Deliverable Target',
-                        value: d.title,
-                        detail: d.context,
-                        sourceMessageIds: d.sourceMessageIds,
-                      });
-                    }
-                  });
-                  return derived;
+                const conversationSummaryList: string[] = (() => {
+                  if (rawConvSummary && rawConvSummary.length > 0) {
+                    return rawConvSummary;
+                  }
+                  // Fallback synthesis from storyline or topics if not provided
+                  const points: string[] = [];
+                  if (briefing?.storyline && briefing.storyline.length > 0) {
+                    briefing.storyline.slice(0, 4).forEach((s) => {
+                      points.push(`${s.heading}: ${s.description}`);
+                    });
+                  } else if (briefing?.topics && briefing.topics.length > 0) {
+                    briefing.topics.slice(0, 4).forEach((t) => {
+                      points.push(`${t.name}: ${t.summary}`);
+                    });
+                  }
+                  return points.length > 0 ? points : [overviewNarrative || 'Active communication logged among project participants.'];
                 })();
 
-                // 4. Conversation Breakdown (Client Perspective vs Agency Perspective) (Phase 4)
-                const clientSideData = isHinglish ? (eb?.clientSideHinglish || eb?.clientSide) : eb?.clientSide;
-                const teamSideData = isHinglish ? (eb?.teamSideHinglish || eb?.teamSide) : eb?.teamSide;
-
-                const clientTrack = {
-                  title: clientSideData?.title || 'Client Perspective',
-                  status: clientSideData?.status || 'Active',
-                  position: clientSideData?.position || (clientSideData?.points && clientSideData.points[0]) || 'Reviewing submitted deliverables and providing campaign direction.',
-                  concerns: (isHinglish && clientSideData?.concernsHinglish && clientSideData.concernsHinglish.length > 0)
-                    ? clientSideData.concernsHinglish
-                    : (clientSideData?.concerns && clientSideData.concerns.length > 0)
-                    ? clientSideData.concerns
-                    : (clientSideData?.points ? clientSideData.points.slice(0, 2) : []),
-                  proposals: (isHinglish && clientSideData?.proposalsHinglish && clientSideData.proposalsHinglish.length > 0)
-                    ? clientSideData.proposalsHinglish
-                    : (clientSideData?.proposals && clientSideData.proposals.length > 0)
-                    ? clientSideData.proposals
-                    : (clientSideData?.points ? clientSideData.points.slice(1, 3) : []),
-                  expectations: (isHinglish && clientSideData?.expectationsHinglish && clientSideData.expectationsHinglish.length > 0)
-                    ? clientSideData.expectationsHinglish
-                    : (clientSideData?.expectations || []),
-                  sourceMessageIds: clientSideData?.sourceMessageIds,
-                };
-
-                const teamTrack = {
-                  title: teamSideData?.title || 'Agency Execution (TheBoredMonkey)',
-                  status: teamSideData?.status || 'In Progress',
-                  position: teamSideData?.position || (teamSideData?.points && teamSideData.points[0]) || 'Executing production deliverables and coordinating cross-functional milestones.',
-                  concerns: (isHinglish && teamSideData?.concernsHinglish && teamSideData.concernsHinglish.length > 0)
-                    ? teamSideData.concernsHinglish
-                    : (teamSideData?.concerns && teamSideData.concerns.length > 0)
-                    ? teamSideData.concerns
-                    : (teamSideData?.points ? teamSideData.points.slice(0, 2) : []),
-                  proposals: (isHinglish && teamSideData?.proposalsHinglish && teamSideData.proposalsHinglish.length > 0)
-                    ? teamSideData.proposalsHinglish
-                    : (teamSideData?.proposals && teamSideData.proposals.length > 0)
-                    ? teamSideData.proposals
-                    : (teamSideData?.points ? teamSideData.points.slice(1, 3) : []),
-                  expectations: (isHinglish && teamSideData?.expectationsHinglish && teamSideData.expectationsHinglish.length > 0)
-                    ? teamSideData.expectationsHinglish
-                    : (teamSideData?.expectations || []),
-                  sourceMessageIds: teamSideData?.sourceMessageIds,
-                };
-
-                // 5. Decisions & Agreements (Confirmed vs Proposals) (Phase 5)
+                // 04. AGREED & SETTLED (Confirmed decisions only, short bullets)
                 const confirmedDecisions = (briefing?.decisions || []).filter((d) => d.status === 'CONFIRMED');
-                const otherDecisions = (briefing?.decisions || []).filter((d) => d.status !== 'CONFIRMED');
 
-                // 6. Pending Actions & Blockers (Phase 6)
-                const unresolvedActions = (briefing?.actionTracker || []).filter((a) => a.status !== 'COMPLETED');
-                const activeBlockers = (isHinglish && eb?.pendingBlockersHinglish && eb.pendingBlockersHinglish.length > 0)
-                  ? eb.pendingBlockersHinglish
-                  : (eb?.pendingBlockers && eb.pendingBlockers.length > 0)
-                  ? eb.pendingBlockers
-                  : (briefing?.pendingDiscussions || []).map((p) => ({
-                      item: p.unresolvedQuestion || p.topic,
-                      waitingOn: (p.participantsInvolved || [])[0] || 'Team',
-                      sourceMessageIds: p.sourceMessageIds,
-                    }));
+                // 05. PENDING ACTIONS (Renamed from Active Blockers, specific task layout)
+                const pendingActions: Array<{
+                  id: string;
+                  title: string;
+                  owner: string;
+                  explanation: string;
+                  status: string;
+                }> = [];
 
-                // 7. Timeline & Milestones (Phase 7)
+                const seenTitles = new Set<string>();
+
+                (briefing?.actionTracker || [])
+                  .filter((a) => a.status !== 'COMPLETED')
+                  .forEach((a, idx) => {
+                    const norm = a.action.toLowerCase().trim();
+                    if (!seenTitles.has(norm)) {
+                      seenTitles.add(norm);
+                      pendingActions.push({
+                        id: a.id || `act_${idx}`,
+                        title: a.action,
+                        owner: a.owner && a.owner !== 'Unassigned' ? a.owner : 'Owner not specified',
+                        explanation: a.deadline && a.deadline !== 'Not specified'
+                          ? `Target schedule: ${a.deadline}.`
+                          : 'Action item pending execution and verification.',
+                        status: a.status === 'IN_PROGRESS' ? 'In Progress' : a.status === 'BLOCKED' ? 'Blocked' : 'Pending',
+                      });
+                    }
+                  });
+
+                // Also incorporate any uncompleted blockers / pending discussions
+                const rawBlockers = isHinglish
+                  ? (eb?.pendingBlockersHinglish || eb?.pendingBlockers || [])
+                  : (eb?.pendingBlockers || []);
+
+                rawBlockers.forEach((blk, idx) => {
+                  const norm = blk.item.toLowerCase().trim();
+                  if (!seenTitles.has(norm)) {
+                    seenTitles.add(norm);
+                    pendingActions.push({
+                      id: `blk_${idx}`,
+                      title: blk.item,
+                      owner: blk.waitingOn ? blk.waitingOn : 'Owner not specified',
+                      explanation: blk.waitingOn ? `Awaiting action from ${blk.waitingOn}.` : 'Pending resolution.',
+                      status: 'Pending',
+                    });
+                  }
+                });
+
+                // 06. TIMELINE & MILESTONES (3-5 events by default with toggle)
                 const storylineSteps = briefing?.storyline || [];
+                const visibleTimelineSteps = isTimelineExpanded
+                  ? storylineSteps
+                  : storylineSteps.slice(0, 4);
 
                 return (
-                  <div className="modern-saas-summary-stack">
-                    {/* -------------------------------------------------------------
-                        1. GROUP CONTEXT (Highest Priority - Prominent Top Section)
-                        ------------------------------------------------------------- */}
-                    <section className="summary-group-context-card">
-                      <div className="group-context-top-bar">
-                        <div className="group-context-start-badge">
-                          <Sparkles size={13} className="context-badge-icon" />
-                          <span>New to this group? Start here.</span>
-                        </div>
-                        <span className="group-context-section-label">GROUP CONTEXT</span>
+                  <div className="document-memo-body">
+                    {/* 01. GROUP CONTEXT */}
+                    <section className="memo-section">
+                      <div className="memo-section-header">
+                        <h2 className="memo-section-title">01. GROUP CONTEXT</h2>
+                        <span className="memo-header-label-right">New to this group? Start here.</span>
                       </div>
-
-                      <div className="group-context-body">
+                      <div className="memo-section-content">
                         {groupContextParagraphs.map((para, idx) => (
-                          <p key={idx} className="group-context-paragraph">
+                          <p key={idx} className="memo-paragraph">
                             {renderFormattedText(para)}
                           </p>
                         ))}
                       </div>
-
-                      {isLimitedHistory && (
-                        <div className="group-context-limited-bar">
-                          <AlertTriangle size={12} />
-                          <span>Context is based on limited available messages ({currentGroupMessages.length} total messages in this group).</span>
-                        </div>
-                      )}
                     </section>
 
-                    {/* -------------------------------------------------------------
-                        2. EXECUTIVE OVERVIEW
-                        ------------------------------------------------------------- */}
-                    <section className="summary-dashboard-card">
-                      <div className="summary-card-header">
-                        <div className="card-header-left">
-                          <h2 className="summary-card-title">Executive Overview</h2>
-                          <span className="summary-card-subtitle">Key developments &amp; current situation</span>
-                        </div>
+                    <hr className="memo-divider" />
+
+                    {/* 02. KEY TAKEAWAYS */}
+                    <section className="memo-section">
+                      <div className="memo-section-header">
+                        <h2 className="memo-section-title">02. KEY TAKEAWAYS</h2>
+                        <span className="memo-header-label-right">Executive Summary</span>
                       </div>
+                      <div className="memo-section-content">
+                        <ul className="memo-bullet-list">
+                          {tldrList.map((bullet, idx) => (
+                            <li key={idx} className="memo-bullet-row">
+                              <span className="memo-bullet-dot">&bull;</span>
+                              <span className="memo-bullet-text">{renderFormattedText(bullet)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </section>
 
-                      <div className="executive-overview-content">
-                        {overviewNarrative && (
-                          <p className="overview-narrative-text">
-                            {renderFormattedText(overviewNarrative)}
-                          </p>
-                        )}
+                    <hr className="memo-divider" />
 
-                        {tldrList.length > 0 && (
-                          <div className="overview-takeaways-group">
-                            <span className="overview-takeaways-title">Key Highlights</span>
-                            <ul className="overview-highlights-list">
-                              {tldrList.map((bullet, idx) => (
-                                <li key={idx} className="overview-highlight-row">
-                                  <span className="overview-bullet-dot" />
-                                  <span className="overview-bullet-text">{renderFormattedText(bullet)}</span>
+                    {/* 03. CONVERSATION SUMMARY */}
+                    <section className="memo-section">
+                      <div className="memo-section-header">
+                        <h2 className="memo-section-title">03. CONVERSATION SUMMARY</h2>
+                      </div>
+                      <div className="memo-section-content">
+                        <ul className="memo-bullet-list">
+                          {conversationSummaryList.map((item, idx) => (
+                            <li key={idx} className="memo-bullet-row">
+                              <span className="memo-bullet-dot">&bull;</span>
+                              <span className="memo-bullet-text">{renderFormattedText(item)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </section>
+
+                    {/* 04. AGREED & SETTLED (Hidden if no confirmed decisions exist) */}
+                    {confirmedDecisions.length > 0 && (
+                      <>
+                        <hr className="memo-divider" />
+                        <section className="memo-section">
+                          <div className="memo-section-header">
+                            <h2 className="memo-section-title">04. AGREED &amp; SETTLED</h2>
+                          </div>
+                          <div className="memo-section-content">
+                            <ul className="memo-bullet-list">
+                              {confirmedDecisions.map((dec) => (
+                                <li key={dec.id} className="memo-bullet-row">
+                                  <span className="memo-bullet-dot">&bull;</span>
+                                  <span className="memo-bullet-text">
+                                    <strong>{dec.title}</strong>
+                                    {dec.context && dec.context !== dec.title ? ` — ${dec.context}` : ''}
+                                  </span>
                                 </li>
                               ))}
                             </ul>
                           </div>
+                        </section>
+                      </>
+                    )}
+
+                    {/* 05. PENDING ACTIONS (Hidden if no pending actions exist) */}
+                    {pendingActions.length > 0 && (
+                      <>
+                        <hr className="memo-divider" />
+                        <section className="memo-section">
+                          <div className="memo-section-header">
+                            <h2 className="memo-section-title">05. PENDING ACTIONS</h2>
+                            <span className="memo-header-label-right">{pendingActions.length} Open</span>
+                          </div>
+                          <div className="memo-tasks-stack">
+                            {pendingActions.map((task, idx) => {
+                              const numStr = String(idx + 1).padStart(2, '0');
+                              return (
+                                <div key={task.id} className="memo-task-row">
+                                  <div className="memo-task-top-line">
+                                    <span className="memo-task-title-bold">
+                                      {numStr}. {task.title}
+                                    </span>
+                                    <span className="memo-task-status-right">
+                                      Status: {task.status}
+                                    </span>
+                                  </div>
+                                  <div className="memo-task-owner-line">
+                                    Owner: {task.owner}
+                                  </div>
+                                  <div className="memo-task-explanation-line">
+                                    {task.explanation}
+                                  </div>
+                                  {idx < pendingActions.length - 1 && (
+                                    <hr className="memo-task-divider" />
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </section>
+                      </>
+                    )}
+
+                    {/* 06. TIMELINE & MILESTONES */}
+                    <hr className="memo-divider" />
+                    <section className="memo-section">
+                      <div className="memo-section-header">
+                        <h2 className="memo-section-title">06. TIMELINE &amp; MILESTONES</h2>
+                        {storylineSteps.length > 4 && (
+                          <button
+                            type="button"
+                            className="memo-toggle-btn"
+                            onClick={() => setIsTimelineExpanded((prev) => !prev)}
+                          >
+                            {isTimelineExpanded
+                              ? 'Show less'
+                              : `View full history (${storylineSteps.length} milestones)`}
+                          </button>
                         )}
-
-                        {currentSituationText && currentSituationText !== overviewNarrative && (
-                          <div className="overview-situation-callout">
-                            <span className="situation-badge">CURRENT STATUS</span>
-                            <p className="situation-text">{renderFormattedText(currentSituationText)}</p>
-                          </div>
-                        )}
                       </div>
-                    </section>
-
-                    {/* -------------------------------------------------------------
-                        3. KEY INFORMATION (Compact Information Cards)
-                        ------------------------------------------------------------- */}
-                    <section className="summary-dashboard-card">
-                      <div className="summary-card-header">
-                        <div className="card-header-left">
-                          <h2 className="summary-card-title">Key Information</h2>
-                          <span className="summary-card-subtitle">Budgets, pricing, delivery dates, deliverables &amp; critical metrics</span>
-                        </div>
-                      </div>
-
-                      {keyInfoItems.length > 0 ? (
-                        <div className="key-info-grid">
-                          {keyInfoItems.map((item) => {
-                            const cat = item.category || 'metric';
-                            return (
-                              <div key={item.id} className={`key-info-card cat-${cat}`}>
-                                <div className="key-info-card-header">
-                                  <span className={`key-info-cat-pill pill-${cat}`}>
-                                    {cat === 'budget' && '💰 BUDGET / PRICING'}
-                                    {cat === 'date' && '📅 DELIVERY DATE / DEADLINE'}
-                                    {cat === 'deliverable' && '📦 DELIVERABLE'}
-                                    {cat === 'metric' && '📊 METRIC / NUMBER'}
-                                  </span>
-                                  {renderCitationBadge(item.sourceMessageIds)}
-                                </div>
-                                <div className="key-info-card-value" title={item.value}>
-                                  {item.value}
-                                </div>
-                                <div className="key-info-card-label">{item.label}</div>
-                                {item.detail && (
-                                  <div className="key-info-card-detail">{item.detail}</div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <div className="summary-empty-state">
-                          <FileText size={15} />
-                          <span>No explicit commercial pricing, delivery deadlines, or fixed deliverables mentioned in conversation.</span>
-                        </div>
-                      )}
-                    </section>
-
-                    {/* -------------------------------------------------------------
-                        4. CONVERSATION BREAKDOWN (Client vs Agency Separate)
-                        ------------------------------------------------------------- */}
-                    <section className="summary-dashboard-card">
-                      <div className="summary-card-header">
-                        <div className="card-header-left">
-                          <h2 className="summary-card-title">Conversation Breakdown</h2>
-                          <span className="summary-card-subtitle">Client Perspective &amp; Agency Perspective &mdash; side-by-side comparison</span>
-                        </div>
-                      </div>
-
-                      <div className="breakdown-streams-grid">
-                        {/* Client Perspective Column */}
-                        <div className="stream-perspective-col client-perspective">
-                          <div className="perspective-stream-header">
-                            <div className="perspective-title-wrap">
-                              <div className="perspective-icon-wrap client">
-                                <Building2 size={15} />
-                              </div>
-                              <div>
-                                <span className="perspective-stream-kicker">CLIENT PERSPECTIVE</span>
-                                <h3 className="perspective-actor-heading">{clientTrack.title}</h3>
-                              </div>
-                            </div>
-                            {clientTrack.status && (
-                              <span className="perspective-status-pill client">{clientTrack.status}</span>
-                            )}
-                          </div>
-
-                          <div className="perspective-stream-body">
-                            {/* Position */}
-                            <div className="perspective-facet-block">
-                              <span className="facet-label">Current Position</span>
-                              <p className="facet-content-text">{renderFormattedText(clientTrack.position)}</p>
-                            </div>
-
-                            {/* Main Concerns */}
-                            {clientTrack.concerns.length > 0 && (
-                              <div className="perspective-facet-block">
-                                <span className="facet-label">Main Concerns &amp; Constraints</span>
-                                <ul className="facet-bullets-list">
-                                  {clientTrack.concerns.map((c, i) => (
-                                    <li key={i} className="facet-bullet-row">
-                                      <span className="facet-bullet-dot client" />
-                                      <span className="facet-bullet-text">{renderFormattedText(c)}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-
-                            {/* Proposals */}
-                            {clientTrack.proposals.length > 0 && (
-                              <div className="perspective-facet-block">
-                                <span className="facet-label">Proposals &amp; Feedback</span>
-                                <ul className="facet-bullets-list">
-                                  {clientTrack.proposals.map((p, i) => (
-                                    <li key={i} className="facet-bullet-row">
-                                      <span className="facet-bullet-dot client" />
-                                      <span className="facet-bullet-text">{renderFormattedText(p)}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-
-                            {/* Expectations */}
-                            {clientTrack.expectations.length > 0 && (
-                              <div className="perspective-facet-block">
-                                <span className="facet-label">Next Expectations</span>
-                                <ul className="facet-bullets-list">
-                                  {clientTrack.expectations.map((exp, i) => (
-                                    <li key={i} className="facet-bullet-row">
-                                      <span className="facet-bullet-dot client" />
-                                      <span className="facet-bullet-text">{renderFormattedText(exp)}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Agency Perspective Column */}
-                        <div className="stream-perspective-col agency-perspective">
-                          <div className="perspective-stream-header">
-                            <div className="perspective-title-wrap">
-                              <div className="perspective-icon-wrap agency">
-                                <Briefcase size={15} />
-                              </div>
-                              <div>
-                                <span className="perspective-stream-kicker">AGENCY PERSPECTIVE</span>
-                                <h3 className="perspective-actor-heading">{teamTrack.title}</h3>
-                              </div>
-                            </div>
-                            {teamTrack.status && (
-                              <span className="perspective-status-pill agency">{teamTrack.status}</span>
-                            )}
-                          </div>
-
-                          <div className="perspective-stream-body">
-                            {/* Position */}
-                            <div className="perspective-facet-block">
-                              <span className="facet-label">Operational Posture</span>
-                              <p className="facet-content-text">{renderFormattedText(teamTrack.position)}</p>
-                            </div>
-
-                            {/* Main Concerns / Constraints */}
-                            {teamTrack.concerns.length > 0 && (
-                              <div className="perspective-facet-block">
-                                <span className="facet-label">Constraints &amp; Scope Boundaries</span>
-                                <ul className="facet-bullets-list">
-                                  {teamTrack.concerns.map((c, i) => (
-                                    <li key={i} className="facet-bullet-row">
-                                      <span className="facet-bullet-dot agency" />
-                                      <span className="facet-bullet-text">{renderFormattedText(c)}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-
-                            {/* Proposals */}
-                            {teamTrack.proposals.length > 0 && (
-                              <div className="perspective-facet-block">
-                                <span className="facet-label">Solutions &amp; Deliverables</span>
-                                <ul className="facet-bullets-list">
-                                  {teamTrack.proposals.map((p, i) => (
-                                    <li key={i} className="facet-bullet-row">
-                                      <span className="facet-bullet-dot agency" />
-                                      <span className="facet-bullet-text">{renderFormattedText(p)}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-
-                            {/* Expectations */}
-                            {teamTrack.expectations.length > 0 && (
-                              <div className="perspective-facet-block">
-                                <span className="facet-label">Next Expectations From Client</span>
-                                <ul className="facet-bullets-list">
-                                  {teamTrack.expectations.map((exp, i) => (
-                                    <li key={i} className="facet-bullet-row">
-                                      <span className="facet-bullet-dot agency" />
-                                      <span className="facet-bullet-text">{renderFormattedText(exp)}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </section>
-
-                    {/* -------------------------------------------------------------
-                        5. DECISIONS & AGREEMENTS (Only Confirmed Decisions)
-                        ------------------------------------------------------------- */}
-                    <section className="summary-dashboard-card">
-                      <div className="summary-card-header">
-                        <div className="card-header-left">
-                          <h2 className="summary-card-title">Decisions &amp; Agreements</h2>
-                          <span className="summary-card-subtitle">
-                            Confirmed agreements ({confirmedDecisions.length} Confirmed)
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          className="summary-card-action-btn"
-                          onClick={() => setActiveSection('decisions')}
-                        >
-                          View Decisions Log &rarr;
-                        </button>
-                      </div>
-
-                      {confirmedDecisions.length > 0 ? (
-                        <div className="confirmed-decisions-stack">
-                          {confirmedDecisions.map((dec) => (
-                            <div key={dec.id} className="confirmed-decision-row">
-                              <div className="decision-status-col">
-                                <CheckCircle2 size={16} className="decision-confirmed-check" />
-                              </div>
-                              <div className="decision-content-col">
-                                <div className="decision-top-meta-line">
-                                  <span className="decision-status-tag-confirmed">CONFIRMED</span>
-                                  <h4 className="decision-heading-text">{dec.title}</h4>
-                                </div>
-                                {dec.context && (
-                                  <p className="decision-context-paragraph">{renderFormattedText(dec.context)}</p>
-                                )}
-                                <div className="decision-bottom-meta-line">
-                                  <span className="decision-date-tag">
-                                    <Calendar size={11} /> {dec.date}
-                                  </span>
-                                  {dec.participants && dec.participants.length > 0 && (
-                                    <span className="decision-participants-tag">
-                                      <Users size={11} /> {dec.participants.join(', ')}
+                      <div className="memo-section-content">
+                        {storylineSteps.length > 0 ? (
+                          <div className="memo-timeline-stack">
+                            {visibleTimelineSteps.map((step, idx) => (
+                              <div key={step.id || idx} className="memo-timeline-entry">
+                                <div className="memo-timeline-date">{step.timestamp}</div>
+                                <div className="memo-timeline-content">
+                                  <span className="memo-timeline-heading">{step.heading}</span>
+                                  {step.description && (
+                                    <span className="memo-timeline-desc">
+                                      {' '}
+                                      &mdash; {renderFormattedText(step.description)}
                                     </span>
                                   )}
-                                  {renderCitationBadge(dec.sourceMessageIds)}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="summary-empty-state">
-                          <CheckCircle2 size={15} style={{ color: '#10b981' }} />
-                          <span>No binding decisions have been formally confirmed yet in this group.</span>
-                        </div>
-                      )}
-
-                      {/* Distinct secondary section for non-confirmed suggestions */}
-                      {otherDecisions.length > 0 && (
-                        <div className="unconfirmed-proposals-container">
-                          <div className="unconfirmed-header">
-                            <span className="unconfirmed-title">
-                              Pending Proposals &amp; Superseded Items ({otherDecisions.length})
-                            </span>
-                            <span className="unconfirmed-disclaimer">
-                              *Unconfirmed proposals and superseded suggestions (not binding agreements)
-                            </span>
-                          </div>
-                          <div className="unconfirmed-proposals-grid">
-                            {otherDecisions.map((p) => (
-                              <div key={p.id} className={`unconfirmed-item-card ${p.status.toLowerCase()}`}>
-                                <div className="unconfirmed-card-top">
-                                  <span className={`unconfirmed-badge ${p.status.toLowerCase()}`}>
-                                    {p.status}
-                                  </span>
-                                  <span className="unconfirmed-date">{p.date}</span>
-                                </div>
-                                <div className="unconfirmed-card-title">{p.title}</div>
-                                {p.context && <p className="unconfirmed-card-context">{p.context}</p>}
-                                <div className="unconfirmed-card-footer">
-                                  {renderCitationBadge(p.sourceMessageIds)}
                                 </div>
                               </div>
                             ))}
                           </div>
-                        </div>
-                      )}
-                    </section>
-
-                    {/* -------------------------------------------------------------
-                        6. PENDING ACTIONS & BLOCKERS
-                        ------------------------------------------------------------- */}
-                    <section className="summary-dashboard-card">
-                      <div className="summary-card-header">
-                        <div className="card-header-left">
-                          <h2 className="summary-card-title">Pending Actions &amp; Blockers</h2>
-                          <span className="summary-card-subtitle">
-                            Unresolved tasks, assigned owners, and operational blockers
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          className="summary-card-action-btn"
-                          onClick={() => setActiveSection('actions')}
-                        >
-                          View Action Tracker &rarr;
-                        </button>
+                        ) : (
+                          <p className="memo-paragraph" style={{ color: '#64748B' }}>
+                            Milestones will populate as conversation develops.
+                          </p>
+                        )}
                       </div>
-
-                      {/* Active Blockers Callout */}
-                      {activeBlockers.length > 0 && (
-                        <div className="summary-blockers-callout">
-                          <div className="blockers-callout-header">
-                            <AlertTriangle size={15} className="blocker-warning-icon" />
-                            <span className="blockers-callout-heading">Active Blockers &amp; Dependencies</span>
-                          </div>
-                          <div className="blockers-callout-list">
-                            {activeBlockers.map((blk, idx) => (
-                              <div key={idx} className="blocker-callout-row">
-                                <span className="blocker-title-text">{renderFormattedText(blk.item)}</span>
-                                {blk.waitingOn && (
-                                  <span className="blocker-dependency-badge">
-                                    Awaiting action from: <strong>{blk.waitingOn}</strong>
-                                  </span>
-                                )}
-                                {renderCitationBadge(blk.sourceMessageIds)}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Unresolved Tasks Table */}
-                      {unresolvedActions.length > 0 ? (
-                        <div className="summary-actions-table-box">
-                          <table className="modern-actions-table">
-                            <thead>
-                              <tr>
-                                <th style={{ width: '42%' }}>Task Description</th>
-                                <th style={{ width: '18%' }}>Responsible Owner</th>
-                                <th style={{ width: '16%' }}>Current Status</th>
-                                <th style={{ width: '14%' }}>Deadline</th>
-                                <th style={{ width: '10%' }}>Source</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {unresolvedActions.map((task) => {
-                                const s = (task.status || 'PENDING').toUpperCase();
-                                const statusClass =
-                                  s === 'IN_PROGRESS' ? 'status-in-progress' :
-                                  s === 'BLOCKED' ? 'status-blocked' : 'status-pending';
-
-                                return (
-                                  <tr key={task.id} className="action-table-row">
-                                    <td className="action-task-col">
-                                      <span className="action-task-text">{task.action}</span>
-                                      {task.status === 'BLOCKED' && (
-                                        <span className="action-blocked-hint">Blocked: awaiting inputs</span>
-                                      )}
-                                    </td>
-                                    <td className="action-owner-col">
-                                      <span className={`action-owner-tag ${task.owner === 'Unassigned' ? 'unassigned' : ''}`}>
-                                        {task.owner || 'Unassigned'}
-                                      </span>
-                                    </td>
-                                    <td className="action-status-col">
-                                      <span className={`action-status-pill ${statusClass}`}>
-                                        {s.replace('_', ' ')}
-                                      </span>
-                                    </td>
-                                    <td className="action-deadline-col">
-                                      <span className="action-deadline-label">{task.deadline || 'Not specified'}</span>
-                                    </td>
-                                    <td className="action-citation-col">
-                                      {renderCitationBadge(task.sourceMessageIds)}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : (
-                        <div className="summary-empty-state">
-                          <CheckCircle2 size={15} style={{ color: '#10b981' }} />
-                          <span>No pending tasks or unresolved action items recorded for this group.</span>
-                        </div>
-                      )}
-                    </section>
-
-                    {/* -------------------------------------------------------------
-                        7. TIMELINE & MILESTONES (Clean Vertical Timeline)
-                        ------------------------------------------------------------- */}
-                    <section className="summary-dashboard-card">
-                      <div className="summary-card-header">
-                        <div className="card-header-left">
-                          <h2 className="summary-card-title">Timeline &amp; Milestones</h2>
-                          <span className="summary-card-subtitle">
-                            Important events and deadlines in a clean vertical timeline
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          className="summary-card-action-btn"
-                          onClick={() => setActiveSection('storyline')}
-                        >
-                          View Full Storyline &rarr;
-                        </button>
-                      </div>
-
-                      {storylineSteps.length > 0 ? (
-                        <div className="vertical-milestones-timeline">
-                          {storylineSteps.map((step, idx) => {
-                            const isLast = idx === storylineSteps.length - 1;
-                            const stageName = (step.stage || 'DISCUSSION').replace(/_/g, ' ');
-
-                            return (
-                              <div key={step.id || idx} className={`vertical-timeline-item ${isLast ? 'last-node' : ''}`}>
-                                <div className="vertical-timeline-track">
-                                  <div className="vertical-timeline-dot" />
-                                  {!isLast && <div className="vertical-timeline-stem" />}
-                                </div>
-
-                                <div className="vertical-timeline-card">
-                                  <div className="vertical-timeline-card-header">
-                                    <span className="timeline-stage-tag">{stageName}</span>
-                                    <span className="timeline-date-label">
-                                      <Clock size={11} />
-                                      {step.timestamp}
-                                    </span>
-                                  </div>
-
-                                  <h4 className="timeline-event-title">{step.heading}</h4>
-                                  <p className="timeline-event-desc">{renderFormattedText(step.description)}</p>
-
-                                  <div className="timeline-event-footer">
-                                    {step.participants && step.participants.length > 0 && (
-                                      <span className="timeline-participants-meta">
-                                        <Users size={11} /> {step.participants.join(', ')}
-                                      </span>
-                                    )}
-                                    {renderCitationBadge(step.sourceMessageIds)}
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <div className="summary-empty-state">
-                          <Clock size={15} />
-                          <span>Timeline milestones will populate as the conversation develops.</span>
-                        </div>
-                      )}
                     </section>
                   </div>
                 );
               })()}
-
             </div>
           </div>
         )}
