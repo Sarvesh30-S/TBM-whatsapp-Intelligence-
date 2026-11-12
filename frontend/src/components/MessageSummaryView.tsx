@@ -334,81 +334,32 @@ export default function MessageSummaryView({
           ========================================================================= */}
       <header className="group-intelligence-header">
         <div className="header-top-row">
-          {/* Group Identity - Clean Professional Title */}
-          <div className="group-identity-meta">
-            <h1 className="group-main-title">{selectedGroup}</h1>
-          </div>
-
-          {/* Action Buttons: Copy Messages, Language Switcher, Regenerate */}
-          <div className="header-actions-group">
-            <button
-              type="button"
-              className="btn-intelligence-copy"
-              onClick={handleCopyAllMessages}
-              title="Copy all available conversation messages for this group to clipboard"
-            >
-              <Copy size={13} />
-              <span>Copy All Messages</span>
-            </button>
-
-            <div className="language-switch-toggle" title="Switch summary language">
-              <button
-                type="button"
-                className={`lang-btn ${summaryLanguage === 'hinglish' ? 'active' : ''}`}
-                onClick={() => setSummaryLanguage('hinglish')}
-              >
-                🇮🇳 Hinglish
-              </button>
-              <button
-                type="button"
-                className={`lang-btn ${summaryLanguage === 'english' ? 'active' : ''}`}
-                onClick={() => setSummaryLanguage('english')}
-              >
-                🇬🇧 English
-              </button>
+          {/* Group Identity - Clean Executive Title & Searchable Switcher */}
+          <div className="group-identity-meta" ref={groupDropdownRef}>
+            <div className="group-eyebrow-line">
+              <span className="group-eyebrow-tag">
+                <Compass size={11} />
+                WHATSAPP CONVERSATION INTELLIGENCE
+              </span>
+              {selectedGroupData && (
+                <span className="group-count-badge">
+                  {selectedGroupData.count} {selectedGroupData.count === 1 ? 'message' : 'messages'}
+                </span>
+              )}
             </div>
-
-            {canGenerate && (
-              <button
-                type="button"
-                className="btn-intelligence-generate"
-                onClick={() => generateGroupBriefing(selectedGroup)}
-                disabled={analyzing}
-              >
-                <RotateCw size={14} className={analyzing ? 'animate-spin' : ''} />
-                <span>{analyzing ? 'Analyzing Context...' : 'Regenerate Briefing'}</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Group Selector & Date Filter Controls */}
-        <div className="header-controls-row">
-          <div className="controls-left" ref={groupDropdownRef}>
-            <label className="selector-label">
-              <Compass size={13} />
-              <span>ACTIVE WHATSAPP GROUP:</span>
-            </label>
 
             <div className="custom-group-dropdown-wrapper">
               <button
                 type="button"
-                className={`custom-group-dropdown-trigger ${isGroupDropdownOpen ? 'open' : ''}`}
+                className={`custom-group-dropdown-trigger executive-title-trigger ${isGroupDropdownOpen ? 'open' : ''}`}
                 onClick={() => setIsGroupDropdownOpen((prev) => !prev)}
                 aria-haspopup="listbox"
                 aria-expanded={isGroupDropdownOpen}
-                title="Select active WhatsApp group"
+                title="Click to switch WhatsApp group"
               >
-                <div className="trigger-group-info">
-                  <span className="trigger-group-name">{selectedGroup}</span>
-                  {selectedGroupData && (
-                    <span className="trigger-group-count">
-                      {selectedGroupData.count} {selectedGroupData.count === 1 ? 'msg' : 'msgs'}
-                    </span>
-                  )}
-                </div>
+                <span className="group-main-title">{selectedGroup}</span>
                 <ChevronDown
-                  size={15}
+                  size={18}
                   className={`trigger-chevron ${isGroupDropdownOpen ? 'rotated' : ''}`}
                 />
               </button>
@@ -467,11 +418,9 @@ export default function MessageSummaryView({
             </div>
           </div>
 
-          <div className="controls-right">
+          {/* Action Controls: Date Range, Language Switcher, Copy, Regenerate */}
+          <div className="header-actions-group">
             <div className="date-filter-group">
-              <span className="filter-label">
-                <Calendar size={12} /> Date Range:
-              </span>
               <button
                 type="button"
                 className={`filter-range-btn ${dateRange === 'all' ? 'active' : ''}`}
@@ -494,7 +443,132 @@ export default function MessageSummaryView({
                 Past 24 Hours
               </button>
             </div>
+
+            <div className="language-switch-toggle" title="Switch summary language">
+              <button
+                type="button"
+                className={`lang-btn ${summaryLanguage === 'hinglish' ? 'active' : ''}`}
+                onClick={() => setSummaryLanguage('hinglish')}
+              >
+                🇮🇳 Hinglish
+              </button>
+              <button
+                type="button"
+                className={`lang-btn ${summaryLanguage === 'english' ? 'active' : ''}`}
+                onClick={() => setSummaryLanguage('english')}
+              >
+                🇬🇧 English
+              </button>
+            </div>
+
+            <button
+              type="button"
+              className="btn-intelligence-copy"
+              onClick={handleCopyAllMessages}
+              title="Copy all available conversation messages for this group to clipboard"
+            >
+              <Copy size={13} />
+              <span>Copy All Messages</span>
+            </button>
+
+            {canGenerate && (
+              <button
+                type="button"
+                className="btn-intelligence-generate"
+                onClick={() => generateGroupBriefing(selectedGroup)}
+                disabled={analyzing}
+              >
+                <RotateCw size={14} className={analyzing ? 'animate-spin' : ''} />
+                <span>{analyzing ? 'Analyzing Context...' : 'Regenerate Briefing'}</span>
+              </button>
+            )}
           </div>
+        </div>
+
+        {/* Sub-navigation Horizontal Tab Bar */}
+        <div className="horizontal-tabs-scroll">
+          <nav className="intelligence-horizontal-subnav" aria-label="Intelligence Views">
+            <button
+              type="button"
+              className={`intel-tab-btn ${activeSection === 'briefing' ? 'active' : ''}`}
+              onClick={() => setActiveSection('briefing')}
+            >
+              <FileText size={14} />
+              <span>Executive Briefing</span>
+            </button>
+
+            <button
+              type="button"
+              className={`intel-tab-btn ${activeSection === 'storyline' ? 'active' : ''}`}
+              onClick={() => setActiveSection('storyline')}
+            >
+              <Clock size={14} />
+              <span>Storyline</span>
+              {briefing?.storyline && briefing.storyline.length > 0 && (
+                <span className="intel-tab-badge">{briefing.storyline.length}</span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              className={`intel-tab-btn ${activeSection === 'topics' ? 'active' : ''}`}
+              onClick={() => setActiveSection('topics')}
+            >
+              <Layers size={14} />
+              <span>Topic Explorer</span>
+              {briefing?.topics && briefing.topics.length > 0 && (
+                <span className="intel-tab-badge">{briefing.topics.length}</span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              className={`intel-tab-btn ${activeSection === 'decisions' ? 'active' : ''}`}
+              onClick={() => setActiveSection('decisions')}
+            >
+              <CheckCircle2 size={14} />
+              <span>Decisions Log</span>
+              {briefing?.decisions && briefing.decisions.length > 0 && (
+                <span className="intel-tab-badge">{briefing.decisions.length}</span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              className={`intel-tab-btn ${activeSection === 'actions' ? 'active' : ''}`}
+              onClick={() => setActiveSection('actions')}
+            >
+              <ListTodo size={14} />
+              <span>Action Tracker</span>
+              {briefing?.actionTracker && briefing.actionTracker.length > 0 && (
+                <span className="intel-tab-badge">{briefing.actionTracker.length}</span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              className={`intel-tab-btn ${activeSection === 'pending' ? 'active' : ''}`}
+              onClick={() => setActiveSection('pending')}
+            >
+              <HelpCircle size={14} />
+              <span>Pending Discussions</span>
+              {briefing?.pendingDiscussions && briefing.pendingDiscussions.length > 0 && (
+                <span className="intel-tab-badge alert">{briefing.pendingDiscussions.length}</span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              className={`intel-tab-btn ${activeSection === 'participants' ? 'active' : ''}`}
+              onClick={() => setActiveSection('participants')}
+            >
+              <Users size={14} />
+              <span>Contributors</span>
+              {briefing?.participantContributions && briefing.participantContributions.length > 0 && (
+                <span className="intel-tab-badge">{briefing.participantContributions.length}</span>
+              )}
+            </button>
+          </nav>
         </div>
 
         {briefingError && (
@@ -506,425 +580,438 @@ export default function MessageSummaryView({
       </header>
 
       {/* =========================================================================
-          2. MAIN 2-COLUMN INTELLIGENCE LAYOUT (Left Sub-Nav + Right Content Pane)
+          2. MAIN INTELLIGENCE CONTENT AREA
           ========================================================================= */}
       <div className="intelligence-main-layout">
-        {/* Left Sub-Navigation Sidebar */}
-        <aside className="intelligence-subnav-sidebar">
-          <div className="subnav-sidebar-header">
-            <span className="subnav-sidebar-tag">INTELLIGENCE VIEWS</span>
-          </div>
-
-          <nav className="subnav-vertical-menu">
-            <button
-              type="button"
-              className={`subnav-vertical-item ${activeSection === 'briefing' ? 'active' : ''}`}
-              onClick={() => setActiveSection('briefing')}
-            >
-              <div className="subnav-item-icon-wrap">
-                <FileText size={15} />
-              </div>
-              <span className="subnav-vertical-label">Executive Briefing</span>
-            </button>
-
-            <button
-              type="button"
-              className={`subnav-vertical-item ${activeSection === 'storyline' ? 'active' : ''}`}
-              onClick={() => setActiveSection('storyline')}
-            >
-              <div className="subnav-item-icon-wrap">
-                <Clock size={15} />
-              </div>
-              <span className="subnav-vertical-label">Storyline</span>
-              {briefing?.storyline && briefing.storyline.length > 0 && (
-                <span className="subnav-count-badge">{briefing.storyline.length}</span>
-              )}
-            </button>
-
-            <button
-              type="button"
-              className={`subnav-vertical-item ${activeSection === 'topics' ? 'active' : ''}`}
-              onClick={() => setActiveSection('topics')}
-            >
-              <div className="subnav-item-icon-wrap">
-                <Layers size={15} />
-              </div>
-              <span className="subnav-vertical-label">Topic Explorer</span>
-              {briefing?.topics && briefing.topics.length > 0 && (
-                <span className="subnav-count-badge">{briefing.topics.length}</span>
-              )}
-            </button>
-
-            <button
-              type="button"
-              className={`subnav-vertical-item ${activeSection === 'decisions' ? 'active' : ''}`}
-              onClick={() => setActiveSection('decisions')}
-            >
-              <div className="subnav-item-icon-wrap">
-                <CheckCircle2 size={15} />
-              </div>
-              <span className="subnav-vertical-label">Decisions Log</span>
-              {briefing?.decisions && briefing.decisions.length > 0 && (
-                <span className="subnav-count-badge">{briefing.decisions.length}</span>
-              )}
-            </button>
-
-            <button
-              type="button"
-              className={`subnav-vertical-item ${activeSection === 'actions' ? 'active' : ''}`}
-              onClick={() => setActiveSection('actions')}
-            >
-              <div className="subnav-item-icon-wrap">
-                <ListTodo size={15} />
-              </div>
-              <span className="subnav-vertical-label">Action Tracker</span>
-              {briefing?.actionTracker && briefing.actionTracker.length > 0 && (
-                <span className="subnav-count-badge">{briefing.actionTracker.length}</span>
-              )}
-            </button>
-
-            <button
-              type="button"
-              className={`subnav-vertical-item ${activeSection === 'pending' ? 'active' : ''}`}
-              onClick={() => setActiveSection('pending')}
-            >
-              <div className="subnav-item-icon-wrap">
-                <HelpCircle size={15} />
-              </div>
-              <span className="subnav-vertical-label">Pending Discussions</span>
-              {briefing?.pendingDiscussions && briefing.pendingDiscussions.length > 0 && (
-                <span className="subnav-count-badge alert">
-                  {briefing.pendingDiscussions.length}
-                </span>
-              )}
-            </button>
-
-            <button
-              type="button"
-              className={`subnav-vertical-item ${activeSection === 'participants' ? 'active' : ''}`}
-              onClick={() => setActiveSection('participants')}
-            >
-              <div className="subnav-item-icon-wrap">
-                <Users size={15} />
-              </div>
-              <span className="subnav-vertical-label">Contributors</span>
-              {briefing?.participantContributions && briefing.participantContributions.length > 0 && (
-                <span className="subnav-count-badge">{briefing.participantContributions.length}</span>
-              )}
-            </button>
-          </nav>
-        </aside>
-
-        {/* Right Main Content Pane */}
         <main className="intelligence-content-pane">
         {/* SECTION 1: EXECUTIVE BRIEFING (DEFAULT VIEW) */}
         {activeSection === 'briefing' && (
-          <div className="editorial-briefing-pane">
-            <div className="document-memo-container">
-              {/* Document Header & Metadata Information */}
-              <div className="memo-metadata-bar">
-                <span className="memo-meta-date">
-                  Date Range: {new Date(briefing?.dateRange.start || Date.now()).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} &mdash; {new Date(briefing?.dateRange.end || Date.now()).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
-                </span>
-                <span className="memo-meta-separator">|</span>
-                <span className="memo-meta-coverage">
-                  Coverage: {briefing?.coverageNote || `${briefing?.messagesIncluded || 0} of ${briefing?.totalMessagesCount || 0} messages processed`}
-                </span>
-              </div>
-
-              {analyzing && (
-                <div className="summary-analyzing-banner">
-                  <RotateCw size={13} className="animate-spin" style={{ color: '#D97706' }} />
-                  <span>Synthesizing conversation intelligence for <strong>{selectedGroup}</strong>...</span>
+          <div className="briefing-dashboard-grid">
+            {/* Left: Main Editorial Memo Document */}
+            <div className="briefing-main-column">
+              <div className="document-memo-container">
+                {/* Document Header & Metadata Information */}
+                <div className="memo-metadata-bar">
+                  <span className="memo-meta-date">
+                    Date Range: {new Date(briefing?.dateRange.start || Date.now()).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} &mdash; {new Date(briefing?.dateRange.end || Date.now()).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                  <span className="memo-meta-separator">|</span>
+                  <span className="memo-meta-coverage">
+                    Coverage: {briefing?.coverageNote || `${briefing?.messagesIncluded || 0} of ${briefing?.totalMessagesCount || 0} messages processed`}
+                  </span>
                 </div>
-              )}
 
-              {/* =========================================================================
-                  DOCUMENT-STYLE EDITORIAL SUMMARY MEMO
-                  Exact Section Order:
-                  01. GROUP CONTEXT
-                  02. KEY TAKEAWAYS
-                  03. CONVERSATION SUMMARY
-                  04. AGREED & SETTLED
-                  05. PENDING ACTIONS
-                  06. TIMELINE & MILESTONES
-                  ========================================================================= */}
-              {(() => {
-                const eb = briefing?.executiveBriefing;
-                const isHinglish = summaryLanguage === 'hinglish';
+                {analyzing && (
+                  <div className="summary-analyzing-banner">
+                    <RotateCw size={13} className="animate-spin" style={{ color: '#D97706' }} />
+                    <span>Synthesizing conversation intelligence for <strong>{selectedGroup}</strong>...</span>
+                  </div>
+                )}
 
-                // 01. GROUP CONTEXT (60-90 words, 1-2 short paragraphs in simple language)
-                const rawGroupContext = isHinglish
-                  ? (eb?.groupContextHinglish || briefing?.groupContextHinglish || eb?.groupContext || briefing?.groupContext || '')
-                  : (eb?.groupContext || briefing?.groupContext || '');
+                {/* =========================================================================
+                    DOCUMENT-STYLE EDITORIAL SUMMARY MEMO
+                    Exact Section Order:
+                    01. GROUP CONTEXT
+                    02. KEY TAKEAWAYS
+                    03. CONVERSATION SUMMARY
+                    04. AGREED & SETTLED
+                    05. PENDING ACTIONS
+                    06. TIMELINE & MILESTONES
+                    ========================================================================= */}
+                {(() => {
+                  const eb = briefing?.executiveBriefing;
+                  const isHinglish = summaryLanguage === 'hinglish';
 
-                const groupContextParagraphs = rawGroupContext
-                  ? rawGroupContext.split(/\n\n+/).map((p) => p.trim()).filter(Boolean)
-                  : [
-                      `This WhatsApp group serves as the active coordination hub for ${selectedGroup}. Discussions focus on active deliverables, client feedback, review milestones, and operational alignment.`,
-                      `Key stakeholders and team members align on scope, deliverables, and timelines. Review the sections below for the executive breakdown, commercial metrics, confirmed decisions, and pending action items.`
-                    ];
+                  // 01. GROUP CONTEXT (60-90 words, 1-2 short paragraphs in simple language)
+                  const rawGroupContext = isHinglish
+                    ? (eb?.groupContextHinglish || briefing?.groupContextHinglish || eb?.groupContext || briefing?.groupContext || '')
+                    : (eb?.groupContext || briefing?.groupContext || '');
 
-                // 02. KEY TAKEAWAYS (Executive Summary)
-                const currentSituationText = isHinglish
-                  ? (eb?.currentSituationHinglish || eb?.currentSituation || '')
-                  : (eb?.currentSituation || '');
-                const overviewNarrative = isHinglish
-                  ? (eb?.overviewHinglish || eb?.overview || '')
-                  : (eb?.overview || '');
+                  const groupContextParagraphs = rawGroupContext
+                    ? rawGroupContext.split(/\n\n+/).map((p) => p.trim()).filter(Boolean)
+                    : [
+                        `This WhatsApp group serves as the active coordination hub for ${selectedGroup}. Discussions focus on active deliverables, client feedback, review milestones, and operational alignment.`,
+                        `Key stakeholders and team members align on scope, deliverables, and timelines. Review the sections below for the executive breakdown, commercial metrics, confirmed decisions, and pending action items.`
+                      ];
 
-                const tldrList: string[] = (isHinglish && eb?.tldrHinglish && eb.tldrHinglish.length > 0)
-                  ? eb.tldrHinglish
-                  : (eb?.tldr && eb.tldr.length > 0)
-                  ? eb.tldr
-                  : [overviewNarrative || currentSituationText].filter(Boolean);
+                  // 02. KEY TAKEAWAYS (Executive Summary)
+                  const currentSituationText = isHinglish
+                    ? (eb?.currentSituationHinglish || eb?.currentSituation || '')
+                    : (eb?.currentSituation || '');
+                  const overviewNarrative = isHinglish
+                    ? (eb?.overviewHinglish || eb?.overview || '')
+                    : (eb?.overview || '');
 
-                // 03. CONVERSATION SUMMARY (Unified 3-6 concise bullets combining all participants)
-                const rawConvSummary = isHinglish
-                  ? (eb?.conversationSummaryHinglish || briefing?.conversationSummaryHinglish || eb?.conversationSummary || briefing?.conversationSummary || [])
-                  : (eb?.conversationSummary || briefing?.conversationSummary || []);
+                  const tldrList: string[] = (isHinglish && eb?.tldrHinglish && eb.tldrHinglish.length > 0)
+                    ? eb.tldrHinglish
+                    : (eb?.tldr && eb.tldr.length > 0)
+                    ? eb.tldr
+                    : [overviewNarrative || currentSituationText].filter(Boolean);
 
-                const conversationSummaryList: string[] = (() => {
-                  if (rawConvSummary && rawConvSummary.length > 0) {
-                    return rawConvSummary;
-                  }
-                  // Fallback synthesis from storyline or topics if not provided
-                  const points: string[] = [];
-                  if (briefing?.storyline && briefing.storyline.length > 0) {
-                    briefing.storyline.slice(0, 4).forEach((s) => {
-                      points.push(`${s.heading}: ${s.description}`);
+                  // 03. CONVERSATION SUMMARY (Unified 3-6 concise bullets combining all participants)
+                  const rawConvSummary = isHinglish
+                    ? (eb?.conversationSummaryHinglish || briefing?.conversationSummaryHinglish || eb?.conversationSummary || briefing?.conversationSummary || [])
+                    : (eb?.conversationSummary || briefing?.conversationSummary || []);
+
+                  const conversationSummaryList: string[] = (() => {
+                    if (rawConvSummary && rawConvSummary.length > 0) {
+                      return rawConvSummary;
+                    }
+                    const points: string[] = [];
+                    if (briefing?.storyline && briefing.storyline.length > 0) {
+                      briefing.storyline.slice(0, 4).forEach((s) => {
+                        points.push(`${s.heading}: ${s.description}`);
+                      });
+                    } else if (briefing?.topics && briefing.topics.length > 0) {
+                      briefing.topics.slice(0, 4).forEach((t) => {
+                        points.push(`${t.name}: ${t.summary}`);
+                      });
+                    }
+                    return points.length > 0 ? points : [overviewNarrative || 'Active communication logged among project participants.'];
+                  })();
+
+                  // 04. AGREED & SETTLED (Confirmed decisions only, short bullets)
+                  const confirmedDecisions = (briefing?.decisions || []).filter((d) => d.status === 'CONFIRMED');
+
+                  // 05. PENDING ACTIONS
+                  const pendingActions: Array<{
+                    id: string;
+                    title: string;
+                    owner: string;
+                    explanation: string;
+                    status: string;
+                  }> = [];
+
+                  const seenTitles = new Set<string>();
+
+                  (briefing?.actionTracker || [])
+                    .filter((a) => a.status !== 'COMPLETED')
+                    .forEach((a, idx) => {
+                      const norm = a.action.toLowerCase().trim();
+                      if (!seenTitles.has(norm)) {
+                        seenTitles.add(norm);
+                        pendingActions.push({
+                          id: a.id || `act_${idx}`,
+                          title: a.action,
+                          owner: a.owner && a.owner !== 'Unassigned' ? a.owner : 'Owner not specified',
+                          explanation: a.deadline && a.deadline !== 'Not specified'
+                            ? `Target schedule: ${a.deadline}.`
+                            : 'Action item pending execution and verification.',
+                          status: a.status === 'IN_PROGRESS' ? 'In Progress' : a.status === 'BLOCKED' ? 'Blocked' : 'Pending',
+                        });
+                      }
                     });
-                  } else if (briefing?.topics && briefing.topics.length > 0) {
-                    briefing.topics.slice(0, 4).forEach((t) => {
-                      points.push(`${t.name}: ${t.summary}`);
-                    });
-                  }
-                  return points.length > 0 ? points : [overviewNarrative || 'Active communication logged among project participants.'];
-                })();
 
-                // 04. AGREED & SETTLED (Confirmed decisions only, short bullets)
-                const confirmedDecisions = (briefing?.decisions || []).filter((d) => d.status === 'CONFIRMED');
+                  const rawBlockers = isHinglish
+                    ? (eb?.pendingBlockersHinglish || eb?.pendingBlockers || [])
+                    : (eb?.pendingBlockers || []);
 
-                // 05. PENDING ACTIONS (Renamed from Active Blockers, specific task layout)
-                const pendingActions: Array<{
-                  id: string;
-                  title: string;
-                  owner: string;
-                  explanation: string;
-                  status: string;
-                }> = [];
-
-                const seenTitles = new Set<string>();
-
-                (briefing?.actionTracker || [])
-                  .filter((a) => a.status !== 'COMPLETED')
-                  .forEach((a, idx) => {
-                    const norm = a.action.toLowerCase().trim();
+                  rawBlockers.forEach((blk, idx) => {
+                    const norm = blk.item.toLowerCase().trim();
                     if (!seenTitles.has(norm)) {
                       seenTitles.add(norm);
                       pendingActions.push({
-                        id: a.id || `act_${idx}`,
-                        title: a.action,
-                        owner: a.owner && a.owner !== 'Unassigned' ? a.owner : 'Owner not specified',
-                        explanation: a.deadline && a.deadline !== 'Not specified'
-                          ? `Target schedule: ${a.deadline}.`
-                          : 'Action item pending execution and verification.',
-                        status: a.status === 'IN_PROGRESS' ? 'In Progress' : a.status === 'BLOCKED' ? 'Blocked' : 'Pending',
+                        id: `blk_${idx}`,
+                        title: blk.item,
+                        owner: blk.waitingOn ? blk.waitingOn : 'Owner not specified',
+                        explanation: blk.waitingOn ? `Awaiting action from ${blk.waitingOn}.` : 'Pending resolution.',
+                        status: 'Pending',
                       });
                     }
                   });
 
-                // Also incorporate any uncompleted blockers / pending discussions
-                const rawBlockers = isHinglish
-                  ? (eb?.pendingBlockersHinglish || eb?.pendingBlockers || [])
-                  : (eb?.pendingBlockers || []);
+                  // 06. TIMELINE & MILESTONES
+                  const storylineSteps = briefing?.storyline || [];
+                  const visibleTimelineSteps = isTimelineExpanded
+                    ? storylineSteps
+                    : storylineSteps.slice(0, 4);
 
-                rawBlockers.forEach((blk, idx) => {
-                  const norm = blk.item.toLowerCase().trim();
-                  if (!seenTitles.has(norm)) {
-                    seenTitles.add(norm);
-                    pendingActions.push({
-                      id: `blk_${idx}`,
-                      title: blk.item,
-                      owner: blk.waitingOn ? blk.waitingOn : 'Owner not specified',
-                      explanation: blk.waitingOn ? `Awaiting action from ${blk.waitingOn}.` : 'Pending resolution.',
-                      status: 'Pending',
-                    });
-                  }
-                });
-
-                // 06. TIMELINE & MILESTONES (3-5 events by default with toggle)
-                const storylineSteps = briefing?.storyline || [];
-                const visibleTimelineSteps = isTimelineExpanded
-                  ? storylineSteps
-                  : storylineSteps.slice(0, 4);
-
-                return (
-                  <div className="document-memo-body">
-                    {/* 01. GROUP CONTEXT */}
-                    <section className="memo-section">
-                      <div className="memo-section-header">
-                        <h2 className="memo-section-title">01. GROUP CONTEXT</h2>
-                        <span className="memo-header-label-right">New to this group? Start here.</span>
-                      </div>
-                      <div className="memo-section-content">
-                        {groupContextParagraphs.map((para, idx) => (
-                          <p key={idx} className="memo-paragraph">
-                            {renderFormattedText(para)}
-                          </p>
-                        ))}
-                      </div>
-                    </section>
-
-                    <hr className="memo-divider" />
-
-                    {/* 02. KEY TAKEAWAYS */}
-                    <section className="memo-section">
-                      <div className="memo-section-header">
-                        <h2 className="memo-section-title">02. KEY TAKEAWAYS</h2>
-                        <span className="memo-header-label-right">Executive Summary</span>
-                      </div>
-                      <div className="memo-section-content">
-                        <ul className="memo-bullet-list">
-                          {tldrList.map((bullet, idx) => (
-                            <li key={idx} className="memo-bullet-row">
-                              <span className="memo-bullet-dot">&bull;</span>
-                              <span className="memo-bullet-text">{renderFormattedText(bullet)}</span>
-                            </li>
+                  return (
+                    <div className="document-memo-body">
+                      {/* 01. GROUP CONTEXT (Prominent highlighted onboarding card) */}
+                      <section id="sec-group-context" className="memo-section group-context-card">
+                        <div className="memo-section-header">
+                          <div className="group-context-title-wrap">
+                            <Sparkles size={16} className="context-sparkle-icon" />
+                            <h2 className="memo-section-title">01. GROUP CONTEXT</h2>
+                          </div>
+                          <span className="memo-starter-badge">
+                            ✨ New to this group? Start here.
+                          </span>
+                        </div>
+                        <div className="memo-section-content">
+                          {groupContextParagraphs.map((para, idx) => (
+                            <p key={idx} className="memo-paragraph">
+                              {renderFormattedText(para)}
+                            </p>
                           ))}
-                        </ul>
-                      </div>
-                    </section>
+                        </div>
+                      </section>
 
-                    <hr className="memo-divider" />
+                      <hr className="memo-divider" />
 
-                    {/* 03. CONVERSATION SUMMARY */}
-                    <section className="memo-section">
-                      <div className="memo-section-header">
-                        <h2 className="memo-section-title">03. CONVERSATION SUMMARY</h2>
-                      </div>
-                      <div className="memo-section-content">
-                        <ul className="memo-bullet-list">
-                          {conversationSummaryList.map((item, idx) => (
-                            <li key={idx} className="memo-bullet-row">
-                              <span className="memo-bullet-dot">&bull;</span>
-                              <span className="memo-bullet-text">{renderFormattedText(item)}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </section>
-
-                    {/* 04. AGREED & SETTLED (Hidden if no confirmed decisions exist) */}
-                    {confirmedDecisions.length > 0 && (
-                      <>
-                        <hr className="memo-divider" />
-                        <section className="memo-section">
-                          <div className="memo-section-header">
-                            <h2 className="memo-section-title">04. AGREED &amp; SETTLED</h2>
-                          </div>
-                          <div className="memo-section-content">
-                            <ul className="memo-bullet-list">
-                              {confirmedDecisions.map((dec) => (
-                                <li key={dec.id} className="memo-bullet-row">
-                                  <span className="memo-bullet-dot">&bull;</span>
-                                  <span className="memo-bullet-text">
-                                    <strong>{dec.title}</strong>
-                                    {dec.context && dec.context !== dec.title ? ` — ${dec.context}` : ''}
-                                  </span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        </section>
-                      </>
-                    )}
-
-                    {/* 05. PENDING ACTIONS (Hidden if no pending actions exist) */}
-                    {pendingActions.length > 0 && (
-                      <>
-                        <hr className="memo-divider" />
-                        <section className="memo-section">
-                          <div className="memo-section-header">
-                            <h2 className="memo-section-title">05. PENDING ACTIONS</h2>
-                            <span className="memo-header-label-right">{pendingActions.length} Open</span>
-                          </div>
-                          <div className="memo-tasks-stack">
-                            {pendingActions.map((task, idx) => {
-                              const numStr = String(idx + 1).padStart(2, '0');
-                              return (
-                                <div key={task.id} className="memo-task-row">
-                                  <div className="memo-task-top-line">
-                                    <span className="memo-task-title-bold">
-                                      {numStr}. {task.title}
-                                    </span>
-                                    <span className="memo-task-status-right">
-                                      Status: {task.status}
-                                    </span>
-                                  </div>
-                                  <div className="memo-task-owner-line">
-                                    Owner: {task.owner}
-                                  </div>
-                                  <div className="memo-task-explanation-line">
-                                    {task.explanation}
-                                  </div>
-                                  {idx < pendingActions.length - 1 && (
-                                    <hr className="memo-task-divider" />
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </section>
-                      </>
-                    )}
-
-                    {/* 06. TIMELINE & MILESTONES */}
-                    <hr className="memo-divider" />
-                    <section className="memo-section">
-                      <div className="memo-section-header">
-                        <h2 className="memo-section-title">06. TIMELINE &amp; MILESTONES</h2>
-                        {storylineSteps.length > 4 && (
-                          <button
-                            type="button"
-                            className="memo-toggle-btn"
-                            onClick={() => setIsTimelineExpanded((prev) => !prev)}
-                          >
-                            {isTimelineExpanded
-                              ? 'Show less'
-                              : `View full history (${storylineSteps.length} milestones)`}
-                          </button>
-                        )}
-                      </div>
-                      <div className="memo-section-content">
-                        {storylineSteps.length > 0 ? (
-                          <div className="memo-timeline-stack">
-                            {visibleTimelineSteps.map((step, idx) => (
-                              <div key={step.id || idx} className="memo-timeline-entry">
-                                <div className="memo-timeline-date">{step.timestamp}</div>
-                                <div className="memo-timeline-content">
-                                  <span className="memo-timeline-heading">{step.heading}</span>
-                                  {step.description && (
-                                    <span className="memo-timeline-desc">
-                                      {' '}
-                                      &mdash; {renderFormattedText(step.description)}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
+                      {/* 02. KEY TAKEAWAYS */}
+                      <section id="sec-key-takeaways" className="memo-section">
+                        <div className="memo-section-header">
+                          <h2 className="memo-section-title">02. KEY TAKEAWAYS</h2>
+                          <span className="memo-header-label-right">Executive Summary</span>
+                        </div>
+                        <div className="memo-section-content">
+                          <ul className="memo-bullet-list">
+                            {tldrList.map((bullet, idx) => (
+                              <li key={idx} className="memo-bullet-row">
+                                <span className="memo-bullet-dot">&bull;</span>
+                                <span className="memo-bullet-text">{renderFormattedText(bullet)}</span>
+                              </li>
                             ))}
-                          </div>
-                        ) : (
-                          <p className="memo-paragraph" style={{ color: '#64748B' }}>
-                            Milestones will populate as conversation develops.
-                          </p>
-                        )}
-                      </div>
-                    </section>
-                  </div>
-                );
-              })()}
+                          </ul>
+                        </div>
+                      </section>
+
+                      <hr className="memo-divider" />
+
+                      {/* 03. CONVERSATION SUMMARY */}
+                      <section id="sec-conversation-summary" className="memo-section">
+                        <div className="memo-section-header">
+                          <h2 className="memo-section-title">03. CONVERSATION SUMMARY</h2>
+                        </div>
+                        <div className="memo-section-content">
+                          <ul className="memo-bullet-list">
+                            {conversationSummaryList.map((item, idx) => (
+                              <li key={idx} className="memo-bullet-row">
+                                <span className="memo-bullet-dot">&bull;</span>
+                                <span className="memo-bullet-text">{renderFormattedText(item)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </section>
+
+                      {/* 04. AGREED & SETTLED */}
+                      {confirmedDecisions.length > 0 && (
+                        <>
+                          <hr className="memo-divider" />
+                          <section id="sec-agreed-settled" className="memo-section">
+                            <div className="memo-section-header">
+                              <h2 className="memo-section-title">04. AGREED &amp; SETTLED</h2>
+                              <span className="memo-badge-settled">{confirmedDecisions.length} Confirmed</span>
+                            </div>
+                            <div className="memo-section-content">
+                              <ul className="memo-bullet-list">
+                                {confirmedDecisions.map((dec) => (
+                                  <li key={dec.id} className="memo-bullet-row">
+                                    <span className="memo-bullet-dot confirmed">&bull;</span>
+                                    <span className="memo-bullet-text">
+                                      <strong>{dec.title}</strong>
+                                      {dec.context && dec.context !== dec.title ? ` — ${dec.context}` : ''}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          </section>
+                        </>
+                      )}
+
+                      {/* 05. PENDING ACTIONS */}
+                      {pendingActions.length > 0 && (
+                        <>
+                          <hr className="memo-divider" />
+                          <section id="sec-pending-actions" className="memo-section">
+                            <div className="memo-section-header">
+                              <h2 className="memo-section-title">05. PENDING ACTIONS</h2>
+                              <span className="memo-header-label-right">{pendingActions.length} Open</span>
+                            </div>
+                            <div className="memo-tasks-stack">
+                              {pendingActions.map((task, idx) => {
+                                const numStr = String(idx + 1).padStart(2, '0');
+                                const statusClass = task.status.toLowerCase().replace(/\s+/g, '-');
+                                return (
+                                  <div key={task.id} className="memo-task-row">
+                                    <div className="memo-task-top-line">
+                                      <span className="memo-task-title-bold">
+                                        {numStr}. {task.title}
+                                      </span>
+                                      <span className={`memo-task-status-pill status-${statusClass}`}>
+                                        {task.status}
+                                      </span>
+                                    </div>
+                                    <div className="memo-task-owner-line">
+                                      Owner: <strong>{task.owner}</strong>
+                                    </div>
+                                    <div className="memo-task-explanation-line">
+                                      {task.explanation}
+                                    </div>
+                                    {idx < pendingActions.length - 1 && (
+                                      <hr className="memo-task-divider" />
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </section>
+                        </>
+                      )}
+
+                      {/* 06. TIMELINE & MILESTONES */}
+                      <hr className="memo-divider" />
+                      <section id="sec-timeline-milestones" className="memo-section">
+                        <div className="memo-section-header">
+                          <h2 className="memo-section-title">06. TIMELINE &amp; MILESTONES</h2>
+                          {storylineSteps.length > 4 && (
+                            <button
+                              type="button"
+                              className="memo-toggle-btn"
+                              onClick={() => setIsTimelineExpanded((prev) => !prev)}
+                            >
+                              {isTimelineExpanded
+                                ? 'Show less'
+                                : `View full history (${storylineSteps.length} milestones)`}
+                            </button>
+                          )}
+                        </div>
+                        <div className="memo-section-content">
+                          {storylineSteps.length > 0 ? (
+                            <div className="memo-timeline-stack">
+                              {visibleTimelineSteps.map((step, idx) => (
+                                <div key={step.id || idx} className="memo-timeline-entry">
+                                  <div className="memo-timeline-date">{step.timestamp}</div>
+                                  <div className="memo-timeline-content">
+                                    <span className="memo-timeline-heading">{step.heading}</span>
+                                    {step.description && (
+                                      <span className="memo-timeline-desc">
+                                        {' '}
+                                        &mdash; {renderFormattedText(step.description)}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="memo-paragraph" style={{ color: '#64748B' }}>
+                              Milestones will populate as conversation develops.
+                            </p>
+                          )}
+                        </div>
+                      </section>
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
+
+            {/* Right: Executive Intelligence Snapshot & Section Jump Sidebar */}
+            <aside className="briefing-side-column">
+              {/* Snapshot Card */}
+              <div className="briefing-side-card">
+                <div className="side-card-header">
+                  <Sparkles size={14} className="side-card-icon" />
+                  <span className="side-card-title">Intelligence Snapshot</span>
+                </div>
+                <div className="side-stats-list">
+                  <div className="side-stat-row">
+                    <span className="side-stat-label">Coverage</span>
+                    <span className="side-stat-badge success">100% Chronological</span>
+                  </div>
+                  <div className="side-stat-row">
+                    <span className="side-stat-label">Processed Messages</span>
+                    <span className="side-stat-val">
+                      {briefing?.messagesIncluded || currentGroupMessages.length} msgs
+                    </span>
+                  </div>
+                  <div className="side-stat-row">
+                    <span className="side-stat-label">Confirmed Decisions</span>
+                    <span className="side-stat-val">
+                      {(briefing?.decisions || []).filter((d) => d.status === 'CONFIRMED').length} confirmed
+                    </span>
+                  </div>
+                  <div className="side-stat-row">
+                    <span className="side-stat-label">Open Blockers/Actions</span>
+                    <span className="side-stat-val">
+                      {(briefing?.actionTracker || []).filter((a) => a.status !== 'COMPLETED').length} pending
+                    </span>
+                  </div>
+                  <div className="side-stat-row">
+                    <span className="side-stat-label">Briefing Mode</span>
+                    <span className="side-stat-badge neutral">
+                      {summaryLanguage === 'hinglish' ? '🇮🇳 Hinglish' : '🇬🇧 English'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Table of Contents / Quick Jump Anchors */}
+              <div className="briefing-side-card">
+                <div className="side-card-header">
+                  <Compass size={14} className="side-card-icon" />
+                  <span className="side-card-title">Quick Jump to Section</span>
+                </div>
+                <div className="side-jump-links">
+                  <a href="#sec-group-context" className="side-jump-link">
+                    <span className="jump-num">01</span>
+                    <span className="jump-text">Group Context</span>
+                  </a>
+                  <a href="#sec-key-takeaways" className="side-jump-link">
+                    <span className="jump-num">02</span>
+                    <span className="jump-text">Key Takeaways</span>
+                  </a>
+                  <a href="#sec-conversation-summary" className="side-jump-link">
+                    <span className="jump-num">03</span>
+                    <span className="jump-text">Conversation Summary</span>
+                  </a>
+                  {((briefing?.decisions || []).filter((d) => d.status === 'CONFIRMED').length > 0) && (
+                    <a href="#sec-agreed-settled" className="side-jump-link">
+                      <span className="jump-num">04</span>
+                      <span className="jump-text">Agreed &amp; Settled</span>
+                    </a>
+                  )}
+                  {(((briefing?.actionTracker || []).filter((a) => a.status !== 'COMPLETED').length > 0) ||
+                    (briefing?.executiveBriefing?.pendingBlockers && briefing.executiveBriefing.pendingBlockers.length > 0)) && (
+                    <a href="#sec-pending-actions" className="side-jump-link">
+                      <span className="jump-num">05</span>
+                      <span className="jump-text">Pending Actions</span>
+                    </a>
+                  )}
+                  <a href="#sec-timeline-milestones" className="side-jump-link">
+                    <span className="jump-num">06</span>
+                    <span className="jump-text">Timeline &amp; Milestones</span>
+                  </a>
+                </div>
+              </div>
+
+              {/* Key Participants in this Group */}
+              {briefing?.participantContributions && briefing.participantContributions.length > 0 && (
+                <div className="briefing-side-card">
+                  <div className="side-card-header">
+                    <Users size={14} className="side-card-icon" />
+                    <span className="side-card-title">Key Participants</span>
+                  </div>
+                  <div className="side-participants-list">
+                    {briefing.participantContributions.slice(0, 4).map((p, idx) => (
+                      <div key={idx} className="side-participant-item">
+                        <div className="side-participant-avatar">
+                          {p.participantName.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="side-participant-meta">
+                          <span className="side-participant-name">{p.participantName}</span>
+                          <span className="side-participant-role">{p.roleInDiscussion}</span>
+                        </div>
+                      </div>
+                    ))}
+                    {briefing.participantContributions.length > 4 && (
+                      <button
+                        type="button"
+                        className="side-view-all-participants"
+                        onClick={() => setActiveSection('participants')}
+                      >
+                        View all {briefing.participantContributions.length} contributors &rarr;
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </aside>
           </div>
         )}
 
