@@ -22,7 +22,6 @@ import {
   Search,
   Filter,
   Cpu,
-  Copy,
   Check,
   Building2,
   Briefcase,
@@ -278,7 +277,7 @@ export default function MessageSummaryView({
     return parts.map((part, i) => {
       if (part.startsWith('**') && part.endsWith('**')) {
         return (
-          <strong key={i} style={{ color: '#0f172a', fontWeight: 700 }}>
+          <strong key={i} style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
             {part.slice(2, -2)}
           </strong>
         );
@@ -336,17 +335,13 @@ export default function MessageSummaryView({
         <div className="header-top-row">
           {/* Group Identity - Clean Executive Title & Searchable Switcher */}
           <div className="group-identity-meta" ref={groupDropdownRef}>
-            <div className="group-eyebrow-line">
-              <span className="group-eyebrow-tag">
-                <Compass size={11} />
-                WHATSAPP CONVERSATION INTELLIGENCE
-              </span>
-              {selectedGroupData && (
+            {selectedGroupData && (
+              <div className="group-eyebrow-line">
                 <span className="group-count-badge">
                   {selectedGroupData.count} {selectedGroupData.count === 1 ? 'message' : 'messages'}
                 </span>
-              )}
-            </div>
+              </div>
+            )}
 
             <div className="custom-group-dropdown-wrapper">
               <button
@@ -460,16 +455,6 @@ export default function MessageSummaryView({
                 🇬🇧 English
               </button>
             </div>
-
-            <button
-              type="button"
-              className="btn-intelligence-copy"
-              onClick={handleCopyAllMessages}
-              title="Copy all available conversation messages for this group to clipboard"
-            >
-              <Copy size={13} />
-              <span>Copy All Messages</span>
-            </button>
 
             {canGenerate && (
               <button
@@ -889,7 +874,7 @@ export default function MessageSummaryView({
                               ))}
                             </div>
                           ) : (
-                            <p className="memo-paragraph" style={{ color: '#64748B' }}>
+                            <p className="memo-paragraph" style={{ color: 'var(--text-muted)' }}>
                               Milestones will populate as conversation develops.
                             </p>
                           )}
@@ -1223,7 +1208,7 @@ export default function MessageSummaryView({
 
                   {(!briefing?.actionTracker || briefing.actionTracker.length === 0) && (
                     <tr>
-                      <td colSpan={5} style={{ textAlign: 'center', padding: '32px', color: '#64748b' }}>
+                      <td colSpan={5} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
                         No pending actionable tasks recorded.
                       </td>
                     </tr>

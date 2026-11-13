@@ -14,6 +14,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import TheBoredMonkeyLogo from './TheBoredMonkeyLogo';
 import TheBoredMonkeyCompactLogo from './TheBoredMonkeyCompactLogo';
 
@@ -39,6 +40,7 @@ export default function Sidebar({
   onToggleMobile,
 }: SidebarProps) {
   const { user, logout, canAccessSection } = useAuth();
+  const { isDark } = useTheme();
   const [isHovered, setIsHovered] = useState<boolean>(false);
 
   // Desktop hover detection (only active on desktop viewports)
@@ -134,12 +136,21 @@ export default function Sidebar({
           >
             {/* 1. Compact Icon View for 70px collapsed desktop rail (When panel closes) */}
             <div className="brand-compact-logo" title="TheBoredMonkey">
-              <TheBoredMonkeyCompactLogo size={38} />
+              <TheBoredMonkeyCompactLogo
+                size={38}
+                textColor={isDark ? '#E2E8F0' : '#0F172A'}
+                bgColor={isDark ? '#11141B' : '#ffffff'}
+              />
             </div>
 
             {/* 2. Full Animated Logo for expanded drawer / desktop hover */}
             <div className="brand-expanded-logo" title="TheBoredMonkey Creations & Connections">
-              <TheBoredMonkeyLogo width={185} height={35} />
+              <TheBoredMonkeyLogo
+                width={185}
+                height={35}
+                textColor={isDark ? '#E2E8F0' : '#0F172A'}
+                subtitleColor={isDark ? '#FDC727' : '#d97706'}
+              />
             </div>
           </div>
 

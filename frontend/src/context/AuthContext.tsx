@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { useSession, signIn as nextAuthSignIn, signOut as nextAuthSignOut } from 'next-auth/react';
 
 export interface UserProfile {
   id: string;
@@ -11,6 +12,7 @@ export interface UserProfile {
   departmentName?: string;
   roles: string[];
   permissions: string[];
+  assignedGroups?: string[];
   mustChangePassword?: boolean;
 }
 
@@ -19,6 +21,7 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  signInWithGoogle: () => Promise<void>;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   register: (fullName: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   loginAsDemo: (role?: string) => void;
@@ -33,12 +36,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const IS_DEMO_ENABLED = process.env.NEXT_PUBLIC_ENABLE_DEMO_MODE === 'true';
 
-// Optional demo profiles for isolated development UI inspection only (requires NEXT_PUBLIC_ENABLE_DEMO_MODE=true)
 const DEV_DEMO_PROFILES: Record<string, UserProfile> = {
   ADMIN: {
     id: 'u-admin-001',
     email: 'admin@tbm.internal',
-    fullName: 'System Administrator (Dev)',
+    fullName: 'System Administrator',
     jobTitle: 'Head of Infrastructure',
     departmentCode: 'EXECUTIVE',
     departmentName: 'Executive Management',
@@ -51,137 +53,92 @@ const DEV_DEMO_PROFILES: Record<string, UserProfile> = {
       'ROLE_ASSIGN',
       'GROUP_ASSIGNMENT_MANAGE',
       'DEPARTMENT_MANAGE',
-    ],
-  },
-  MANAGER: {
-    id: 'u-mgr-002',
-    email: 'sarvesh.manager@tbm.internal',
-    fullName: 'Sarvesh Deshpande (Dev)',
-    jobTitle: 'Fleet Operations Manager',
-    departmentCode: 'OPERATIONS',
-    departmentName: 'Fleet & General Operations',
-    roles: ['ROLE_MANAGER'],
-    permissions: [
       'WHATSAPP_CONTENT_READ',
       'WHATSAPP_MESSAGE_SEND',
       'SUMMARY_READ',
-      'SUMMARY_GENERATE',
-      'ACTION_ITEM_CREATE',
-      'ACTION_ITEM_ASSIGN',
-      'ACTION_ITEM_UPDATE',
-      'ACTION_ITEM_APPROVE',
     ],
-  },
-  C_SUITE: {
-    id: 'u-csuite-003',
-    email: 'executive@tbm.internal',
-    fullName: 'Executive Leadership (Dev)',
-    jobTitle: 'Chief Operations Officer',
-    departmentCode: 'EXECUTIVE',
-    departmentName: 'Executive Management',
-    roles: ['ROLE_C_SUITE'],
-    permissions: [
-      'EXECUTIVE_BI_READ',
-      'SUMMARY_READ',
-      'EXECUTIVE_APPROVE',
-    ],
-  },
-  DEVELOPER: {
-    id: 'u-dev-004',
-    email: 'dev@tbm.internal',
-    fullName: 'DevOps Engineer (Dev)',
-    jobTitle: 'Systems Architect',
-    departmentCode: 'ENGINEERING',
-    departmentName: 'Engineering & Technology',
-    roles: ['ROLE_DEVELOPER'],
-    permissions: [
-      'TELEMETRY_READ',
-      'SYSTEM_CONFIG_READ',
-      'SYSTEM_CONFIG_MANAGE',
-      'LOGS_READ',
-      'AUDIT_READ',
-    ],
+    assignedGroups: ['*'],
   },
   EMPLOYEE: {
     id: 'u-emp-005',
-    email: 'employee@tbm.internal',
-    fullName: 'Operations Associate (Dev)',
-    jobTitle: 'Fleet Specialist',
+    email: 'employee@theboredmonkey.com',
+    fullName: 'Operations Associate',
+    jobTitle: 'Operations Associate',
     departmentCode: 'OPERATIONS',
     departmentName: 'Fleet & General Operations',
     roles: ['ROLE_EMPLOYEE'],
     permissions: [
       'WHATSAPP_CONTENT_READ',
       'SUMMARY_READ',
-      'ACTION_ITEM_UPDATE',
     ],
+    assignedGroups: [],
   },
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<UserProfile | null>(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('tbm_demo_user') || localStorage.getItem('tbm_user') || sessionStorage.getItem('tbm_demo_user');
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          if (parsed && parsed.id) return parsed;
-        } catch {}
-      }
-      if (!sessionStorage.getItem('tbm_logged_out')) {
-        return DEV_DEMO_PROFILES.ADMIN;
-      }
-      return null;
-    }
-    return DEV_DEMO_PROFILES.ADMIN;
-  });
-  const [token, setToken] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('tbm_token') || 'demo-jwt-token';
-    }
-    return 'demo-jwt-token';
-  });
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const { data: session, status: sessionStatus } = useSession();
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Restore session via refresh token or demo session on mount
+  // Sync session from NextAuth (Google Sign-In)
   useEffect(() => {
-    let isMounted = true;
-    async function restoreSession() {
-      // Fast timeout protected refresh check (1.2s max) so slow backend never blocks page load
-      try {
-        const refreshRes = await fetch('/api/v1/auth/refresh', {
-          method: 'POST',
-          signal: AbortSignal.timeout(1200),
-        });
+    if (sessionStatus === 'loading') {
+      setIsLoading(true);
+      return;
+    }
 
-        if (refreshRes.ok) {
-          const refreshData = await refreshRes.json();
-          const freshToken: string = refreshData.accessToken;
-          if (isMounted) setToken(freshToken);
+    if (sessionStatus === 'authenticated' && session?.user) {
+      const u = session.user as any;
+      const profile: UserProfile = {
+        id: u.id || 'u-session',
+        email: u.email || '',
+        fullName: u.name || (u.email ? u.email.split('@')[0] : 'Member'),
+        jobTitle: u.jobTitle || 'Team Member',
+        departmentCode: u.department || 'OPERATIONS',
+        roles: u.roles || ['ROLE_EMPLOYEE'],
+        permissions: u.permissions || ['WHATSAPP_CONTENT_READ'],
+        assignedGroups: u.assignedGroups || [],
+      };
+      setUser(profile);
+      setToken('google-session-active');
+      setIsLoading(false);
+      return;
+    }
 
-          // Fetch authenticated profile with 1.2s timeout
-          const meRes = await fetch('/api/v1/auth/me', {
-            headers: { Authorization: `Bearer ${freshToken}` },
-            signal: AbortSignal.timeout(1200),
-          });
-          if (meRes.ok && isMounted) {
-            const profile: UserProfile = await meRes.json();
-            setUser(profile);
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('tbm_user', JSON.stringify(profile));
-              localStorage.setItem('tbm_token', freshToken);
-            }
+    // Check localStorage fallback for development
+    if (typeof window !== 'undefined') {
+      const isLoggedOut = sessionStorage.getItem('tbm_logged_out');
+      if (isLoggedOut) {
+        setUser(null);
+        setToken(null);
+        setIsLoading(false);
+        return;
+      }
+
+      const storedUser = localStorage.getItem('tbm_user') || localStorage.getItem('tbm_demo_user');
+      const storedToken = localStorage.getItem('tbm_token');
+      if (storedUser && storedToken) {
+        try {
+          const parsed = JSON.parse(storedUser);
+          if (parsed && parsed.id) {
+            setUser(parsed);
+            setToken(storedToken);
+            setIsLoading(false);
             return;
           }
-        }
-      } catch {
-        // Session cannot be restored; keep instant access
+        } catch {}
       }
     }
-    restoreSession();
-    return () => {
-      isMounted = false;
-    };
+
+    setUser(null);
+    setToken(null);
+    setIsLoading(false);
+  }, [session, sessionStatus]);
+
+  const signInWithGoogle = useCallback(async () => {
+    setIsLoading(true);
+    await nextAuthSignIn('google', { callbackUrl: '/' });
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
@@ -212,11 +169,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           error: errorData.error || errorData.message || 'Invalid email or password.',
         };
       }
-    } catch (err: any) {
+    } catch {
       setIsLoading(false);
       return {
         success: false,
-        error: 'Could not connect to authentication server. Please check your network or try again.',
+        error: 'Could not connect to authentication server. Please check your network.',
       };
     }
   }, []);
@@ -249,11 +206,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           error: errorData.error || errorData.message || 'Registration failed.',
         };
       }
-    } catch (err: any) {
+    } catch {
       setIsLoading(false);
       return {
         success: false,
-        error: 'Could not connect to authentication server. Please check your network or try again.',
+        error: 'Could not connect to authentication server.',
       };
     }
   }, []);
@@ -278,6 +235,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem('tbm_token');
     }
     try {
+      await nextAuthSignOut({ redirect: false });
       await fetch('/api/v1/auth/logout', {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -308,20 +266,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const canAccessSection = useCallback(
     (section: string) => {
       if (!user) return false;
-      // Administrator has full visibility across all portal intelligence workspaces
       if (hasRole('ADMIN')) return true;
 
       switch (section) {
         case 'overview':
           return true;
         case 'test-messages':
-          return true; // Read-only viewing permitted; send action is strictly gated on backend
+          return true;
         case 'message-summary':
           return hasPermission('SUMMARY_READ') || hasPermission('EXECUTIVE_BI_READ') || hasRole('C_SUITE') || hasRole('MANAGER');
         case 'developer':
           return hasPermission('TELEMETRY_READ') || hasRole('DEVELOPER');
         case 'admin':
-          return hasPermission('USER_MANAGE');
+          return hasRole('ADMIN') || hasPermission('USER_MANAGE');
         default:
           return false;
       }
@@ -346,6 +303,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         token,
         isAuthenticated: !!user,
         isLoading,
+        signInWithGoogle,
         login,
         register,
         loginAsDemo,

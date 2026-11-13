@@ -18,3 +18,6 @@ Thumbs.db
 .vscode/
 .agents/
 skills-lock.json
+*.zip
+scratch/
+

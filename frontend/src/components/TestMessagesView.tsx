@@ -275,7 +275,7 @@ export default function TestMessagesView({
     return parts.map((part, i) => {
       if (part.startsWith('**') && part.endsWith('**')) {
         return (
-          <strong key={i} style={{ color: '#0f172a', fontWeight: 700 }}>
+          <strong key={i} style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
             {part.slice(2, -2)}
           </strong>
         );

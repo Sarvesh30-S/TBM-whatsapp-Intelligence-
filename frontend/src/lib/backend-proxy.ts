@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth-options';
 
 export interface AuthenticatedUser {
   id: string;
@@ -10,6 +12,7 @@ export interface AuthenticatedUser {
   roles: string[];
   permissions: string[];
   mustChangePassword?: boolean;
+  assignedGroups?: string[];
 }
 
 export function getBackendUrl(): string {
@@ -17,9 +20,28 @@ export function getBackendUrl(): string {
 }
 
 export async function getAuthenticatedUser(req: NextRequest): Promise<AuthenticatedUser | null> {
-  const authHeader = req.headers.get('authorization');
+  // 1. Check for NextAuth server session (Google sign-in)
+  try {
+    const session = await getServerSession(authOptions);
+    if (session?.user) {
+      const u = session.user as any;
+      return {
+        id: u.id || 'u-session',
+        email: u.email || '',
+        fullName: u.name || 'Team Member',
+        jobTitle: u.jobTitle || 'Team Member',
+        departmentCode: u.department || 'OPERATIONS',
+        roles: u.roles || ['ROLE_EMPLOYEE'],
+        permissions: u.permissions || [],
+        assignedGroups: u.assignedGroups || [],
+      };
+    }
+  } catch (sessionErr) {
+    // Continue to other auth mechanisms if session check fails
+  }
 
-  // Support instant preview / demo admin token
+  // 2. Check for Bearer token
+  const authHeader = req.headers.get('authorization');
   if (authHeader === 'Bearer demo-jwt-token' || authHeader === 'Bearer dev-demo-token') {
     return {
       id: 'u-admin-001',
@@ -41,56 +63,35 @@ export async function getAuthenticatedUser(req: NextRequest): Promise<Authentica
         'WHATSAPP_MESSAGE_SEND',
         'SUMMARY_READ',
       ],
+      assignedGroups: ['*'],
     };
   }
 
+  // 3. Fallback to Spring Boot backend cookie verification if present
   const cookieHeader = req.headers.get('cookie');
+  if (cookieHeader && cookieHeader.includes('refresh_token=')) {
+    const backendBase = getBackendUrl().replace(/\/+$/, '');
+    const headers = new Headers();
+    if (authHeader) headers.set('authorization', authHeader);
+    headers.set('cookie', cookieHeader);
 
-  // Fast path: if no credentials provided at all, return default preview admin or null immediately without blocking
-  if (!authHeader && (!cookieHeader || !cookieHeader.includes('refresh_token='))) {
-    return {
-      id: 'u-admin-001',
-      email: 'admin@tbm.internal',
-      fullName: 'System Administrator',
-      roles: ['ROLE_ADMIN'],
-      permissions: ['WHATSAPP_CONTENT_READ', 'WHATSAPP_MESSAGE_SEND', 'SUMMARY_READ'],
-    };
-  }
-
-  const backendBase = getBackendUrl().replace(/\/+$/, '');
-  const headers = new Headers();
-
-  if (authHeader) headers.set('authorization', authHeader);
-  if (cookieHeader) headers.set('cookie', cookieHeader);
-
-  try {
-    const res = await fetch(`${backendBase}/api/v1/auth/me`, {
-      method: 'GET',
-      headers,
-      cache: 'no-store',
-      signal: AbortSignal.timeout(2000),
-    });
-    if (!res.ok) {
-      // If backend is unconfigured or returns error, allow fast fallback
-      return {
-        id: 'u-admin-001',
-        email: 'admin@tbm.internal',
-        fullName: 'System Administrator',
-        roles: ['ROLE_ADMIN'],
-        permissions: ['WHATSAPP_CONTENT_READ', 'WHATSAPP_MESSAGE_SEND', 'SUMMARY_READ'],
-      };
+    try {
+      const res = await fetch(`${backendBase}/api/v1/auth/me`, {
+        method: 'GET',
+        headers,
+        cache: 'no-store',
+        signal: AbortSignal.timeout(2000),
+      });
+      if (res.ok) {
+        return (await res.json()) as AuthenticatedUser;
+      }
+    } catch {
+      // Backend unavailable
     }
-    return (await res.json()) as AuthenticatedUser;
-  } catch {
-    // If backend connection times out or fails on standalone Vercel preview
-    return {
-      id: 'u-admin-001',
-      email: 'admin@tbm.internal',
-      fullName: 'System Administrator',
-      roles: ['ROLE_ADMIN'],
-      permissions: ['WHATSAPP_CONTENT_READ', 'WHATSAPP_MESSAGE_SEND', 'SUMMARY_READ'],
-    };
   }
+
+  // If no credentials or session provided, return null (fail closed)
+  return null;
 }
 
 export async function proxyToBackend(req: NextRequest, backendPath: string, method?: string): Promise<NextResponse> {
@@ -98,63 +99,58 @@ export async function proxyToBackend(req: NextRequest, backendPath: string, meth
   const url = `${backendBase}${backendPath}`;
 
   const headers = new Headers();
-
-  const contentType = req.headers.get('content-type');
-  if (contentType) headers.set('content-type', contentType);
-
   const authHeader = req.headers.get('authorization');
-  if (authHeader) headers.set('authorization', authHeader);
-
-  const bootstrapToken = req.headers.get('x-bootstrap-token');
-  if (bootstrapToken) headers.set('x-bootstrap-token', bootstrapToken);
-
   const cookieHeader = req.headers.get('cookie');
+
+  if (authHeader) headers.set('authorization', authHeader);
   if (cookieHeader) headers.set('cookie', cookieHeader);
 
-  let body: string | undefined = undefined;
-  const requestMethod = method || req.method;
-  if (requestMethod !== 'GET' && requestMethod !== 'HEAD') {
-    try {
+  let body: any = null;
+  const verb = (method || req.method).toUpperCase();
+
+  if (verb !== 'GET' && verb !== 'HEAD') {
+    const contentType = req.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
       body = await req.text();
-    } catch {
-      // Empty body
+      headers.set('content-type', 'application/json');
     }
   }
 
   try {
-    const backendRes = await fetch(url, {
-      method: requestMethod,
+    const res = await fetch(url, {
+      method: verb,
       headers,
       body,
       cache: 'no-store',
-      signal: AbortSignal.timeout(3500),
+      signal: AbortSignal.timeout(6000),
     });
 
-    const resBody = await backendRes.text();
-    const responseHeaders = new Headers();
+    const resContentType = res.headers.get('content-type') || '';
+    let resData: any;
 
-    const backendContentType = backendRes.headers.get('content-type');
-    if (backendContentType) {
-      responseHeaders.set('content-type', backendContentType);
+    if (resContentType.includes('application/json')) {
+      resData = await res.json();
+    } else {
+      resData = await res.text();
     }
 
-    // Forward Set-Cookie headers from Spring Boot to client
-    const setCookies = (backendRes.headers as any).getSetCookie
-      ? (backendRes.headers as any).getSetCookie()
-      : [backendRes.headers.get('set-cookie')].filter(Boolean);
+    const response = NextResponse.json(resData, { status: res.status });
 
-    for (const cookieStr of setCookies) {
-      responseHeaders.append('set-cookie', cookieStr);
+    // Forward Set-Cookie headers from Spring Boot if present
+    const setCookie = res.headers.get('set-cookie');
+    if (setCookie) {
+      response.headers.set('set-cookie', setCookie);
     }
 
-    return new NextResponse(resBody, {
-      status: backendRes.status,
-      headers: responseHeaders,
-    });
+    return response;
   } catch (err: any) {
     return NextResponse.json(
-      { error: 'Could not connect to authentication backend server: ' + err.message },
-      { status: 503 }
+      {
+        error: 'Backend communication error',
+        message: err.message,
+        path: backendPath,
+      },
+      { status: 502 }
     );
   }
 }

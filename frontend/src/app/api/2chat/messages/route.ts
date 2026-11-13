@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addStoredMessages, loadStoredMessages } from '@/lib/message-store';
 import { getAuthenticatedUser } from '@/lib/backend-proxy';
+import { getUserAllowedGroupIds } from '@/lib/auth-db';
 import {
   cleanDigits,
   fetchTwoChatChannels,
@@ -339,15 +340,61 @@ export async function GET(req: NextRequest) {
     }
 
     // Filter out private personal test groups so only genuine company conversations reach the frontend
-    const visibleConversations = conversations.filter((c) => !isHiddenPrivateGroup(c.name));
-    const visibleMessages = allMessages.filter((m) => {
+    let visibleConversations = conversations.filter((c) => !isHiddenPrivateGroup(c.name));
+    let visibleMessages = allMessages.filter((m) => {
       const gName = m.groupName || (m.isGroup ? m.chatName : null);
       return !isHiddenPrivateGroup(gName);
     });
-    const visibleThreadMessages = threadMessages.filter((m) => {
+    let visibleThreadMessages = threadMessages.filter((m) => {
       const gName = m.groupName || (m.isGroup ? m.chatName : null);
       return !isHiddenPrivateGroup(gName);
     });
+
+    // 6. Role-Based Scoping: If user is not an Admin, filter by their assigned group permissions
+    const allowedGroupIds = await getUserAllowedGroupIds(user.id);
+    if (allowedGroupIds !== null) {
+      // Non-admin user: if 0 assigned groups, return 0 data immediately
+      if (allowedGroupIds.length === 0) {
+        return NextResponse.json({
+          success: true,
+          apiKeyConfigured: Boolean(apiKey),
+          channels: [],
+          activeChannel: '',
+          groups: [],
+          contacts: {},
+          conversations: [],
+          messages: [],
+          threadMessages: [],
+          webhookStoredCount: 0,
+          userAssignedGroupCount: 0,
+          isScopedUser: true,
+        });
+      }
+
+      const allowedSet = new Set(allowedGroupIds.map((id) => id.toLowerCase().trim()));
+
+      visibleConversations = visibleConversations.filter((c) => {
+        const cId = (c.id || '').toLowerCase().trim();
+        const cName = (c.name || '').toLowerCase().trim();
+        const cPhone = (c.phoneOrId || '').toLowerCase().trim();
+        const cGroupUuid = (c.groupUuid || '').toLowerCase().trim();
+        return allowedSet.has(cId) || allowedSet.has(cName) || allowedSet.has(cPhone) || allowedSet.has(cGroupUuid);
+      });
+
+      visibleMessages = visibleMessages.filter((m) => {
+        const gUuid = (m.groupUuid || '').toLowerCase().trim();
+        const gName = (m.groupName || m.chatName || '').toLowerCase().trim();
+        const rNum = (m.remoteNumber || '').toLowerCase().trim();
+        return allowedSet.has(gUuid) || allowedSet.has(gName) || allowedSet.has(rNum);
+      });
+
+      visibleThreadMessages = visibleThreadMessages.filter((m) => {
+        const gUuid = (m.groupUuid || '').toLowerCase().trim();
+        const gName = (m.groupName || m.chatName || '').toLowerCase().trim();
+        const rNum = (m.remoteNumber || '').toLowerCase().trim();
+        return allowedSet.has(gUuid) || allowedSet.has(gName) || allowedSet.has(rNum);
+      });
+    }
 
     return NextResponse.json({
       success: true,

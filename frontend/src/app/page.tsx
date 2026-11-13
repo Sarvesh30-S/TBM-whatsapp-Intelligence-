@@ -1,15 +1,17 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Menu, Search, Bell, Settings } from 'lucide-react';
+import { Menu, Search, Bell, Settings, Sun, Moon } from 'lucide-react';
 import Sidebar, { DashboardSection } from '@/components/Sidebar';
 import OverviewView from '@/components/OverviewView';
 import TestMessagesView from '@/components/TestMessagesView';
 import MessageSummaryView from '@/components/MessageSummaryView';
 import AdminManagementView from '@/components/AdminManagementView';
 import LoginView from '@/components/LoginView';
+import ZeroDataMemberView from '@/components/ZeroDataMemberView';
 import GlobalSearchOmnibox from '@/components/GlobalSearchOmnibox';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
 import { TwoChatConversation, TwoChatMessage, isHiddenPrivateGroup } from '@/lib/types';
 
 function cleanDigits(val: string): string {
@@ -66,6 +68,7 @@ function deduplicateList(messages: TwoChatMessage[]): TwoChatMessage[] {
 
 function DashboardContent() {
   const { user, token, canAccessSection, isAuthenticated, isLoading } = useAuth();
+  const { theme, isDark, toggleTheme } = useTheme();
   const [currentSection, setCurrentSection] = useState<DashboardSection>('test-messages');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
 
@@ -491,10 +494,24 @@ function DashboardContent() {
           </div>
 
           <div className="navbar-right">
-            <div className="topbar-live-sync-badge">
-              <span className="live-sync-pulse-dot" />
-              <span className="live-sync-text">Live Sync</span>
+            {/* Live Sync Glowing Status Dot (Green = Live, Red = Offline) */}
+            <div
+              className={`topbar-live-dot-container ${apiErrors.length === 0 ? 'is-live' : 'is-offline'}`}
+              title={apiErrors.length === 0 ? 'WhatsApp Sync Active' : 'WhatsApp Sync Disconnected'}
+              aria-label={apiErrors.length === 0 ? 'WhatsApp Sync Active' : 'WhatsApp Sync Disconnected'}
+            >
+              <span className="topbar-live-dot" />
             </div>
+            {/* Theme Toggle Button */}
+            <button
+              type="button"
+              className="topbar-icon-btn"
+              onClick={toggleTheme}
+              title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              aria-label={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            >
+              {isDark ? <Sun size={17} style={{ color: '#FDC727' }} /> : <Moon size={17} />}
+            </button>
             <button
               type="button"
               className="topbar-icon-btn"
@@ -523,7 +540,15 @@ function DashboardContent() {
 
         {/* Content Area */}
         <main className="saas-content-area">
-          {currentSection === 'test-messages' && (
+          {!user?.roles?.includes('ROLE_ADMIN') && conversations.length === 0 && !loading ? (
+            <ZeroDataMemberView
+              user={user}
+              onRefresh={() => loadData(apiKey)}
+              loading={loading}
+            />
+          ) : (
+            <>
+              {currentSection === 'test-messages' && (
             <TestMessagesView
               apiKey={apiKey}
               channels={channels}
@@ -587,16 +612,14 @@ function DashboardContent() {
           {currentSection === 'admin' && (
             <AdminManagementView />
           )}
-        </main>
+        </>
+      )}
+    </main>
       </div>
     </div>
   );
 }
 
 export default function DashboardPage() {
-  return (
-    <AuthProvider>
-      <DashboardContent />
-    </AuthProvider>
-  );
+  return <DashboardContent />;
 }

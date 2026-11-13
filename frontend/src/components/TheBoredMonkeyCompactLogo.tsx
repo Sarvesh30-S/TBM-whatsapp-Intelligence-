@@ -5,20 +5,27 @@ import React from 'react';
 interface TheBoredMonkeyCompactLogoProps {
   className?: string;
   size?: number;
+  textColor?: string;
+  bgColor?: string;
 }
 
 /**
- * TheBoredMonkey Official Compact Brand Logo (When Panel Closes)
- * Converted to pure white theme:
- * - Square master viewBox (matching uploaded 1:1 brand asset)
- * - White background with official dark #0f172a wordmark
- * - Yellow & orange animated electrical circuit
- * - Perfectly centered 'Creations & Connections' subtitle with '&' and full text
+ * TheBoredMonkey Official Compact Brand Icon (for 70px collapsed rail)
+ * - 1:1 Square aspect ratio (viewBox="0 0 100 100")
+ * - Signature animated yellow-to-orange conduit wire with continuous electric pulse
+ * - TheBoredMonkey dual energy nodes (#f59e0b & #ea580c)
+ * - Crisp, bold 'TBM' brand mark that dynamically responds to Light / Dark themes
+ * - Subtitle 'INTEL' grounded with high-legibility tracking
  */
 export default function TheBoredMonkeyCompactLogo({
   className = '',
   size = 38,
+  textColor,
+  bgColor,
 }: TheBoredMonkeyCompactLogoProps) {
+  const effectiveTextColor = textColor || 'var(--tbm-logo-text, #E2E8F0)';
+  const effectiveBgColor = bgColor || 'var(--bg-surface, #11141B)';
+
   return (
     <div
       className={`tbm-compact-logo-wrapper ${className}`}
@@ -28,17 +35,18 @@ export default function TheBoredMonkeyCompactLogo({
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: '#ffffff',
+        background: effectiveBgColor,
         borderRadius: '8px',
         overflow: 'hidden',
+        transition: 'background-color 0.2s ease',
       }}
     >
       <svg
-        viewBox="0 0 615 615"
+        viewBox="0 0 100 100"
         xmlns="http://www.w3.org/2000/svg"
         className="tbm-compact-svg"
         role="img"
-        aria-label="TheBoredMonkey Logo"
+        aria-label="TBM Intelligence Icon"
         style={{
           width: '100%',
           height: '100%',
@@ -46,80 +54,95 @@ export default function TheBoredMonkeyCompactLogo({
         }}
       >
         <defs>
-          <linearGradient id="tbmWireGradCompactV5" x1="199" y1="10" x2="426" y2="10" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#f59e0b" />
-            <stop offset="50%" stopColor="#fb923c" />
+          <linearGradient id="tbmWireGradCompact" x1="26" y1="16" x2="74" y2="16" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#FDC727" />
+            <stop offset="50%" stopColor="#f59e0b" />
             <stop offset="100%" stopColor="#ea580c" />
           </linearGradient>
+          <style>{`
+            @keyframes tbmCompactPulse {
+              0% { stroke-dashoffset: 32; }
+              100% { stroke-dashoffset: 0; }
+            }
+            .tbm-compact-wire-pulse {
+              stroke-dasharray: 8 6;
+              animation: tbmCompactPulse 1.4s linear infinite;
+            }
+          `}</style>
         </defs>
 
-        {/* Clean white background */}
-        <rect width="615" height="615" fill="#ffffff" rx="40" />
+        {/* Adaptive background tile */}
+        <rect width="100" height="100" fill={effectiveBgColor} rx="16" />
 
-        {/* Vertically Centered Logo Group: y offset = (615 - 110) / 2 = 252.5 */}
-        <g transform="translate(0, 252.5)">
-          {/* 1. Conduit Guide Path */}
-          <path
-            d="M 199 34 L 199 14.5 Q 199 10.5 203 10.5 L 422 10.5 Q 426 10.5 426 14.5 L 426 34"
-            fill="none"
-            stroke="#fed7aa"
-            strokeWidth="4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            opacity="0.4"
-          />
+        {/* 1. Conduit Guide Path Underlay */}
+        <path
+          d="M 28 36 L 28 22 Q 28 16 34 16 L 66 16 Q 72 16 72 22 L 72 36"
+          fill="none"
+          stroke="#fed7aa"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity="0.35"
+        />
 
-          {/* 2. Flowing Electric Circuit Wire */}
-          <path
-            d="M 199 34 L 199 14.5 Q 199 10.5 203 10.5 L 422 10.5 Q 426 10.5 426 14.5 L 426 34"
-            fill="none"
-            stroke="url(#tbmWireGradCompactV5)"
-            strokeWidth="6.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+        {/* 2. Flowing Animated Electric Conduit */}
+        <path
+          d="M 28 36 L 28 22 Q 28 16 34 16 L 66 16 Q 72 16 72 22 L 72 36"
+          fill="none"
+          stroke="url(#tbmWireGradCompact)"
+          strokeWidth="4.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="tbm-compact-wire-pulse"
+        />
 
-          {/* 3. Official Master Wordmark Typography */}
-          <path
-            d="M 608.0 36.2 L 599.2 36.2 L 598.5 36.8 L 598.0 39.2 L 597.0 40.5 L 596.8 42.8 L 596.0 44.0 L 595.8 45.5 L 595.2 46.2 L 594.8 48.5 L 594.0 50.0 L 593.8 51.8 L 592.8 53.2 L 592.5 55.2 L 591.5 58.0 L 590.8 59.0 L 590.2 59.0 L 589.2 57.8 L 588.8 55.8 L 588.0 54.5 L 587.8 53.0 L 587.0 51.5 L 587.0 50.8 L 586.0 49.0 L 585.8 47.0 L 584.8 45.2 L 584.5 43.8 L 583.8 42.5 L 583.5 40.8 L 581.8 36.8 L 581.0 36.2 L 572.0 36.5 L 572.0 37.8 L 572.8 38.8 L 573.0 40.2 L 573.8 41.5 L 574.0 43.2 L 575.0 44.5 L 575.2 46.2 L 576.2 49.0 L 577.0 50.0 L 578.0 52.8 L 578.2 54.2 L 579.2 55.8 L 579.8 58.0 L 581.5 61.5 L 582.0 63.8 L 583.5 66.8 L 585.0 71.5 L 586.0 73.2 L 586.0 75.2 L 585.0 77.0 L 584.8 78.2 L 584.0 79.8 L 582.8 81.2 L 579.5 82.8 L 576.2 82.8 L 575.2 82.2 L 574.0 82.2 L 574.0 84.0 L 575.0 85.2 L 575.2 87.2 L 576.0 89.2 L 576.8 90.2 L 578.0 90.5 L 581.0 90.5 L 584.8 89.8 L 587.8 87.8 L 590.0 85.0 L 590.2 84.0 L 591.2 82.8 L 592.2 80.0 L 592.5 78.5 L 593.5 77.0 L 594.5 73.5 L 595.5 71.8 L 596.5 69.0 L 596.8 67.2 L 598.0 65.2 L 598.0 64.0 L 600.0 59.8 L 600.5 57.5 L 601.2 55.5 L 602.0 54.5 L 602.2 53.0 L 603.2 51.0 L 603.2 50.2 L 604.5 48.0 L 604.8 46.2 L 606.8 42.0 L 607.0 40.5 L 608.5 37.2 L 608.5 36.8 Z M 544.2 36.5 L 542.8 37.5 L 541.2 38.0 L 539.5 39.2 L 535.8 42.8 L 534.2 44.8 L 532.2 49.0 L 532.0 51.2 L 531.5 52.2 L 531.2 53.8 L 531.5 58.0 L 532.0 59.2 L 532.0 60.5 L 533.0 62.5 L 533.5 64.2 L 536.2 68.2 L 539.5 71.2 L 540.2 71.5 L 541.8 72.8 L 543.5 73.5 L 545.0 73.8 L 546.8 74.8 L 548.5 75.0 L 555.2 75.0 L 557.2 74.8 L 558.5 74.0 L 561.0 73.5 L 563.8 72.2 L 564.5 71.5 L 565.8 71.0 L 566.8 70.0 L 566.8 69.5 L 561.8 64.2 L 561.0 64.2 L 558.0 66.0 L 555.2 67.0 L 554.0 67.2 L 549.2 67.0 L 546.8 66.0 L 544.8 64.8 L 541.8 61.0 L 541.8 59.8 L 542.5 59.0 L 570.8 59.0 L 571.5 58.0 L 571.8 54.0 L 571.2 49.8 L 570.0 46.5 L 568.2 43.5 L 565.8 40.8 L 562.0 38.0 L 560.5 37.5 L 559.5 36.8 L 555.2 35.5 L 552.5 35.2 L 548.0 35.5 Z M 541.8 49.5 L 544.0 46.5 L 547.0 44.2 L 550.8 43.2 L 552.2 43.2 L 555.5 44.0 L 558.0 45.5 L 560.5 48.0 L 561.8 50.5 L 561.5 51.5 L 561.0 51.8 L 542.2 51.8 L 541.8 51.2 Z M 482.8 38.2 L 479.8 36.5 L 477.8 35.8 L 474.8 35.2 L 472.5 35.2 L 469.2 35.8 L 467.2 36.5 L 463.5 38.5 L 463.0 38.0 L 462.8 36.8 L 461.8 36.2 L 454.5 36.2 L 454.0 36.5 L 453.8 37.0 L 454.0 73.8 L 462.5 73.8 L 463.0 73.2 L 463.0 47.0 L 464.5 45.2 L 466.0 44.2 L 470.0 43.2 L 472.2 43.2 L 475.0 44.0 L 477.8 47.0 L 478.8 49.8 L 478.8 73.2 L 479.2 73.8 L 486.8 74.0 L 487.8 73.8 L 488.0 73.2 L 488.0 49.8 L 487.8 46.5 L 486.5 42.8 L 485.0 40.5 Z M 273.2 35.5 L 269.8 36.5 L 265.2 39.0 L 260.8 43.2 L 259.2 45.5 L 257.5 49.8 L 257.0 51.8 L 257.0 58.5 L 257.2 60.0 L 258.0 61.2 L 258.8 64.0 L 261.2 67.8 L 264.2 70.8 L 266.8 72.5 L 268.8 73.5 L 270.5 73.8 L 272.2 74.8 L 274.0 75.0 L 280.8 75.0 L 282.5 74.8 L 284.5 73.8 L 286.5 73.5 L 291.5 70.8 L 292.0 70.0 L 291.8 68.8 L 287.2 64.2 L 286.5 64.2 L 282.8 66.2 L 282.0 66.2 L 280.5 67.0 L 278.8 67.2 L 274.5 67.0 L 271.8 65.8 L 270.2 64.8 L 268.0 62.2 L 267.0 60.5 L 267.0 59.8 L 267.8 59.0 L 296.2 59.0 L 297.0 58.2 L 297.5 56.5 L 297.5 53.5 L 297.2 52.2 L 296.5 50.5 L 296.5 49.5 L 295.5 46.5 L 293.2 43.0 L 291.5 41.0 L 287.5 38.0 L 286.0 37.5 L 285.0 36.8 L 280.8 35.5 L 278.2 35.5 L 278.0 35.2 Z M 267.0 50.0 L 268.8 47.2 L 270.2 45.8 L 272.0 44.5 L 273.8 43.8 L 276.2 43.2 L 277.8 43.2 L 281.0 44.0 L 283.8 45.8 L 286.2 48.5 L 287.0 50.2 L 287.0 51.2 L 286.5 51.8 L 267.5 51.8 Z M 251.8 37.5 L 248.5 35.8 L 246.0 35.2 L 243.0 35.5 L 240.8 36.5 L 237.8 39.0 L 237.0 38.2 L 237.0 37.0 L 236.0 36.2 L 229.0 36.2 L 228.0 36.5 L 227.5 37.0 L 227.5 73.2 L 228.0 73.8 L 236.5 73.8 L 237.0 73.2 L 237.0 50.0 L 237.2 49.0 L 238.2 47.2 L 240.2 45.2 L 242.8 44.0 L 244.8 44.2 L 246.5 45.2 L 248.8 47.2 L 249.8 47.5 L 251.5 45.5 L 252.5 43.5 L 254.0 41.5 L 254.5 40.2 L 254.2 39.8 Z M 104.2 36.5 L 102.8 37.5 L 101.2 38.0 L 99.5 39.2 L 95.2 43.2 L 94.2 45.2 L 93.2 46.5 L 92.2 49.0 L 92.0 52.0 L 91.2 53.8 L 91.2 56.2 L 92.0 58.5 L 92.2 61.2 L 93.5 64.2 L 95.0 66.8 L 96.2 68.2 L 99.5 71.2 L 100.2 71.5 L 101.8 72.8 L 103.5 73.5 L 105.0 73.8 L 106.8 74.8 L 108.5 75.0 L 115.2 75.0 L 117.2 74.8 L 118.5 74.0 L 121.0 73.5 L 123.8 72.2 L 124.5 71.5 L 126.0 70.8 L 126.8 69.5 L 121.8 64.2 L 120.8 64.2 L 120.0 65.0 L 119.0 65.2 L 118.0 66.0 L 116.5 66.2 L 115.0 67.0 L 113.8 67.2 L 110.2 67.2 L 106.8 66.0 L 104.2 64.2 L 101.8 61.0 L 102.0 59.2 L 102.5 59.0 L 131.0 59.0 L 131.5 58.5 L 131.8 57.5 L 131.8 52.8 L 131.5 50.8 L 129.8 46.0 L 128.0 43.2 L 124.8 40.0 L 122.0 38.0 L 120.5 37.5 L 119.0 36.5 L 115.2 35.5 L 112.2 35.2 L 107.8 35.5 Z M 101.5 50.2 L 102.8 48.0 L 104.0 46.5 L 105.8 45.0 L 107.5 44.0 L 110.5 43.2 L 112.2 43.2 L 114.8 43.8 L 116.5 44.5 L 118.0 45.5 L 120.2 47.8 L 120.8 49.0 L 121.8 50.2 L 121.5 51.5 L 121.0 51.8 L 102.0 51.8 L 101.5 51.2 Z M 348.0 22.0 L 347.8 73.5 L 348.2 73.8 L 357.0 73.8 L 357.5 73.2 L 357.8 40.8 L 358.5 40.8 L 359.2 41.5 L 359.5 42.5 L 360.2 43.2 L 362.0 46.8 L 363.2 48.5 L 365.8 53.0 L 366.0 54.0 L 367.2 55.5 L 368.2 58.0 L 369.0 58.8 L 372.0 64.5 L 373.2 66.0 L 374.2 65.8 L 375.5 63.8 L 377.0 60.8 L 377.8 60.0 L 378.0 59.0 L 379.8 56.5 L 380.5 54.8 L 382.0 52.8 L 382.5 51.5 L 384.0 49.5 L 384.8 47.8 L 385.8 46.5 L 386.8 44.2 L 387.5 43.5 L 388.8 40.8 L 389.2 40.2 L 390.0 40.5 L 390.2 41.0 L 390.5 73.8 L 399.2 74.0 L 399.8 73.5 L 399.5 21.8 L 389.5 21.8 L 389.0 22.0 L 387.0 24.8 L 386.0 27.0 L 385.0 28.2 L 383.5 31.2 L 382.8 32.0 L 382.0 33.8 L 378.2 39.8 L 377.8 41.2 L 377.0 42.0 L 375.0 45.8 L 373.8 46.8 L 372.2 45.5 L 371.0 42.8 L 370.2 42.0 L 369.0 39.2 L 368.0 38.0 L 366.8 35.2 L 365.8 34.0 L 365.5 33.0 L 364.5 31.2 L 363.8 30.5 L 363.2 29.0 L 361.8 26.8 L 360.2 23.5 L 358.5 21.8 L 348.5 21.8 Z M 139.8 21.8 L 139.2 22.2 L 139.0 24.5 L 139.2 72.0 L 139.0 73.0 L 139.2 73.5 L 148.8 74.0 L 161.5 74.0 L 165.5 73.5 L 168.5 72.2 L 169.2 71.5 L 171.0 70.5 L 174.0 67.2 L 175.5 64.5 L 176.5 61.5 L 176.5 57.0 L 176.2 55.8 L 175.5 54.5 L 175.5 53.8 L 173.5 50.5 L 170.0 47.2 L 170.2 45.8 L 172.2 43.2 L 173.2 41.0 L 174.0 38.2 L 174.0 34.5 L 173.8 33.2 L 172.0 28.8 L 170.5 26.8 L 168.0 24.5 L 167.2 24.2 L 166.2 23.2 L 164.5 23.0 L 163.2 22.2 L 160.2 21.8 Z M 149.2 51.8 L 150.2 51.0 L 158.8 51.0 L 162.0 52.0 L 163.2 52.8 L 165.8 55.8 L 166.0 56.8 L 166.0 60.2 L 165.8 61.2 L 163.0 64.2 L 160.8 65.2 L 158.5 65.8 L 150.0 65.8 L 149.0 64.5 L 149.0 52.2 Z M 161.5 31.2 L 163.5 33.5 L 164.0 35.2 L 164.0 38.2 L 163.8 39.5 L 162.2 41.5 L 160.8 42.8 L 157.2 44.0 L 150.0 44.0 L 149.0 42.8 L 149.0 30.5 L 149.2 30.0 L 150.0 29.5 L 156.2 29.2 L 158.5 29.5 Z M 7.2 21.8 L 6.5 22.8 L 6.8 30.5 L 7.2 30.8 L 20.0 30.8 L 21.2 31.5 L 21.2 73.2 L 21.8 73.8 L 30.8 73.8 L 31.2 73.5 L 31.5 33.0 L 31.2 31.8 L 31.5 31.2 L 32.2 30.8 L 45.8 30.5 L 45.8 22.2 L 45.2 21.8 Z M 496.0 20.0 L 495.5 20.5 L 495.8 22.0 L 495.5 73.0 L 495.8 73.5 L 504.2 73.8 L 504.8 73.5 L 505.0 59.0 L 505.5 58.5 L 506.2 58.5 L 519.8 73.5 L 520.2 73.8 L 530.5 73.8 L 530.2 72.8 L 529.5 72.2 L 523.0 64.8 L 520.2 62.0 L 514.2 55.0 L 514.2 54.0 L 518.5 49.2 L 520.2 46.8 L 528.5 37.2 L 528.2 36.5 L 527.8 36.2 L 518.8 36.2 L 518.2 36.5 L 510.8 45.2 L 508.0 48.8 L 507.5 49.8 L 506.5 50.8 L 505.5 51.0 L 505.0 50.5 L 505.0 20.5 L 504.5 20.0 Z M 337.8 20.0 L 329.5 20.0 L 329.0 20.2 L 329.0 36.0 L 328.2 37.0 L 327.5 37.0 L 326.2 36.2 L 324.0 35.5 L 322.2 35.2 L 316.5 35.5 L 313.8 36.5 L 312.5 37.5 L 311.5 37.8 L 310.0 38.8 L 307.5 41.0 L 306.5 42.5 L 305.2 43.8 L 304.5 45.0 L 304.2 46.0 L 303.2 47.5 L 302.5 50.0 L 302.0 53.5 L 302.2 59.2 L 303.2 63.2 L 304.2 64.5 L 305.0 66.5 L 306.5 68.5 L 309.2 71.2 L 312.8 73.5 L 314.2 73.8 L 316.0 74.8 L 322.5 75.0 L 324.0 74.8 L 327.5 73.0 L 328.0 73.0 L 329.0 73.8 L 337.8 73.8 L 338.2 73.2 L 338.2 20.5 Z M 322.0 43.2 L 323.5 43.8 L 326.0 44.0 L 327.5 44.8 L 328.8 46.0 L 329.0 46.8 L 329.0 63.5 L 327.8 65.0 L 325.5 66.2 L 324.8 66.2 L 323.2 67.0 L 320.5 67.0 L 317.5 66.0 L 315.8 65.0 L 313.2 62.5 L 312.0 60.0 L 311.2 57.0 L 311.2 53.0 L 311.8 52.2 L 312.0 50.2 L 312.8 49.2 L 313.0 48.2 L 315.5 45.5 L 318.0 44.0 L 320.5 43.8 Z M 51.2 20.2 L 51.2 73.2 L 51.8 73.8 L 60.0 73.8 L 60.5 73.2 L 60.5 46.5 L 61.8 45.0 L 63.5 44.0 L 66.5 43.2 L 68.8 43.0 L 72.2 44.0 L 73.0 44.5 L 74.8 46.5 L 75.8 48.2 L 76.2 51.8 L 76.0 73.0 L 76.2 73.5 L 76.8 73.8 L 84.8 73.8 L 85.2 73.5 L 85.2 47.0 L 84.2 44.8 L 83.8 42.5 L 81.8 39.8 L 79.5 37.8 L 77.5 36.5 L 74.5 35.5 L 72.5 35.2 L 67.0 35.5 L 65.2 36.2 L 63.8 36.5 L 62.2 37.5 L 61.0 37.2 L 60.8 36.8 L 60.5 33.0 L 60.5 20.5 L 60.0 20.0 Z"
-            fill="#0f172a"
-            fillRule="evenodd"
-          />
+        {/* 3. Left Yellow Energy Node Ring */}
+        <circle
+          cx="28"
+          cy="38"
+          r="8"
+          fill="none"
+          stroke="#f59e0b"
+          strokeWidth="4"
+        />
 
-          {/* 4. Yellow 'o' Ring */}
-          <circle
-            cx="199"
-            cy="54"
-            r="19.5"
-            fill="none"
-            stroke="#f59e0b"
-            strokeWidth="11"
-          />
+        {/* 4. Right Orange Energy Node Ring */}
+        <circle
+          cx="72"
+          cy="38"
+          r="8"
+          fill="none"
+          stroke="#ea580c"
+          strokeWidth="4"
+        />
 
-          {/* 5. Orange 'o' Ring */}
-          <circle
-            cx="426"
-            cy="54"
-            r="19.5"
-            fill="none"
-            stroke="#ea580c"
-            strokeWidth="11"
-          />
+        {/* 5. Bold TBM Monogram */}
+        <text
+          x="50"
+          y="72"
+          textAnchor="middle"
+          fill={effectiveTextColor}
+          fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif"
+          fontWeight="900"
+          fontSize="24"
+          letterSpacing="0.04em"
+        >
+          TBM
+        </text>
 
-          {/* 6. Subtitle: Creations & Connections (WITH '&' AND FULL TEXT) */}
-          <text
-            x="307.5"
-            y="102"
-            textAnchor="middle"
-            fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, sans-serif"
-            fontWeight="700"
-            fontSize="16.5px"
-            letterSpacing="0.22em"
-            fill="#c27803"
-          >
-            Creations &amp; Connections
-          </text>
-        </g>
+        {/* 6. Subtle Micro Subtitle */}
+        <text
+          x="50"
+          y="87"
+          textAnchor="middle"
+          fill="#f59e0b"
+          fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif"
+          fontWeight="800"
+          fontSize="8.5"
+          letterSpacing="0.18em"
+        >
+          INTEL
+        </text>
       </svg>
     </div>
   );
