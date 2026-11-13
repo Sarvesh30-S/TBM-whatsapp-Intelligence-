@@ -1241,7 +1241,7 @@ export default function TestMessagesView({
                     )}
                   </section>
 
-                  {/* 2. DISCUSSION HIGHLIGHTS (Clean stacked tracks, no cramped 2-column split) */}
+                  {/* 2. DISCUSSION HIGHLIGHTS (Clean stacked tracks) */}
                   <section className="side-brief-section">
                     <div className="side-brief-header">
                       <span className="side-brief-num">02</span>
@@ -1250,9 +1250,9 @@ export default function TestMessagesView({
 
                     <div className="side-discussion-flow">
                       {/* Client Track */}
-                      <div className="side-track-card client-track">
+                      <div className="side-track-card">
                         <div className="side-track-title-row">
-                          <span className="side-track-role client">CLIENT</span>
+                          <span className="side-track-role">CLIENT</span>
                           <span className="side-track-name">{clientTrack.title}</span>
                         </div>
                         <ul className="side-brief-list">
@@ -1266,9 +1266,9 @@ export default function TestMessagesView({
                       </div>
 
                       {/* Agency Track */}
-                      <div className="side-track-card agency-track">
+                      <div className="side-track-card">
                         <div className="side-track-title-row">
-                          <span className="side-track-role agency">AGENCY</span>
+                          <span className="side-track-role">AGENCY</span>
                           <span className="side-track-name">{teamTrack.title}</span>
                         </div>
                         <ul className="side-brief-list">
@@ -1303,11 +1303,11 @@ export default function TestMessagesView({
                     </section>
                   )}
 
-                  {/* 4. ACTIVE BLOCKERS & DEPENDENCIES (Clear, high-contrast, fully readable) */}
+                  {/* 4. ACTIVE BLOCKERS & DEPENDENCIES */}
                   {blockersList.length > 0 && (
                     <section className="side-brief-section">
                       <div className="side-brief-header">
-                        <span className="side-brief-num alert">04</span>
+                        <span className="side-brief-num">04</span>
                         <h4 className="side-brief-heading">Active Blockers &amp; Dependencies</h4>
                       </div>
                       <div className="side-blockers-stack">
