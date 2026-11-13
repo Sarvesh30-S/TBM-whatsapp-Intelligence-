@@ -3,6 +3,19 @@ import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { syncGoogleUser } from './auth-db';
 
+// Ensure NEXTAUTH_URL and NEXTAUTH_SECRET are always set in Vercel / serverless deployments
+if (!process.env.NEXTAUTH_URL) {
+  if (process.env.VERCEL_URL) {
+    process.env.NEXTAUTH_URL = `https://${process.env.VERCEL_URL}`;
+  } else {
+    process.env.NEXTAUTH_URL = 'https://tbm-whatsapp-intelligence.vercel.app';
+  }
+}
+
+if (!process.env.NEXTAUTH_SECRET) {
+  process.env.NEXTAUTH_SECRET = 'tbm-whatsapp-intelligence-secret-key-2026-auth32';
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
