@@ -1218,74 +1218,64 @@ export default function TestMessagesView({
                   }));
 
               return (
-                <div className="formal-briefing-doc">
-                  {/* 1. KEY TAKEAWAYS (THE BOTTOM LINE) */}
-                  <section className="formal-section">
-                    <div className="formal-section-header">
-                      <span className="formal-section-title">Key Takeaways</span>
-                      <span className="formal-section-sub">Executive Summary</span>
+                <div className="side-brief-doc">
+                  {/* 1. KEY TAKEAWAYS */}
+                  <section className="side-brief-section">
+                    <div className="side-brief-header">
+                      <span className="side-brief-num">01</span>
+                      <h4 className="side-brief-heading">Key Takeaways</h4>
                     </div>
                     {tldrList.length > 0 ? (
-                      <ul className="formal-bullets-list">
+                      <ul className="side-brief-list">
                         {tldrList.map((bullet, idx) => (
-                          <li key={idx} className="formal-bullet-row">
-                            <span className="formal-bullet-dot primary" />
-                            <span className="formal-bullet-text">{renderFormattedText(bullet)}</span>
+                          <li key={idx} className="side-brief-bullet">
+                            <span className="side-brief-dot gold" />
+                            <span className="side-brief-text">{renderFormattedText(bullet)}</span>
                           </li>
                         ))}
                       </ul>
                     ) : (
-                      <p className="formal-bullet-text">
+                      <p className="side-brief-text-single">
                         {isHinglish && eb.currentSituationHinglish ? eb.currentSituationHinglish : eb.currentSituation}
                       </p>
                     )}
                   </section>
 
-                  {/* 2. CONVERSATION BREAKDOWN: CLIENT vs AGENCY */}
-                  <section className="formal-section">
-                    <div className="formal-section-header">
-                      <span className="formal-section-title">Conversation Breakdown</span>
-                      <span className="formal-section-sub">Client vs Agency Streams</span>
+                  {/* 2. DISCUSSION HIGHLIGHTS (Clean stacked tracks, no cramped 2-column split) */}
+                  <section className="side-brief-section">
+                    <div className="side-brief-header">
+                      <span className="side-brief-num">02</span>
+                      <h4 className="side-brief-heading">Discussion Highlights</h4>
                     </div>
 
-                    <div className="formal-streams-grid">
-                      {/* Left: Client Track */}
-                      <div className="formal-stream-col client">
-                        <div className="formal-stream-header">
-                          <div className="formal-stream-name">
-                            <span className="formal-stream-label">CLIENT PERSPECTIVE</span>
-                            <span className="formal-stream-actor">{clientTrack.title}</span>
-                          </div>
-                          {clientTrack.status && (
-                            <span className="formal-status-tag">{clientTrack.status}</span>
-                          )}
+                    <div className="side-discussion-flow">
+                      {/* Client Track */}
+                      <div className="side-track-card client-track">
+                        <div className="side-track-title-row">
+                          <span className="side-track-role client">CLIENT</span>
+                          <span className="side-track-name">{clientTrack.title}</span>
                         </div>
-                        <ul className="formal-bullets-list">
+                        <ul className="side-brief-list">
                           {clientTrack.points.map((pt, idx) => (
-                            <li key={idx} className="formal-bullet-row">
-                              <span className="formal-bullet-dot" />
-                              <span className="formal-bullet-text">{renderFormattedText(pt)}</span>
+                            <li key={idx} className="side-brief-bullet">
+                              <span className="side-brief-dot" />
+                              <span className="side-brief-text">{renderFormattedText(pt)}</span>
                             </li>
                           ))}
                         </ul>
                       </div>
 
-                      {/* Right: Agency Track */}
-                      <div className="formal-stream-col agency">
-                        <div className="formal-stream-header">
-                          <div className="formal-stream-name">
-                            <span className="formal-stream-label">AGENCY EXECUTION</span>
-                            <span className="formal-stream-actor">{teamTrack.title}</span>
-                          </div>
-                          {teamTrack.status && (
-                            <span className="formal-status-tag">{teamTrack.status}</span>
-                          )}
+                      {/* Agency Track */}
+                      <div className="side-track-card agency-track">
+                        <div className="side-track-title-row">
+                          <span className="side-track-role agency">AGENCY</span>
+                          <span className="side-track-name">{teamTrack.title}</span>
                         </div>
-                        <ul className="formal-bullets-list">
+                        <ul className="side-brief-list">
                           {teamTrack.points.map((pt, idx) => (
-                            <li key={idx} className="formal-bullet-row">
-                              <span className="formal-bullet-dot" />
-                              <span className="formal-bullet-text">{renderFormattedText(pt)}</span>
+                            <li key={idx} className="side-brief-bullet">
+                              <span className="side-brief-dot" />
+                              <span className="side-brief-text">{renderFormattedText(pt)}</span>
                             </li>
                           ))}
                         </ul>
@@ -1295,64 +1285,67 @@ export default function TestMessagesView({
 
                   {/* 3. AGREED DECISIONS & SETTLED ITEMS */}
                   {decidedList.length > 0 && (
-                    <section className="formal-section">
-                      <div className="formal-section-header">
-                        <span className="formal-section-title">Agreed &amp; Settled</span>
-                        <span className="formal-section-sub">{decidedList.length} Confirmed</span>
+                    <section className="side-brief-section">
+                      <div className="side-brief-header">
+                        <span className="side-brief-num">03</span>
+                        <h4 className="side-brief-heading">Agreed &amp; Settled</h4>
                       </div>
-                      <ul className="formal-bullets-list">
-                        {decidedList.map((dec, idx) => (
-                          <li key={idx} className="formal-bullet-row settled">
-                            <CheckCircle2 size={13} className="formal-settled-icon" />
-                            <span className="formal-bullet-text">{renderFormattedText(dec)}</span>
-                          </li>
-                        ))}
-                      </ul>
+                      <div className="side-agreed-card">
+                        <ul className="side-brief-list">
+                          {decidedList.map((dec, idx) => (
+                            <li key={idx} className="side-brief-bullet agreed">
+                              <CheckCircle2 size={13} className="side-agreed-icon" />
+                              <span className="side-brief-text">{renderFormattedText(dec)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     </section>
                   )}
 
-                  {/* 4. ACTIVE BLOCKERS & DEPENDENCIES */}
+                  {/* 4. ACTIVE BLOCKERS & DEPENDENCIES (Clear, high-contrast, fully readable) */}
                   {blockersList.length > 0 && (
-                    <section className="formal-section">
-                      <div className="formal-section-header">
-                        <span className="formal-section-title">Active Blockers &amp; Dependencies</span>
-                        <span className="formal-section-sub">{blockersList.length} Pending</span>
+                    <section className="side-brief-section">
+                      <div className="side-brief-header">
+                        <span className="side-brief-num alert">04</span>
+                        <h4 className="side-brief-heading">Active Blockers &amp; Dependencies</h4>
                       </div>
-                      <ul className="formal-blockers-list">
+                      <div className="side-blockers-stack">
                         {blockersList.map((blk, idx) => (
-                          <li key={idx} className="formal-blocker-row">
-                            <AlertTriangle size={13} className="formal-blocker-icon" />
-                            <div className="formal-blocker-content">
-                              <span className="formal-blocker-title">{renderFormattedText(blk.item)}</span>
-                              {blk.waitingOn && (
-                                <span className="formal-dependency-tag">
-                                  Awaiting action from: <strong>{blk.waitingOn}</strong>
-                                </span>
-                              )}
+                          <div key={idx} className="side-blocker-card">
+                            <div className="side-blocker-top">
+                              <AlertTriangle size={13} className="side-blocker-icon" />
+                              <span className="side-blocker-title">{renderFormattedText(blk.item)}</span>
                             </div>
-                          </li>
+                            {blk.waitingOn && (
+                              <div className="side-blocker-action">
+                                <span>Awaiting:</span>
+                                <strong>{blk.waitingOn}</strong>
+                              </div>
+                            )}
+                          </div>
                         ))}
-                      </ul>
+                      </div>
                     </section>
                   )}
 
                   {/* 5. ACTION LEDGER */}
                   {summaryBriefing.actionTracker && summaryBriefing.actionTracker.length > 0 && (
-                    <section className="formal-section">
-                      <div className="formal-section-header">
-                        <span className="formal-section-title">Action Ledger</span>
-                        <span className="formal-section-sub">{summaryBriefing.actionTracker.length} Tasks</span>
+                    <section className="side-brief-section">
+                      <div className="side-brief-header">
+                        <span className="side-brief-num">05</span>
+                        <h4 className="side-brief-heading">Action Ledger</h4>
                       </div>
-                      <div className="formal-ledger-list">
+                      <div className="side-ledger-stack">
                         {summaryBriefing.actionTracker.map((act, i) => (
-                          <div key={act.id || i} className="formal-ledger-row">
-                            <div className="formal-ledger-left">
-                              <span className={`formal-ledger-checkbox ${act.status === 'COMPLETED' ? 'checked' : ''}`} />
-                              <span className="formal-ledger-action">{act.action}</span>
+                          <div key={act.id || i} className="side-ledger-item">
+                            <div className="side-ledger-left">
+                              <span className={`side-ledger-checkbox ${act.status === 'COMPLETED' ? 'checked' : ''}`} />
+                              <span className="side-ledger-text">{act.action}</span>
                             </div>
-                            <div className="formal-ledger-meta">
-                              <span className="formal-ledger-owner">{act.owner}</span>
-                              <span className={`formal-ledger-status ${act.status.toLowerCase()}`}>{act.status}</span>
+                            <div className="side-ledger-right">
+                              <span className="side-ledger-owner">{act.owner}</span>
+                              <span className={`side-status-pill ${act.status.toLowerCase()}`}>{act.status}</span>
                             </div>
                           </div>
                         ))}
@@ -1362,23 +1355,26 @@ export default function TestMessagesView({
 
                   {/* 6. TIMELINE & MILESTONES */}
                   {summaryBriefing.storyline && summaryBriefing.storyline.length > 0 && (
-                    <section className="formal-section developments">
+                    <section className="side-brief-section">
                       <button
                         type="button"
-                        className="formal-accordion-trigger"
+                        className="side-accordion-btn"
                         onClick={() => setRecentDevelopmentsOpen(!recentDevelopmentsOpen)}
                       >
-                        <span className="formal-section-title">Timeline &amp; Milestones ({summaryBriefing.storyline.length})</span>
+                        <div className="side-brief-header" style={{ marginBottom: 0 }}>
+                          <span className="side-brief-num">06</span>
+                          <h4 className="side-brief-heading">Timeline &amp; Milestones ({summaryBriefing.storyline.length})</h4>
+                        </div>
                         {recentDevelopmentsOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                       </button>
                       {recentDevelopmentsOpen && (
-                        <div className="formal-timeline-list">
+                        <div className="side-timeline-stack">
                           {summaryBriefing.storyline.map((s, idx) => (
-                            <div key={s.id || idx} className="formal-timeline-item">
-                              <span className="formal-timeline-time">{s.timestamp}</span>
-                              <span className="formal-timeline-heading">{s.heading}</span>
+                            <div key={s.id || idx} className="side-timeline-item">
+                              <span className="side-timeline-time">{s.timestamp}</span>
+                              <span className="side-timeline-heading">{s.heading}</span>
                               {s.description && (
-                                <span className="formal-timeline-desc">{s.description}</span>
+                                <span className="side-timeline-desc">{s.description}</span>
                               )}
                             </div>
                           ))}
