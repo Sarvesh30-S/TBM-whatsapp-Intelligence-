@@ -1222,7 +1222,6 @@ export default function TestMessagesView({
                   {/* 1. KEY TAKEAWAYS */}
                   <section className="side-brief-section">
                     <div className="side-brief-header">
-                      <span className="side-brief-num">01</span>
                       <h4 className="side-brief-heading">Key Takeaways</h4>
                     </div>
                     {tldrList.length > 0 ? (
@@ -1244,7 +1243,6 @@ export default function TestMessagesView({
                   {/* 2. DISCUSSION HIGHLIGHTS (Clean stacked tracks) */}
                   <section className="side-brief-section">
                     <div className="side-brief-header">
-                      <span className="side-brief-num">02</span>
                       <h4 className="side-brief-heading">Discussion Highlights</h4>
                     </div>
 
@@ -1287,7 +1285,6 @@ export default function TestMessagesView({
                   {decidedList.length > 0 && (
                     <section className="side-brief-section">
                       <div className="side-brief-header">
-                        <span className="side-brief-num">03</span>
                         <h4 className="side-brief-heading">Agreed &amp; Settled</h4>
                       </div>
                       <div className="side-agreed-card">
@@ -1307,7 +1304,6 @@ export default function TestMessagesView({
                   {blockersList.length > 0 && (
                     <section className="side-brief-section">
                       <div className="side-brief-header">
-                        <span className="side-brief-num">04</span>
                         <h4 className="side-brief-heading">Active Blockers &amp; Dependencies</h4>
                       </div>
                       <div className="side-blockers-stack">
@@ -1333,7 +1329,6 @@ export default function TestMessagesView({
                   {summaryBriefing.actionTracker && summaryBriefing.actionTracker.length > 0 && (
                     <section className="side-brief-section">
                       <div className="side-brief-header">
-                        <span className="side-brief-num">05</span>
                         <h4 className="side-brief-heading">Action Ledger</h4>
                       </div>
                       <div className="side-ledger-stack">
@@ -1362,7 +1357,6 @@ export default function TestMessagesView({
                         onClick={() => setRecentDevelopmentsOpen(!recentDevelopmentsOpen)}
                       >
                         <div className="side-brief-header" style={{ marginBottom: 0 }}>
-                          <span className="side-brief-num">06</span>
                           <h4 className="side-brief-heading">Timeline &amp; Milestones ({summaryBriefing.storyline.length})</h4>
                         </div>
                         {recentDevelopmentsOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
