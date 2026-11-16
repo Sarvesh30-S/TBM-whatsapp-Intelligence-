@@ -66,6 +66,33 @@ function deduplicateList(messages: TwoChatMessage[]): TwoChatMessage[] {
   return result.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 }
 
+function deduplicateConversationsList(conversations: TwoChatConversation[]): TwoChatConversation[] {
+  const map = new Map<string, TwoChatConversation>();
+  for (const c of conversations) {
+    if (!c || !c.name || isHiddenPrivateGroup(c.name)) continue;
+    const key = c.isGroup
+      ? `group:${c.name.trim().toLowerCase()}`
+      : `direct:${c.phoneOrId ? c.phoneOrId.replace(/[^0-9]/g, '') : c.id}`;
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, { ...c });
+    } else {
+      existing.messageCount = Math.max(existing.messageCount || 0, c.messageCount || 0);
+      if (new Date(c.lastTimestamp).getTime() >= new Date(existing.lastTimestamp).getTime()) {
+        existing.lastMessage = c.lastMessage || existing.lastMessage;
+        existing.lastTimestamp = c.lastTimestamp;
+      }
+      if (!existing.groupUuid && c.groupUuid) existing.groupUuid = c.groupUuid;
+      if (!existing.twoChatLink && c.twoChatLink) existing.twoChatLink = c.twoChatLink;
+      if (!existing.description && c.description) existing.description = c.description;
+      if (!existing.size && c.size) existing.size = c.size;
+    }
+  }
+  return Array.from(map.values()).sort(
+    (a, b) => new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime()
+  );
+}
+
 function DashboardContent() {
   const { user, token, canAccessSection, isAuthenticated, isLoading } = useAuth();
   const { theme, isDark, toggleTheme } = useTheme();
@@ -83,7 +110,7 @@ function DashboardContent() {
         try {
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed.filter((c) => !isHiddenPrivateGroup(c.name));
+            return deduplicateConversationsList(parsed);
           }
         } catch {}
       }
@@ -97,7 +124,7 @@ function DashboardContent() {
         try {
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            const filtered = parsed.filter((c) => !isHiddenPrivateGroup(c.name));
+            const filtered = deduplicateConversationsList(parsed);
             return filtered[0] || null;
           }
         } catch {}
@@ -162,9 +189,10 @@ function DashboardContent() {
         try {
           const parsed = JSON.parse(cachedConvs);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            setConversations(parsed);
+            const deduped = deduplicateConversationsList(parsed);
+            setConversations(deduped);
             if (!selectedChat) {
-              setSelectedChat(parsed[0]);
+              setSelectedChat(deduped[0]);
             }
             hasCached = true;
           }
@@ -218,21 +246,39 @@ function DashboardContent() {
       const convMap = new Map<string, TwoChatConversation>();
 
       visibleRawConversations.forEach((c) => {
-        const id = c.id || c.groupUuid || c.phoneOrId || c.name;
-        if (id && !isHiddenPrivateGroup(c.name)) convMap.set(id, c);
+        if (!c || !c.name || isHiddenPrivateGroup(c.name)) return;
+        const key = c.isGroup
+          ? `group:${c.name.trim().toLowerCase()}`
+          : `direct:${c.phoneOrId ? c.phoneOrId.replace(/[^0-9]/g, '') : c.id}`;
+
+        const existing = convMap.get(key);
+        if (!existing) {
+          convMap.set(key, { ...c });
+        } else {
+          existing.messageCount = Math.max(existing.messageCount || 0, c.messageCount || 0);
+          if (new Date(c.lastTimestamp).getTime() >= new Date(existing.lastTimestamp).getTime()) {
+            existing.lastMessage = c.lastMessage || existing.lastMessage;
+            existing.lastTimestamp = c.lastTimestamp;
+          }
+          if (!existing.groupUuid && c.groupUuid) existing.groupUuid = c.groupUuid;
+        }
       });
 
+      const messageCountMap = new Map<string, number>();
+
       dedupedMessages.forEach((msg) => {
-        let convId = '';
-        let convName = '';
         let isGrp = false;
+        let convName = '';
         let grpUuid: string | undefined;
+        let mapKey = '';
+        let convId = '';
 
         if (msg.isGroup || msg.groupUuid) {
           isGrp = true;
-          convId = msg.groupUuid || msg.groupName || 'unknown-group';
           convName = msg.groupName || 'WhatsApp Group';
           grpUuid = msg.groupUuid;
+          convId = grpUuid || convName;
+          mapKey = `group:${convName.trim().toLowerCase()}`;
         } else {
           isGrp = false;
           const isOutgoing = msg.sentBy === 'user' || msg.sentBy === 'agent' || msg.sentBy === 'api';
@@ -242,10 +288,15 @@ function DashboardContent() {
 
           convId = otherNumber || msg.senderNumber || msg.receiverNumber || 'direct-chat';
           convName = (isOutgoing ? msg.receiverName : msg.senderName) || formatPhone(convId);
+          const digits = convId.replace(/[^0-9]/g, '');
+          mapKey = `direct:${digits || convId}`;
         }
 
-        if (!convMap.has(convId)) {
-          convMap.set(convId, {
+        messageCountMap.set(mapKey, (messageCountMap.get(mapKey) || 0) + 1);
+
+        const existing = convMap.get(mapKey);
+        if (!existing) {
+          convMap.set(mapKey, {
             id: convId,
             name: convName,
             isGroup: isGrp,
@@ -257,20 +308,25 @@ function DashboardContent() {
             lastTimestamp: msg.timestamp,
           });
         } else {
-          const existing = convMap.get(convId)!;
-          existing.messageCount = (existing.messageCount || 0) + 1;
+          if (isGrp && !existing.groupUuid && grpUuid) {
+            existing.groupUuid = grpUuid;
+          }
           if (new Date(msg.timestamp).getTime() >= new Date(existing.lastTimestamp).getTime()) {
-            existing.lastMessage = msg.text;
+            existing.lastMessage = msg.text || existing.lastMessage;
             existing.lastTimestamp = msg.timestamp;
           }
         }
       });
 
-      const updatedConversations = Array.from(convMap.values())
-        .filter((c) => !isHiddenPrivateGroup(c.name))
-        .sort(
-          (a, b) => new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime()
-        );
+      // Synchronize message counts with actual deduplicated messages
+      convMap.forEach((conv, key) => {
+        const actualCount = messageCountMap.get(key);
+        if (actualCount && actualCount > (conv.messageCount || 0)) {
+          conv.messageCount = actualCount;
+        }
+      });
+
+      const updatedConversations = deduplicateConversationsList(Array.from(convMap.values()));
 
       setAllMessages(dedupedMessages);
       setConversations(updatedConversations);
@@ -415,13 +471,20 @@ function DashboardContent() {
   const currentChatMessages = selectedChat
     ? allMessages.filter((m) => {
         if (selectedChat.isGroup) {
-          return m.groupUuid === selectedChat.groupUuid || m.groupName === selectedChat.name;
+          const mGroup = (m.groupName || m.chatName || '').trim().toLowerCase();
+          const sGroup = (selectedChat.name || '').trim().toLowerCase();
+          return (
+            (selectedChat.groupUuid && m.groupUuid === selectedChat.groupUuid) ||
+            (mGroup && sGroup && mGroup === sGroup)
+          );
         }
         const isOutgoing = m.sentBy === 'user' || m.sentBy === 'agent' || m.sentBy === 'api';
         const otherNumber = isOutgoing
           ? m.toNumber || m.remoteNumber || m.receiverNumber
           : m.fromNumber || m.remoteNumber || m.senderNumber;
-        return otherNumber === selectedChat.phoneOrId || otherNumber === selectedChat.id;
+        const cleanMsgNum = (otherNumber || '').replace(/[^0-9]/g, '');
+        const cleanChatNum = (selectedChat.phoneOrId || selectedChat.id || '').replace(/[^0-9]/g, '');
+        return cleanMsgNum && cleanChatNum ? cleanMsgNum === cleanChatNum : otherNumber === selectedChat.phoneOrId;
       })
     : [];
 

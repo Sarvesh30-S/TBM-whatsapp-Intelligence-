@@ -329,11 +329,37 @@ export default function TestMessagesView({
   const sentCount = allMessages.filter((m) => m.sentBy === 'agent' || m.sentBy === 'user').length;
   const receivedCount = allMessages.filter((m) => m.sentBy === 'customer').length;
 
-  const allCount = conversations.length;
-  const groupsCount = conversations.filter((c) => c.isGroup).length;
-  const directCount = conversations.filter((c) => !c.isGroup).length;
+  // Deduplicate conversations strictly by group name / phone number
+  const uniqueConversations = useMemo(() => {
+    const map = new Map<string, TwoChatConversation>();
+    for (const c of conversations) {
+      if (!c || !c.name) continue;
+      const key = c.isGroup
+        ? `group:${c.name.trim().toLowerCase()}`
+        : `direct:${(c.phoneOrId || c.id || '').replace(/[^0-9]/g, '') || c.id}`;
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, { ...c });
+      } else {
+        existing.messageCount = Math.max(existing.messageCount || 0, c.messageCount || 0);
+        if (new Date(c.lastTimestamp).getTime() >= new Date(existing.lastTimestamp).getTime()) {
+          existing.lastMessage = c.lastMessage || existing.lastMessage;
+          existing.lastTimestamp = c.lastTimestamp;
+        }
+        if (!existing.groupUuid && c.groupUuid) existing.groupUuid = c.groupUuid;
+        if (!existing.twoChatLink && c.twoChatLink) existing.twoChatLink = c.twoChatLink;
+      }
+    }
+    return Array.from(map.values()).sort(
+      (a, b) => new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime()
+    );
+  }, [conversations]);
 
-  const filteredConversations = conversations
+  const allCount = uniqueConversations.length;
+  const groupsCount = uniqueConversations.filter((c) => c.isGroup).length;
+  const directCount = uniqueConversations.filter((c) => !c.isGroup).length;
+
+  const filteredConversations = uniqueConversations
     .filter((c) => {
       if (chatFilter === 'groups') return c.isGroup;
       if (chatFilter === 'direct') return !c.isGroup;
@@ -410,19 +436,16 @@ export default function TestMessagesView({
   const getConvMsgCount = (conv: TwoChatConversation): number => {
     const matchingCount = allMessages.filter((m) => {
       if (conv.isGroup) {
+        const cName = conv.name.trim().toLowerCase();
         return (
           (conv.groupUuid && m.groupUuid === conv.groupUuid) ||
-          m.chatName === conv.name ||
-          m.groupName === conv.name
+          (m.chatName && m.chatName.trim().toLowerCase() === cName) ||
+          (m.groupName && m.groupName.trim().toLowerCase() === cName)
         );
       }
-      return (
-        m.remoteNumber === conv.phoneOrId ||
-        m.senderNumber === conv.phoneOrId ||
-        m.fromNumber === conv.phoneOrId ||
-        m.toNumber === conv.phoneOrId ||
-        m.chatName === conv.name
-      );
+      const cId = (conv.phoneOrId || conv.id || '').replace(/[^0-9]/g, '');
+      const mRemote = (m.remoteNumber || m.senderNumber || m.fromNumber || m.toNumber || '').replace(/[^0-9]/g, '');
+      return (cId && mRemote && cId === mRemote) || m.chatName === conv.name;
     }).length;
 
     return matchingCount > 0 ? matchingCount : conv.messageCount || 0;
@@ -499,7 +522,7 @@ export default function TestMessagesView({
           onClick={() => setMobileChatView('list')}
         >
           <Users size={13} />
-          <span>Groups ({conversations.length})</span>
+          <span>Groups ({uniqueConversations.length})</span>
         </button>
         <button
           type="button"
@@ -551,7 +574,7 @@ export default function TestMessagesView({
             <div className="active-groups-title-row">
               <span className="active-groups-title">Active Groups</span>
               <span className="active-groups-count-badge">
-                {conversations.length} groups
+                {uniqueConversations.length} groups
               </span>
             </div>
 

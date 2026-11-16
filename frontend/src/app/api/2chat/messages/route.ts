@@ -252,11 +252,12 @@ export async function GET(req: NextRequest) {
           'WhatsApp Group';
 
         canonicalPhoneOrId = matchedGroup?.wa_group_id || canonicalGroupUuid;
-        convId = canonicalGroupUuid;
+        // Key by canonical group name to guarantee strictly ONE conversation entry per group
+        convId = `group:${canonicalTitle.toLowerCase().trim()}`;
       } else {
         const cleanRemote = normalizePhone(msg.remoteNumber);
         if (!cleanRemote) continue;
-        convId = cleanRemote;
+        convId = `direct:${cleanDigits(cleanRemote)}`;
         const savedName = contactDirectory[cleanRemote] || (!isGenericName(msg.chatName) ? msg.chatName : '');
         canonicalTitle = savedName || formatPhoneDisplay(cleanRemote) || cleanRemote;
         canonicalPhoneOrId = formatPhoneDisplay(cleanRemote) || cleanRemote;
@@ -265,11 +266,11 @@ export async function GET(req: NextRequest) {
       let conv = conversationMap.get(convId);
       if (!conv) {
         conv = {
-          id: convId,
+          id: isGroup ? (matchedGroup?.uuid || msg.groupUuid || convId) : cleanRemote,
           isGroup,
           name: canonicalTitle,
           phoneOrId: canonicalPhoneOrId,
-          groupUuid: isGroup ? canonicalGroupUuid : undefined,
+          groupUuid: isGroup ? (matchedGroup?.uuid || msg.groupUuid || undefined) : undefined,
           lastMessage: msg.text || (msg.mediaUrl ? '[Media]' : ''),
           lastTimestamp: msg.timestamp,
           messageCount: 1,
@@ -282,6 +283,10 @@ export async function GET(req: NextRequest) {
       } else {
         conv.messageCount += 1;
         if (matchedGroup) {
+          if (matchedGroup.uuid && (!conv.groupUuid || conv.groupUuid === 'group-unknown')) {
+            conv.groupUuid = matchedGroup.uuid;
+            conv.id = matchedGroup.uuid;
+          }
           if (matchedGroup.wa_subject && !conv.description) conv.description = matchedGroup.wa_subject;
           if (matchedGroup.size && !conv.size) conv.size = matchedGroup.size;
           if (matchedGroup.wa_owner_id && !conv.ownerPhone) conv.ownerPhone = matchedGroup.wa_owner_id;
