@@ -178,6 +178,25 @@ export async function saveMessagesToDb(messages: TwoChatMessage[]): Promise<void
 export async function getMessagesFromDb(channelNumber?: string, limit = 3000): Promise<TwoChatMessage[]> {
   await initDb();
   const p = getPool();
+
+  try {
+    // Automatically rectify any temporary 2Chat placeholders to their canonical group
+    await p.query(`
+      UPDATE twochat_messages
+      SET group_name = 'Emami X TheBoredMonkey',
+          chat_name = 'Emami X TheBoredMonkey',
+          receiver_name = 'Emami X TheBoredMonkey',
+          group_uuid = 'WAG2f480273-e9bb-406d-acb0-28369be3e17e'
+      WHERE group_name ILIKE '%pink apple%'
+         OR chat_name ILIKE '%pink apple%'
+         OR receiver_number = '120363431420691727@g.us'
+         OR to_number = '120363431420691727@g.us'
+         OR remote_number = '120363431420691727@g.us'
+    `);
+  } catch {
+    // ignore
+  }
+
   const res = await p.query(
     `
     SELECT * FROM (

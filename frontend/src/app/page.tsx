@@ -70,12 +70,18 @@ function deduplicateConversationsList(conversations: TwoChatConversation[]): Two
   const map = new Map<string, TwoChatConversation>();
   for (const c of conversations) {
     if (!c || !c.name || isHiddenPrivateGroup(c.name)) continue;
-    const key = c.isGroup
-      ? `group:${c.name.trim().toLowerCase()}`
+    let name = c.name;
+    let isGroup = c.isGroup;
+    if (name.toLowerCase().includes('pink apple')) {
+      name = 'Emami X TheBoredMonkey';
+      isGroup = true;
+    }
+    const key = isGroup
+      ? `group:${name.trim().toLowerCase()}`
       : `direct:${c.phoneOrId ? c.phoneOrId.replace(/[^0-9]/g, '') : c.id}`;
     const existing = map.get(key);
     if (!existing) {
-      map.set(key, { ...c });
+      map.set(key, { ...c, name, isGroup });
     } else {
       existing.messageCount = Math.max(existing.messageCount || 0, c.messageCount || 0);
       if (new Date(c.lastTimestamp).getTime() >= new Date(existing.lastTimestamp).getTime()) {
@@ -234,12 +240,38 @@ function DashboardContent() {
       const rawMessages: TwoChatMessage[] = data.messages || [];
       const rawConversations: TwoChatConversation[] = data.conversations || [];
 
-      // Filter out private personal test groups so they never appear on the frontend
-      const visibleRawMessages = rawMessages.filter((m) => {
-        const gName = m.groupName || (m.isGroup ? m.chatName : null);
-        return !isHiddenPrivateGroup(gName);
-      });
-      const visibleRawConversations = rawConversations.filter((c) => !isHiddenPrivateGroup(c.name));
+      // Filter out private personal test groups and remap placeholders
+      const visibleRawMessages = rawMessages
+        .map((m) => {
+          if (
+            (m.groupName && m.groupName.toLowerCase().includes('pink apple')) ||
+            (m.chatName && m.chatName.toLowerCase().includes('pink apple')) ||
+            m.receiverNumber === '120363431420691727@g.us'
+          ) {
+            return {
+              ...m,
+              isGroup: true,
+              groupName: 'Emami X TheBoredMonkey',
+              chatName: 'Emami X TheBoredMonkey',
+              receiverName: 'Emami X TheBoredMonkey',
+              groupUuid: 'WAG2f480273-e9bb-406d-acb0-28369be3e17e',
+            };
+          }
+          return m;
+        })
+        .filter((m) => {
+          const gName = m.groupName || (m.isGroup ? m.chatName : null);
+          return !isHiddenPrivateGroup(gName);
+        });
+
+      const visibleRawConversations = rawConversations
+        .map((c) => {
+          if (c.name.toLowerCase().includes('pink apple')) {
+            return { ...c, name: 'Emami X TheBoredMonkey', isGroup: true };
+          }
+          return c;
+        })
+        .filter((c) => !isHiddenPrivateGroup(c.name));
 
       const dedupedMessages = deduplicateList(visibleRawMessages);
 

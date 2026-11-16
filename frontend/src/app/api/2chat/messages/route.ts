@@ -160,6 +160,20 @@ export async function GET(req: NextRequest) {
     }
 
     for (const msg of stored) {
+      if (
+        (msg.groupName && msg.groupName.toLowerCase().includes('pink apple')) ||
+        (msg.chatName && msg.chatName.toLowerCase().includes('pink apple')) ||
+        msg.receiverNumber === '120363431420691727@g.us' ||
+        msg.toNumber === '120363431420691727@g.us' ||
+        msg.remoteNumber === '120363431420691727@g.us'
+      ) {
+        msg.isGroup = true;
+        msg.groupName = 'Emami X TheBoredMonkey';
+        msg.chatName = 'Emami X TheBoredMonkey';
+        msg.receiverName = 'Emami X TheBoredMonkey';
+        msg.groupUuid = 'WAG2f480273-e9bb-406d-acb0-28369be3e17e';
+      }
+
       if (msg.isGroup && msg.groupName && !isGenericName(msg.groupName)) {
         const lower = msg.groupName.toLowerCase().trim();
         if (!groupByName.has(lower)) {
@@ -178,6 +192,20 @@ export async function GET(req: NextRequest) {
 
     // 4. Enrich messages with contact names / phone fallback
     const allMessages = stored.map((m) => {
+      if (
+        (m.groupName && m.groupName.toLowerCase().includes('pink apple')) ||
+        (m.chatName && m.chatName.toLowerCase().includes('pink apple')) ||
+        m.receiverNumber === '120363431420691727@g.us' ||
+        m.toNumber === '120363431420691727@g.us' ||
+        m.remoteNumber === '120363431420691727@g.us'
+      ) {
+        m.isGroup = true;
+        m.groupName = 'Emami X TheBoredMonkey';
+        m.chatName = 'Emami X TheBoredMonkey';
+        m.receiverName = 'Emami X TheBoredMonkey';
+        m.groupUuid = 'WAG2f480273-e9bb-406d-acb0-28369be3e17e';
+      }
+
       const cleanSender = normalizePhone(m.senderNumber || m.fromNumber);
       const cleanRemote = normalizePhone(m.remoteNumber);
       const isOutbound = m.sentBy === 'agent';

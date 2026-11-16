@@ -334,12 +334,18 @@ export default function TestMessagesView({
     const map = new Map<string, TwoChatConversation>();
     for (const c of conversations) {
       if (!c || !c.name) continue;
-      const key = c.isGroup
-        ? `group:${c.name.trim().toLowerCase()}`
+      let name = c.name;
+      let isGroup = c.isGroup;
+      if (name.toLowerCase().includes('pink apple')) {
+        name = 'Emami X TheBoredMonkey';
+        isGroup = true;
+      }
+      const key = isGroup
+        ? `group:${name.trim().toLowerCase()}`
         : `direct:${(c.phoneOrId || c.id || '').replace(/[^0-9]/g, '') || c.id}`;
       const existing = map.get(key);
       if (!existing) {
-        map.set(key, { ...c });
+        map.set(key, { ...c, name, isGroup });
       } else {
         existing.messageCount = Math.max(existing.messageCount || 0, c.messageCount || 0);
         if (new Date(c.lastTimestamp).getTime() >= new Date(existing.lastTimestamp).getTime()) {
