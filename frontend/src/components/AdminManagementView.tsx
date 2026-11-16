@@ -96,7 +96,19 @@ export default function AdminManagementView() {
 
       const data = await usersRes.json();
       setUsersList(data.users || []);
-      setAvailableGroups(data.availableGroups || []);
+
+      // Deduplicate available groups by canonical name to avoid repeating names
+      const uniqueGroupsMap = new Map<string, DiscoverableGroup>();
+      for (const g of (data.availableGroups || [])) {
+        const key = (g.name || '').toLowerCase().trim();
+        if (key && !uniqueGroupsMap.has(key)) {
+          uniqueGroupsMap.set(key, {
+            ...g,
+            id: g.name,
+          });
+        }
+      }
+      setAvailableGroups(Array.from(uniqueGroupsMap.values()));
 
       if (reqRes && reqRes.ok) {
         const reqData = await reqRes.json();
@@ -186,15 +198,18 @@ export default function AdminManagementView() {
   const openGroupModal = (targetUser: UserRow) => {
     setEditingUser(targetUser);
 
-    // Initialize mapping with existing permissions
+    // Initialize mapping with existing permissions keyed by canonical group name
     const map: Record<string, { canView: boolean; canSend: boolean; name: string }> = {};
 
-    // First populate from available groups
     for (const g of availableGroups) {
+      const gNameLower = g.name.toLowerCase().trim();
       const existing = targetUser.groupPermissions.find(
-        (p) => p.group_identifier.toLowerCase() === g.id.toLowerCase() || p.group_name.toLowerCase() === g.name.toLowerCase()
+        (p) =>
+          p.group_name.toLowerCase().trim() === gNameLower ||
+          p.group_identifier.toLowerCase().trim() === gNameLower ||
+          p.group_identifier.toLowerCase().trim() === (g.id || '').toLowerCase().trim()
       );
-      map[g.id] = {
+      map[g.name] = {
         name: g.name,
         canView: Boolean(existing?.can_view),
         canSend: Boolean(existing?.can_send),
@@ -204,9 +219,9 @@ export default function AdminManagementView() {
     setSelectedGroupPerms(map);
   };
 
-  const handleToggleGroup = (groupId: string, field: 'canView' | 'canSend') => {
+  const handleToggleGroup = (groupName: string, field: 'canView' | 'canSend') => {
     setSelectedGroupPerms((prev) => {
-      const current = prev[groupId] || { canView: false, canSend: false, name: '' };
+      const current = prev[groupName] || { canView: false, canSend: false, name: groupName };
       const nextVal = !current[field];
       const updated = {
         ...current,
@@ -224,7 +239,7 @@ export default function AdminManagementView() {
 
       return {
         ...prev,
-        [groupId]: updated,
+        [groupName]: updated,
       };
     });
   };
@@ -232,8 +247,8 @@ export default function AdminManagementView() {
   const handleSelectAll = (select: boolean) => {
     setSelectedGroupPerms((prev) => {
       const updated: Record<string, { canView: boolean; canSend: boolean; name: string }> = {};
-      for (const [id, val] of Object.entries(prev)) {
-        updated[id] = {
+      for (const [key, val] of Object.entries(prev)) {
+        updated[key] = {
           ...val,
           canView: select,
           canSend: select ? val.canSend : false,
@@ -248,9 +263,9 @@ export default function AdminManagementView() {
     setSavingPermissions(true);
 
     try {
-      const payloadGroups = Object.entries(selectedGroupPerms).map(([groupId, val]) => ({
-        groupIdentifier: groupId,
-        groupName: val.name,
+      const payloadGroups = Object.entries(selectedGroupPerms).map(([groupName, val]) => ({
+        groupIdentifier: val.name || groupName,
+        groupName: val.name || groupName,
         canView: val.canView,
         canSend: val.canSend,
       }));
@@ -868,16 +883,16 @@ export default function AdminManagementView() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {availableGroups.map((g) => {
-                    const perm = selectedGroupPerms[g.id] || { canView: false, canSend: false, name: g.name };
+                    const perm = selectedGroupPerms[g.name] || { canView: false, canSend: false, name: g.name };
                     return (
                       <div
-                        key={g.id}
+                        key={g.name}
                         style={{
                           padding: '12px 16px',
                           borderRadius: 8,
-                          backgroundColor: perm.canView ? 'rgba(59, 130, 246, 0.08)' : 'var(--bg-surface-subtle)',
+                          backgroundColor: perm.canView ? 'rgba(217, 119, 6, 0.08)' : 'var(--bg-surface-subtle)',
                           border: perm.canView
-                            ? '1px solid rgba(59, 130, 246, 0.35)'
+                            ? '1px solid rgba(217, 119, 6, 0.35)'
                             : '1px solid var(--border-subtle)',
                           display: 'flex',
                           alignItems: 'center',
@@ -889,15 +904,15 @@ export default function AdminManagementView() {
                           <input
                             type="checkbox"
                             checked={perm.canView}
-                            onChange={() => handleToggleGroup(g.id, 'canView')}
-                            style={{ width: 16, height: 16, cursor: 'pointer', accentColor: '#3B82F6' }}
+                            onChange={() => handleToggleGroup(g.name, 'canView')}
+                            style={{ width: 16, height: 16, cursor: 'pointer', accentColor: '#D97706' }}
                           />
                           <div>
                             <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 13 }}>
                               {g.name}
                             </div>
                             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                              ID: {g.id} {g.channelNumber && `• Channel: ${g.channelNumber}`}
+                              {g.channelNumber ? `Channel: ${g.channelNumber}` : 'Verified WhatsApp Group'}
                             </div>
                           </div>
                         </div>
@@ -910,9 +925,9 @@ export default function AdminManagementView() {
                               alignItems: 'center',
                               gap: 6,
                               fontSize: 12,
-                              color: perm.canSend ? '#10B981' : 'var(--text-secondary)',
+                              color: perm.canSend ? '#D97706' : 'var(--text-secondary)',
                               cursor: 'pointer',
-                              backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                              backgroundColor: 'rgba(217, 119, 6, 0.08)',
                               padding: '4px 8px',
                               borderRadius: 6,
                             }}
@@ -920,8 +935,8 @@ export default function AdminManagementView() {
                             <input
                               type="checkbox"
                               checked={perm.canSend}
-                              onChange={() => handleToggleGroup(g.id, 'canSend')}
-                              style={{ accentColor: '#10B981', cursor: 'pointer' }}
+                              onChange={() => handleToggleGroup(g.name, 'canSend')}
+                              style={{ accentColor: '#D97706', cursor: 'pointer' }}
                             />
                             <span>Can Send Messages</span>
                           </label>

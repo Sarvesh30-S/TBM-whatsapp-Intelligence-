@@ -33,7 +33,7 @@ export interface UserDbProfile {
   assignedGroups: string[]; // List of group_identifiers
 }
 
-// Ensure the permissions table exists
+// Ensure the permissions table exists and clean up legacy duplicate entries
 export async function ensurePermissionsTable(): Promise<void> {
   const p = getPool();
   await p.query(`
@@ -49,6 +49,18 @@ export async function ensurePermissionsTable(): Promise<void> {
       CONSTRAINT uq_user_group_identifier UNIQUE (user_id, group_identifier)
     );
     CREATE INDEX IF NOT EXISTS idx_ugp_user ON user_group_permissions(user_id, can_view);
+
+    -- Remove any redundant duplicate rows for the same user and group name
+    DELETE FROM user_group_permissions a
+    USING user_group_permissions b
+    WHERE a.ctid < b.ctid
+      AND a.user_id = b.user_id
+      AND LOWER(TRIM(a.group_name)) = LOWER(TRIM(b.group_name));
+
+    -- Normalize group_identifier to canonical group_name
+    UPDATE user_group_permissions 
+    SET group_identifier = group_name 
+    WHERE group_name IS NOT NULL AND group_name != '' AND group_identifier != group_name;
   `);
 }
 
@@ -199,10 +211,41 @@ export async function getUserAllowedGroupIds(userId: string): Promise<string[] |
 
   await ensurePermissionsTable();
   const res = await p.query(
-    `SELECT group_identifier FROM user_group_permissions WHERE user_id = $1 AND can_view = true`,
+    `SELECT group_identifier, group_name FROM user_group_permissions WHERE user_id = $1 AND can_view = true`,
     [userId]
   );
-  return res.rows.map((r) => r.group_identifier);
+
+  if (res.rows.length === 0) {
+    return [];
+  }
+
+  const ids = new Set<string>();
+  const groupNames: string[] = [];
+
+  for (const r of res.rows) {
+    if (r.group_identifier) ids.add(r.group_identifier.trim());
+    if (r.group_name) {
+      ids.add(r.group_name.trim());
+      groupNames.push(r.group_name.trim());
+    }
+  }
+
+  // Also query any UUIDs from twochat_messages that belong to these allowed group names
+  if (groupNames.length > 0) {
+    const uuidRes = await p.query(
+      `SELECT DISTINCT COALESCE(group_uuid, remote_number) as uuid 
+       FROM twochat_messages 
+       WHERE is_group = true 
+         AND COALESCE(group_name, chat_name) = ANY($1::text[])
+         AND COALESCE(group_uuid, remote_number) IS NOT NULL`,
+      [groupNames]
+    );
+    for (const r of uuidRes.rows) {
+      if (r.uuid) ids.add(r.uuid.trim());
+    }
+  }
+
+  return Array.from(ids);
 }
 
 /**
@@ -239,6 +282,27 @@ export async function getAllUsersWithPermissions() {
 
     const isAdmin = roles.includes('ROLE_ADMIN');
 
+    // Deduplicate permissions per user by canonical group name
+    const dedupedPermsMap = new Map<string, { group_identifier: string; group_name: string; can_view: boolean; can_send: boolean }>();
+    for (const r of permsRes.rows) {
+      const gName = (r.group_name || r.group_identifier || '').trim();
+      if (!gName) continue;
+      const key = gName.toLowerCase();
+      const existing = dedupedPermsMap.get(key);
+      if (!existing) {
+        dedupedPermsMap.set(key, {
+          group_identifier: gName,
+          group_name: gName,
+          can_view: Boolean(r.can_view),
+          can_send: Boolean(r.can_send),
+        });
+      } else {
+        existing.can_view = existing.can_view || Boolean(r.can_view);
+        existing.can_send = existing.can_send || Boolean(r.can_send);
+      }
+    }
+    const dedupedPerms = Array.from(dedupedPermsMap.values());
+
     results.push({
       id: user.id,
       fullName: user.full_name,
@@ -249,8 +313,8 @@ export async function getAllUsersWithPermissions() {
       roles,
       status: user.is_active ? 'ACTIVE' : 'INACTIVE',
       isAdmin,
-      groupPermissions: permsRes.rows,
-      assignedGroupCount: isAdmin ? 'All' : permsRes.rows.filter((p) => p.can_view).length,
+      groupPermissions: dedupedPerms,
+      assignedGroupCount: isAdmin ? 'All' : dedupedPerms.filter((p) => p.can_view).length,
       createdAt: user.created_at,
     });
   }
@@ -260,6 +324,7 @@ export async function getAllUsersWithPermissions() {
 
 /**
  * Updates a user's assigned group permissions.
+ * Guarantees that unassigning completely purges all permission records for that group name or identifier.
  */
 export async function updateUserGroupAssignments(params: {
   adminUserId?: string;
@@ -275,23 +340,47 @@ export async function updateUserGroupAssignments(params: {
   const p = getPool();
   const { targetUserId, groups, adminUserId } = params;
 
-  // In transaction, upsert or replace
   await p.query('BEGIN');
   try {
     for (const g of groups) {
+      const gName = (g.groupName || g.groupIdentifier || '').trim();
+      const gId = (g.groupIdentifier || g.groupName || '').trim();
+      if (!gName) continue;
+
       if (g.canView) {
+        // Delete any existing permission row matching this group by name or id
+        await p.query(
+          `DELETE FROM user_group_permissions 
+           WHERE user_id = $1 
+             AND (
+               LOWER(TRIM(group_name)) = LOWER(TRIM($2)) 
+               OR LOWER(TRIM(group_identifier)) = LOWER(TRIM($2))
+               OR LOWER(TRIM(group_identifier)) = LOWER(TRIM($3))
+               OR LOWER(TRIM(group_name)) = LOWER(TRIM($3))
+             )`,
+          [targetUserId, gName, gId]
+        );
+
+        // Insert fresh canonical record with group name as both identifier and name
         await p.query(
           `INSERT INTO user_group_permissions (user_id, group_identifier, group_name, can_view, can_send, assigned_by)
-           VALUES ($1, $2, $3, $4, $5, $6)
+           VALUES ($1, $2, $2, true, $3, $4)
            ON CONFLICT (user_id, group_identifier)
-           DO UPDATE SET can_view = EXCLUDED.can_view, can_send = EXCLUDED.can_send, group_name = EXCLUDED.group_name`,
-          [targetUserId, g.groupIdentifier, g.groupName, g.canView, g.canSend, adminUserId || null]
+           DO UPDATE SET can_view = true, can_send = EXCLUDED.can_send, group_name = EXCLUDED.group_name`,
+          [targetUserId, gName, g.canSend, adminUserId || null]
         );
       } else {
-        // If canView is false, remove permission
+        // UNASSIGN: Purge ALL matching permission records for this group name and identifier!
         await p.query(
-          `DELETE FROM user_group_permissions WHERE user_id = $1 AND group_identifier = $2`,
-          [targetUserId, g.groupIdentifier]
+          `DELETE FROM user_group_permissions 
+           WHERE user_id = $1 
+             AND (
+               LOWER(TRIM(group_name)) = LOWER(TRIM($2)) 
+               OR LOWER(TRIM(group_identifier)) = LOWER(TRIM($2))
+               OR LOWER(TRIM(group_identifier)) = LOWER(TRIM($3))
+               OR LOWER(TRIM(group_name)) = LOWER(TRIM($3))
+             )`,
+          [targetUserId, gName, gId]
         );
       }
     }
@@ -317,27 +406,42 @@ export async function setUserActiveStatus(targetUserId: string, isActive: boolea
 
 /**
  * Discovers all unique WhatsApp groups from twochat_messages so admin can assign them.
+ * Guarantees zero duplicates by grouping by canonical group name.
  */
 export async function getDiscoverableGroups(): Promise<Array<{ id: string; name: string; channelNumber?: string }>> {
   const p = getPool();
   const res = await p.query(`
-    SELECT DISTINCT 
+    SELECT 
       COALESCE(group_name, chat_name) as name, 
-      COALESCE(group_uuid, remote_number, group_name, chat_name) as id,
-      channel_number as "channelNumber"
+      MIN(COALESCE(group_uuid, remote_number, group_name, chat_name)) as id,
+      MAX(channel_number) as "channelNumber"
     FROM twochat_messages 
     WHERE is_group = true 
       AND COALESCE(group_name, chat_name) IS NOT NULL 
       AND COALESCE(group_name, chat_name) != ''
       AND LOWER(COALESCE(group_name, chat_name)) NOT LIKE '%pink apple%'
+    GROUP BY COALESCE(group_name, chat_name)
     ORDER BY name ASC
   `);
 
-  return res.rows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    channelNumber: r.channelNumber || undefined,
-  }));
+  const seenNames = new Set<string>();
+  const uniqueGroups: Array<{ id: string; name: string; channelNumber?: string }> = [];
+
+  for (const r of res.rows) {
+    const rawName = (r.name || '').trim();
+    if (!rawName) continue;
+    const lowerKey = rawName.toLowerCase();
+    if (!seenNames.has(lowerKey)) {
+      seenNames.add(lowerKey);
+      uniqueGroups.push({
+        id: rawName, // Canonical name as id ensures 1:1 consistent mapping
+        name: rawName,
+        channelNumber: r.channelNumber || undefined,
+      });
+    }
+  }
+
+  return uniqueGroups;
 }
 
 /**
