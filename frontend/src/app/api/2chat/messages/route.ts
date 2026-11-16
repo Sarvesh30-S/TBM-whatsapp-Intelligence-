@@ -389,8 +389,9 @@ export async function GET(req: NextRequest) {
     });
 
     // 6. Role-Based Scoping: If user is not an Admin, filter by their assigned group permissions
-    const allowedGroupIds = await getUserAllowedGroupIds(user.id);
-    if (allowedGroupIds !== null) {
+    if (!isAdmin) {
+      const allowedGroupIds = await getUserAllowedGroupIds(user.id);
+      if (allowedGroupIds !== null) {
       // Non-admin user: if 0 assigned groups, return 0 data immediately
       if (allowedGroupIds.length === 0) {
         return NextResponse.json({
@@ -433,6 +434,7 @@ export async function GET(req: NextRequest) {
         return allowedSet.has(gUuid) || allowedSet.has(gName) || allowedSet.has(rNum);
       });
     }
+  }
 
     return NextResponse.json({
       success: true,

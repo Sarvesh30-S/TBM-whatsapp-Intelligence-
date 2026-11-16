@@ -149,7 +149,7 @@ export default function ZeroDataMemberView({ user, onRefresh, loading }: ZeroDat
           </div>
 
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary, #0F172A)', margin: 0 }}>
                 Welcome, {user.fullName}!
               </h1>
@@ -173,12 +173,6 @@ export default function ZeroDataMemberView({ user, onRefresh, loading }: ZeroDat
                 <span>Account Authorized • Member Tier</span>
               </div>
             </div>
-
-            <p style={{ fontSize: 13, color: 'var(--text-secondary, #64748B)', margin: 0, lineHeight: 1.5 }}>
-              Your Google Workspace identity (
-              <strong style={{ color: 'var(--text-primary, #0F172A)' }}>{user.email}</strong>
-              ) is verified. Under company security policy, request access below to unlock specific client and internal WhatsApp groups.
-            </p>
           </div>
         </div>
 

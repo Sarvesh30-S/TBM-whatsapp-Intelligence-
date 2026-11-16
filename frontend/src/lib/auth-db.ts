@@ -197,6 +197,15 @@ export async function syncGoogleUser(params: {
  * Returns null if user is an admin (meaning ALL groups allowed).
  */
 export async function getUserAllowedGroupIds(userId: string): Promise<string[] | null> {
+  if (!userId) return [];
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+  if (!isUuid) {
+    if (userId.startsWith('u-admin') || userId.includes('admin')) {
+      return null; // Admin wildcard full access
+    }
+    return [];
+  }
+
   const p = getPool();
   // Check if admin
   const roleCheck = await p.query(

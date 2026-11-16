@@ -237,6 +237,15 @@ function DashboardContent() {
     loadData(keyToUse, undefined, undefined, undefined, hasCached);
   }, [isAuthenticated]);
 
+  // Periodic background revalidation so newly collected WhatsApp messages auto-update summaries & chat feeds
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const interval = setInterval(() => {
+      loadData(apiKey, undefined, undefined, undefined, true);
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, apiKey]);
+
   const loadData = async (
     key?: string,
     specificChatId?: string,

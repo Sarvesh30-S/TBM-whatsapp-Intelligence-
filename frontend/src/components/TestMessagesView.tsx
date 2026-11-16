@@ -234,6 +234,10 @@ export default function TestMessagesView({
     }
   };
 
+  const lastMsgKey = currentChatMessages.length > 0
+    ? (currentChatMessages[currentChatMessages.length - 1].id || currentChatMessages[currentChatMessages.length - 1].timestamp)
+    : '';
+
   // Fetch AI Summary briefing for active chat
   useEffect(() => {
     if (!selectedChat) {
@@ -266,7 +270,49 @@ export default function TestMessagesView({
     return () => {
       isCancelled = true;
     };
-  }, [selectedChat?.id, currentChatMessages.length]);
+  }, [selectedChat?.id, currentChatMessages.length, lastMsgKey]);
+
+  // Dynamically compute the date range of the active chat and its AI summary
+  const summaryDateRangeDisplay = useMemo(() => {
+    let startMs: number | null = null;
+    let endMs: number | null = null;
+
+    if (summaryBriefing?.dateRange?.start) {
+      const s = new Date(summaryBriefing.dateRange.start).getTime();
+      if (!isNaN(s)) startMs = s;
+    }
+    if (summaryBriefing?.dateRange?.end) {
+      const e = new Date(summaryBriefing.dateRange.end).getTime();
+      if (!isNaN(e)) endMs = e;
+    }
+
+    if (currentChatMessages && currentChatMessages.length > 0) {
+      for (const msg of currentChatMessages) {
+        if (msg.timestamp) {
+          const t = new Date(msg.timestamp).getTime();
+          if (!isNaN(t)) {
+            if (startMs === null || t < startMs) startMs = t;
+            if (endMs === null || t > endMs) endMs = t;
+          }
+        }
+      }
+    }
+
+    if (startMs === null && endMs === null) {
+      return new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    const startObj = new Date(startMs ?? endMs!);
+    const endObj = new Date(endMs ?? startMs!);
+
+    const startStr = startObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const endStr = endObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+    if (startStr === endStr) {
+      return startStr;
+    }
+    return `${startStr} - ${endStr}`;
+  }, [summaryBriefing?.dateRange, currentChatMessages]);
 
   // Render markdown bold text cleanly
   const renderFormattedText = (text: string) => {
@@ -1173,7 +1219,7 @@ export default function TestMessagesView({
           {/* Date & Coverage Sub-bar */}
           <div className="summary-date-subbar">
             <span className="summary-date-pill">
-              Nov 5, 2026 - Nov 8, 2026
+              {summaryDateRangeDisplay}
             </span>
             <span className="summary-coverage-text">
               Coverage: {currentChatMessages.length} Messages
