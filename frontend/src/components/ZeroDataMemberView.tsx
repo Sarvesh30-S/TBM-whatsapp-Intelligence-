@@ -12,9 +12,6 @@ import {
   Send,
   Check,
   AlertCircle,
-  Clock,
-  UserCheck,
-  Mail,
   Shield,
   MessageSquarePlus,
 } from 'lucide-react';
@@ -93,12 +90,12 @@ export default function ZeroDataMemberView({ user, onRefresh, loading }: ZeroDat
       }
 
       setSubmitSuccess(
-        'Alert sent to Super Admin (Sarvesh)! Your request has been delivered to their notification feed. Once approved, your live chats will activate.'
+        'Access request submitted successfully! Once approved, your live chats will activate.'
       );
       setMessage('');
       fetchRequestHistory();
     } catch (err: any) {
-      setSubmitError(err.message || 'Unable to alert super admin. Please try again.');
+      setSubmitError(err.message || 'Unable to submit request. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -180,7 +177,7 @@ export default function ZeroDataMemberView({ user, onRefresh, loading }: ZeroDat
             <p style={{ fontSize: 13, color: 'var(--text-secondary, #64748B)', margin: 0, lineHeight: 1.5 }}>
               Your Google Workspace identity (
               <strong style={{ color: 'var(--text-primary, #0F172A)' }}>{user.email}</strong>
-              ) is verified. Under company security policy, request access from the Super Admin below to unlock specific client and internal WhatsApp groups.
+              ) is verified. Under company security policy, request access below to unlock specific client and internal WhatsApp groups.
             </p>
           </div>
         </div>
@@ -359,13 +356,13 @@ export default function ZeroDataMemberView({ user, onRefresh, loading }: ZeroDat
               {pendingRequests.length > 0 ? `${pendingRequests.length} Pending` : 'Ready'}
             </div>
             <div style={{ fontSize: 13, color: 'var(--text-secondary, #64748B)', marginTop: 4 }}>
-              Super Admin Alert Status
+              Access Request Status
             </div>
           </div>
         </div>
       </div>
 
-      {/* 3. Main Workspace Split: (Left: Direct Message Box to Super Admin | Right: Super Admin Channel & Policy) */}
+      {/* 3. Main Workspace Split: (Left: Direct Message Box | Right: Assignment Policy) */}
       <div
         style={{
           width: '100%',
@@ -407,11 +404,6 @@ export default function ZeroDataMemberView({ user, onRefresh, loading }: ZeroDat
                 Request WhatsApp Group Access
               </h2>
             </div>
-            <p style={{ fontSize: 13, color: 'var(--text-secondary, #64748B)', margin: 0, lineHeight: 1.5 }}>
-              Write a message to the Super Admin (Sarvesh) specifying which WhatsApp group(s) or campaign you need
-              access to. Submitting will send an instant alert notification directly to the Super Admin's notification
-              feed.
-            </p>
           </div>
 
           {/* Feedback Alerts */}
@@ -489,12 +481,7 @@ export default function ZeroDataMemberView({ user, onRefresh, loading }: ZeroDat
               />
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary, #64748B)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Clock size={14} />
-                <span>Super Admin is notified immediately in their notification feed</span>
-              </div>
-
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 12 }}>
               <button
                 type="submit"
                 disabled={submitting || !message.trim()}
@@ -516,7 +503,7 @@ export default function ZeroDataMemberView({ user, onRefresh, loading }: ZeroDat
                 }}
               >
                 <Send size={15} className={submitting ? 'animate-pulse' : ''} />
-                <span>{submitting ? 'Sending Request...' : 'Send Access Request to Super Admin'}</span>
+                <span>{submitting ? 'Sending Request...' : 'Send Access Request'}</span>
               </button>
             </div>
           </form>
@@ -565,7 +552,7 @@ export default function ZeroDataMemberView({ user, onRefresh, loading }: ZeroDat
                                 : '#D97706',
                           }}
                         >
-                          {req.status === 'PENDING' ? 'PENDING SUPER ADMIN REVIEW' : req.status}
+                          {req.status === 'PENDING' ? 'PENDING ADMIN REVIEW' : req.status}
                         </span>
                         <span style={{ fontSize: 12, color: 'var(--text-muted, #94A3B8)' }}>
                           {new Date(req.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
@@ -601,86 +588,8 @@ export default function ZeroDataMemberView({ user, onRefresh, loading }: ZeroDat
           )}
         </div>
 
-        {/* Right Column: Super Administrator Profile & Security Policy */}
+        {/* Right Column: Security & Access Policy */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Super Admin Direct Escalation Card */}
-          <div
-            style={{
-              backgroundColor: 'var(--bg-surface, #FFFFFF)',
-              borderRadius: 16,
-              padding: '24px',
-              border: '1px solid var(--border-subtle, #E2E8F0)',
-              boxShadow: '0 1px 4px rgba(0, 0, 0, 0.04)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-              <div
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 8,
-                  backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                  color: '#3B82F6',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <UserCheck size={18} />
-              </div>
-              <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary, #0F172A)', margin: 0 }}>
-                Super Administrator
-              </h3>
-            </div>
-
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                padding: '14px',
-                borderRadius: 10,
-                backgroundColor: 'var(--bg-surface-subtle, #F8FAFC)',
-                border: '1px solid var(--border-subtle, #E2E8F0)',
-                marginBottom: 14,
-              }}
-            >
-              <div
-                style={{
-                  width: 42,
-                  height: 42,
-                  borderRadius: 10,
-                  backgroundColor: '#D97706',
-                  color: '#FFFFFF',
-                  fontWeight: 700,
-                  fontSize: 15,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                SY
-              </div>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary, #0F172A)' }}>
-                  Sarvesh S
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary, #64748B)' }}>
-                  Head of Infrastructure & Super Admin
-                </div>
-                <div style={{ fontSize: 12, color: '#D97706', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Mail size={12} />
-                  <span>sarvesh@theboredmonkey.com</span>
-                </div>
-              </div>
-            </div>
-
-            <p style={{ fontSize: 12, color: 'var(--text-secondary, #64748B)', lineHeight: 1.5, margin: 0 }}>
-              Group access requests are routed directly to Sarvesh's topbar alert bell. Once approved, your assigned
-              client groups will unlock automatically.
-            </p>
-          </div>
-
           {/* Security & Access Policy Card */}
           <div
             style={{
@@ -713,7 +622,7 @@ export default function ZeroDataMemberView({ user, onRefresh, loading }: ZeroDat
 
             <p style={{ fontSize: 13, color: 'var(--text-secondary, #64748B)', lineHeight: 1.6, margin: '0 0 14px 0' }}>
               By company security policy, every newly authorized colleague begins with zero group exposure. Your department
-              manager or Super Admin grants access to specific client campaigns and production groups.
+              manager or administrator grants access to specific client campaigns and production groups.
             </p>
 
             <div
@@ -731,11 +640,11 @@ export default function ZeroDataMemberView({ user, onRefresh, loading }: ZeroDat
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ width: 18, height: 18, borderRadius: '50%', backgroundColor: 'rgba(217, 119, 6, 0.15)', color: '#D97706', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>2</span>
-                <span>Super Admin is alerted in their Bell icon</span>
+                <span>Administrator receives alert notification</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ width: 18, height: 18, borderRadius: '50%', backgroundColor: 'rgba(217, 119, 6, 0.15)', color: '#D97706', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>3</span>
-                <span>Super Admin assigns you access in Console</span>
+                <span>Administrator assigns you access in Console</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ width: 18, height: 18, borderRadius: '50%', backgroundColor: 'rgba(217, 119, 6, 0.15)', color: '#D97706', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>4</span>
