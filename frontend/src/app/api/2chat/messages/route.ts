@@ -237,6 +237,7 @@ export async function GET(req: NextRequest) {
       let canonicalTitle = '';
       let canonicalGroupUuid = '';
       let canonicalPhoneOrId = '';
+      let cleanRemote = '';
       let matchedGroup: TwoChatGroup | undefined;
 
       if (isGroup) {
@@ -259,7 +260,7 @@ export async function GET(req: NextRequest) {
         // Key by canonical group name to guarantee strictly ONE conversation entry per group
         convId = `group:${canonicalTitle.toLowerCase().trim()}`;
       } else {
-        const cleanRemote = normalizePhone(msg.remoteNumber);
+        cleanRemote = normalizePhone(msg.remoteNumber);
         if (!cleanRemote) continue;
         convId = `direct:${cleanDigits(cleanRemote)}`;
         const savedName = contactDirectory[cleanRemote] || (!isGenericName(msg.chatName) ? msg.chatName : '');
