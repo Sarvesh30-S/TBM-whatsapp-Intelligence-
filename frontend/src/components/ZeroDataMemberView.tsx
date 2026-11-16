@@ -11,14 +11,12 @@ import {
   Bell,
   Send,
   Check,
-  Plus,
-  X,
   AlertCircle,
   Clock,
   UserCheck,
   Mail,
   Shield,
-  HelpCircle,
+  MessageSquarePlus,
 } from 'lucide-react';
 import { UserProfile } from '@/context/AuthContext';
 
@@ -34,83 +32,42 @@ interface AccessRequestRecord {
   user_email: string;
   user_name: string;
   requested_groups: string[];
-  message?: string;
+  message: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   created_at: string;
 }
 
-const DEFAULT_COMPANY_GROUPS = [
-  'Client || Blue Tyga x TBM || Celeb execution',
-  'Blue Tyga DVC || TBM internal',
-  'Emami X TheBoredMonkey',
-  'Cent X TheBoredMonkey',
-  'BM x Eclipse Solaire Matte Effect',
-];
-
 export default function ZeroDataMemberView({ user, onRefresh, loading }: ZeroDataMemberViewProps) {
-  const [availableGroups, setAvailableGroups] = useState<string[]>(DEFAULT_COMPANY_GROUPS);
-  const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
-  const [customGroupName, setCustomGroupName] = useState('');
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [existingRequests, setExistingRequests] = useState<AccessRequestRecord[]>([]);
-  const [fetchingRequests, setFetchingRequests] = useState(false);
 
-  // Fetch discoverable groups and user's previous requests
-  const fetchGroupData = useCallback(async () => {
-    setFetchingRequests(true);
+  // Fetch user's previous submitted requests
+  const fetchRequestHistory = useCallback(async () => {
     try {
       const res = await fetch(`/api/access-requests?email=${encodeURIComponent(user.email || '')}`);
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data.availableGroups) && data.availableGroups.length > 0) {
-          const combined = Array.from(new Set([...DEFAULT_COMPANY_GROUPS, ...data.availableGroups]));
-          setAvailableGroups(combined);
-        }
         if (Array.isArray(data.requests)) {
           setExistingRequests(data.requests);
         }
       }
     } catch (err) {
       console.warn('Could not load access request history:', err);
-    } finally {
-      setFetchingRequests(false);
     }
   }, [user.email]);
 
   useEffect(() => {
-    fetchGroupData();
-  }, [fetchGroupData]);
-
-  const toggleGroupSelection = (group: string) => {
-    setSelectedGroups((prev) =>
-      prev.includes(group) ? prev.filter((g) => g !== group) : [...prev, group]
-    );
-  };
-
-  const handleAddCustomGroup = (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = customGroupName.trim();
-    if (!trimmed) return;
-    if (!selectedGroups.includes(trimmed)) {
-      setSelectedGroups((prev) => [...prev, trimmed]);
-    }
-    if (!availableGroups.includes(trimmed)) {
-      setAvailableGroups((prev) => [...prev, trimmed]);
-    }
-    setCustomGroupName('');
-  };
-
-  const removeSelectedGroup = (group: string) => {
-    setSelectedGroups((prev) => prev.filter((g) => g !== group));
-  };
+    fetchRequestHistory();
+  }, [fetchRequestHistory]);
 
   const handleSendAccessRequest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedGroups.length === 0) {
-      setSubmitError('Please select at least one WhatsApp group you need access to.');
+    const trimmed = message.trim();
+    if (!trimmed) {
+      setSubmitError('Please enter a message mentioning which group(s) you need access to.');
       return;
     }
 
@@ -126,8 +83,7 @@ export default function ZeroDataMemberView({ user, onRefresh, loading }: ZeroDat
           userId: user.id,
           userEmail: user.email,
           userName: user.fullName || user.email.split('@')[0],
-          requestedGroups: selectedGroups,
-          message: message.trim(),
+          message: trimmed,
         }),
       });
 
@@ -137,11 +93,10 @@ export default function ZeroDataMemberView({ user, onRefresh, loading }: ZeroDat
       }
 
       setSubmitSuccess(
-        `Alert sent to Super Admin (Sarvesh)! Your request for ${selectedGroups.length} group(s) has been queued for review.`
+        'Alert sent to Super Admin (Sarvesh)! Your request has been delivered to their notification feed. Once approved, your live chats will activate.'
       );
-      setSelectedGroups([]);
       setMessage('');
-      fetchGroupData();
+      fetchRequestHistory();
     } catch (err: any) {
       setSubmitError(err.message || 'Unable to alert super admin. Please try again.');
     } finally {
@@ -225,7 +180,7 @@ export default function ZeroDataMemberView({ user, onRefresh, loading }: ZeroDat
             <p style={{ fontSize: 13, color: 'var(--text-secondary, #64748B)', margin: 0, lineHeight: 1.5 }}>
               Your Google Workspace identity (
               <strong style={{ color: 'var(--text-primary, #0F172A)' }}>{user.email}</strong>
-              ) has been verified. Under TBM security policy, select which WhatsApp groups you need to access below.
+              ) is verified. Under company security policy, request access from the Super Admin below to unlock specific client and internal WhatsApp groups.
             </p>
           </div>
         </div>
@@ -410,7 +365,7 @@ export default function ZeroDataMemberView({ user, onRefresh, loading }: ZeroDat
         </div>
       </div>
 
-      {/* 3. Main Workspace Split: (Left: Request Access to Super Admin | Right: Governance & Super Admin Channel) */}
+      {/* 3. Main Workspace Split: (Left: Direct Message Box to Super Admin | Right: Super Admin Channel & Policy) */}
       <div
         style={{
           width: '100%',
@@ -419,7 +374,7 @@ export default function ZeroDataMemberView({ user, onRefresh, loading }: ZeroDat
           gap: 20,
         }}
       >
-        {/* Left Column: Interactive Group Access Request Module */}
+        {/* Left Column: Focused Group Access Request Message Box */}
         <div
           style={{
             backgroundColor: 'var(--bg-surface, #FFFFFF)',
@@ -446,15 +401,16 @@ export default function ZeroDataMemberView({ user, onRefresh, loading }: ZeroDat
                   justifyContent: 'center',
                 }}
               >
-                <Bell size={18} />
+                <MessageSquarePlus size={18} />
               </div>
               <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary, #0F172A)', margin: 0 }}>
                 Request WhatsApp Group Access
               </h2>
             </div>
             <p style={{ fontSize: 13, color: 'var(--text-secondary, #64748B)', margin: 0, lineHeight: 1.5 }}>
-              Select which campaign or production WhatsApp group you require access to. Submitting will send an instant
-              priority alert directly to the Super Admin (Sarvesh) to review and activate your access.
+              Write a message to the Super Admin (Sarvesh) specifying which WhatsApp group(s) or campaign you need
+              access to. Submitting will send an instant alert notification directly to the Super Admin's notification
+              feed.
             </p>
           </div>
 
@@ -498,8 +454,7 @@ export default function ZeroDataMemberView({ user, onRefresh, loading }: ZeroDat
             </div>
           )}
 
-          <form onSubmit={handleSendAccessRequest} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-            {/* Step 1: Group Selection */}
+          <form onSubmit={handleSendAccessRequest} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
               <label
                 style={{
@@ -510,174 +465,39 @@ export default function ZeroDataMemberView({ user, onRefresh, loading }: ZeroDat
                   marginBottom: 8,
                 }}
               >
-                1. Select WhatsApp Groups to Request Access:
-              </label>
-
-              <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: 8,
-                  marginBottom: 12,
-                }}
-              >
-                {availableGroups.map((group) => {
-                  const isSelected = selectedGroups.includes(group);
-                  return (
-                    <button
-                      key={group}
-                      type="button"
-                      onClick={() => toggleGroupSelection(group)}
-                      style={{
-                        padding: '8px 14px',
-                        borderRadius: 20,
-                        fontSize: 12,
-                        fontWeight: 600,
-                        border: isSelected
-                          ? '1px solid #D97706'
-                          : '1px solid var(--border-subtle, #E2E8F0)',
-                        backgroundColor: isSelected
-                          ? 'rgba(217, 119, 6, 0.12)'
-                          : 'var(--bg-surface-subtle, #F8FAFC)',
-                        color: isSelected ? '#B45309' : 'var(--text-secondary, #475569)',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      {isSelected ? <Check size={14} color="#D97706" /> : <Plus size={14} />}
-                      <span>{group}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Add Custom / Other Group Form */}
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input
-                  type="text"
-                  placeholder="Or type another WhatsApp group / campaign name..."
-                  value={customGroupName}
-                  onChange={(e) => setCustomGroupName(e.target.value)}
-                  style={{
-                    flex: 1,
-                    padding: '9px 14px',
-                    borderRadius: 8,
-                    border: '1px solid var(--border-subtle, #CBD5E1)',
-                    backgroundColor: 'var(--bg-surface, #FFFFFF)',
-                    color: 'var(--text-primary, #0F172A)',
-                    fontSize: 13,
-                    outline: 'none',
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={handleAddCustomGroup}
-                  disabled={!customGroupName.trim()}
-                  style={{
-                    padding: '9px 16px',
-                    borderRadius: 8,
-                    backgroundColor: 'var(--bg-surface-subtle, #F1F5F9)',
-                    color: 'var(--text-primary, #0F172A)',
-                    border: '1px solid var(--border-subtle, #CBD5E1)',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: customGroupName.trim() ? 'pointer' : 'not-allowed',
-                    opacity: customGroupName.trim() ? 1 : 0.6,
-                  }}
-                >
-                  Add Group
-                </button>
-              </div>
-            </div>
-
-            {/* Selected Groups Preview Box */}
-            {selectedGroups.length > 0 && (
-              <div
-                style={{
-                  padding: '12px 16px',
-                  borderRadius: 10,
-                  backgroundColor: 'var(--bg-surface-subtle, #F8FAFC)',
-                  border: '1px solid var(--border-subtle, #E2E8F0)',
-                }}
-              >
-                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #64748B)' }}>
-                  Selected for Request ({selectedGroups.length}):
-                </span>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-                  {selectedGroups.map((g) => (
-                    <span
-                      key={g}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        padding: '4px 10px',
-                        borderRadius: 16,
-                        backgroundColor: '#FEF3C7',
-                        border: '1px solid #FDE68A',
-                        color: '#92400E',
-                        fontSize: 12,
-                        fontWeight: 600,
-                      }}
-                    >
-                      <span>{g}</span>
-                      <X
-                        size={12}
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => removeSelectedGroup(g)}
-                      />
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Step 2: Message / Reason */}
-            <div>
-              <label
-                style={{
-                  display: 'block',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: 'var(--text-primary, #0F172A)',
-                  marginBottom: 6,
-                }}
-              >
-                2. Note or Reason for Super Admin (Optional):
+                Which WhatsApp group or campaign do you need access to?
               </label>
               <textarea
-                rows={3}
-                placeholder="e.g. Working on the celeb execution campaign deliverables, need view access for updates and summaries."
+                rows={4}
+                placeholder="e.g. Please add me or give me access to the Blue Tyga Celeb Execution group / Q4 campaign deliverables..."
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 style={{
                   width: '100%',
-                  padding: '10px 14px',
-                  borderRadius: 8,
+                  padding: '12px 14px',
+                  borderRadius: 10,
                   border: '1px solid var(--border-subtle, #CBD5E1)',
                   backgroundColor: 'var(--bg-surface, #FFFFFF)',
                   color: 'var(--text-primary, #0F172A)',
                   fontSize: 13,
+                  lineHeight: 1.6,
                   outline: 'none',
                   resize: 'vertical',
                   fontFamily: 'inherit',
+                  boxShadow: 'inset 0 1px 2px rgba(0, 0, 0, 0.03)',
                 }}
               />
             </div>
 
-            {/* Submit Action */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
               <div style={{ fontSize: 12, color: 'var(--text-secondary, #64748B)', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Clock size={14} />
-                <span>Super Admin is notified immediately upon dispatch</span>
+                <span>Super Admin is notified immediately in their notification feed</span>
               </div>
 
               <button
                 type="submit"
-                disabled={submitting || selectedGroups.length === 0}
+                disabled={submitting || !message.trim()}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -689,25 +509,25 @@ export default function ZeroDataMemberView({ user, onRefresh, loading }: ZeroDat
                   border: 'none',
                   fontSize: 13,
                   fontWeight: 600,
-                  cursor: submitting || selectedGroups.length === 0 ? 'not-allowed' : 'pointer',
-                  opacity: submitting || selectedGroups.length === 0 ? 0.65 : 1,
+                  cursor: submitting || !message.trim() ? 'not-allowed' : 'pointer',
+                  opacity: submitting || !message.trim() ? 0.65 : 1,
                   boxShadow: '0 2px 8px rgba(217, 119, 6, 0.25)',
                   transition: 'all 0.15s ease',
                 }}
               >
                 <Send size={15} className={submitting ? 'animate-pulse' : ''} />
-                <span>{submitting ? 'Sending Alert...' : 'Send Access Alert to Super Admin'}</span>
+                <span>{submitting ? 'Sending Request...' : 'Send Access Request to Super Admin'}</span>
               </button>
             </div>
           </form>
 
           {/* Previous / Pending Requests Tracker */}
           {existingRequests.length > 0 && (
-            <div style={{ marginTop: 12, borderTop: '1px solid var(--border-subtle, #E2E8F0)', paddingTop: 16 }}>
+            <div style={{ marginTop: 8, borderTop: '1px solid var(--border-subtle, #E2E8F0)', paddingTop: 16 }}>
               <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary, #0F172A)', margin: '0 0 10px 0' }}>
-                Your Submitted Access Requests:
+                Your Submitted Requests:
               </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {existingRequests.map((req) => (
                   <div
                     key={req.id}
@@ -723,8 +543,8 @@ export default function ZeroDataMemberView({ user, onRefresh, loading }: ZeroDat
                       gap: 10,
                     }}
                   >
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1, minWidth: 260 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                         <span
                           style={{
                             fontSize: 11,
@@ -748,17 +568,12 @@ export default function ZeroDataMemberView({ user, onRefresh, loading }: ZeroDat
                           {req.status === 'PENDING' ? 'PENDING SUPER ADMIN REVIEW' : req.status}
                         </span>
                         <span style={{ fontSize: 12, color: 'var(--text-muted, #94A3B8)' }}>
-                          {new Date(req.created_at).toLocaleDateString()}
+                          {new Date(req.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                         </span>
                       </div>
                       <div style={{ fontSize: 13, color: 'var(--text-primary, #0F172A)', fontWeight: 500, marginTop: 4 }}>
-                        {req.requested_groups.join(', ')}
+                        "{req.message}"
                       </div>
-                      {req.message && (
-                        <div style={{ fontSize: 12, color: 'var(--text-secondary, #64748B)', fontStyle: 'italic', marginTop: 2 }}>
-                          "{req.message}"
-                        </div>
-                      )}
                     </div>
 
                     {req.status === 'APPROVED' && (
@@ -786,7 +601,7 @@ export default function ZeroDataMemberView({ user, onRefresh, loading }: ZeroDat
           )}
         </div>
 
-        {/* Right Column: Governance, Super Admin Escalation, and Info Cards */}
+        {/* Right Column: Super Administrator Profile & Security Policy */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Super Admin Direct Escalation Card */}
           <div
@@ -861,8 +676,8 @@ export default function ZeroDataMemberView({ user, onRefresh, loading }: ZeroDat
             </div>
 
             <p style={{ fontSize: 12, color: 'var(--text-secondary, #64748B)', lineHeight: 1.5, margin: 0 }}>
-              Group access requests are automatically routed to Sarvesh. Once approved in the management console, your
-              assigned client groups will activate immediately.
+              Group access requests are routed directly to Sarvesh's topbar alert bell. Once approved, your assigned
+              client groups will unlock automatically.
             </p>
           </div>
 
@@ -912,15 +727,19 @@ export default function ZeroDataMemberView({ user, onRefresh, loading }: ZeroDat
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ width: 18, height: 18, borderRadius: '50%', backgroundColor: 'rgba(217, 119, 6, 0.15)', color: '#D97706', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>1</span>
-                <span>Select desired WhatsApp group(s) & submit alert</span>
+                <span>Type which WhatsApp group you need & submit</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ width: 18, height: 18, borderRadius: '50%', backgroundColor: 'rgba(217, 119, 6, 0.15)', color: '#D97706', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>2</span>
-                <span>Super Admin reviews & approves in Console</span>
+                <span>Super Admin is alerted in their Bell icon</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ width: 18, height: 18, borderRadius: '50%', backgroundColor: 'rgba(217, 119, 6, 0.15)', color: '#D97706', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>3</span>
-                <span>Click "Check for Group Assignments" to view live data</span>
+                <span>Super Admin assigns you access in Console</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ width: 18, height: 18, borderRadius: '50%', backgroundColor: 'rgba(217, 119, 6, 0.15)', color: '#D97706', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>4</span>
+                <span>Click "Check for Group Assignments" to view live chats</span>
               </div>
             </div>
           </div>

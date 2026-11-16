@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Menu, Search, Bell, Settings, Sun, Moon } from 'lucide-react';
 import Sidebar, { DashboardSection } from '@/components/Sidebar';
 import OverviewView from '@/components/OverviewView';
@@ -165,6 +165,32 @@ function DashboardContent() {
   const [statusText, setStatusText] = useState<string>('');
   const [apiErrors, setApiErrors] = useState<string[]>([]);
   const [targetMessageId, setTargetMessageId] = useState<string>('');
+  const [pendingAlerts, setPendingAlerts] = useState<any[]>([]);
+  const [showNotifications, setShowNotifications] = useState<boolean>(false);
+
+  const fetchPendingAlerts = useCallback(async () => {
+    if (!user?.roles?.includes('ROLE_ADMIN')) return;
+    try {
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch('/api/access-requests', { headers });
+      if (res.ok) {
+        const data = await res.json();
+        const pending = (data.requests || []).filter((r: any) => r.status === 'PENDING');
+        setPendingAlerts(pending);
+      }
+    } catch (err) {
+      console.warn('Could not fetch pending access alerts:', err);
+    }
+  }, [user, token]);
+
+  useEffect(() => {
+    if (user?.roles?.includes('ROLE_ADMIN')) {
+      fetchPendingAlerts();
+      const interval = setInterval(fetchPendingAlerts, 15000);
+      return () => clearInterval(interval);
+    }
+  }, [user, fetchPendingAlerts]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -600,14 +626,190 @@ function DashboardContent() {
             >
               {isDark ? <Sun size={17} style={{ color: '#FDC727' }} /> : <Moon size={17} />}
             </button>
-            <button
-              type="button"
-              className="topbar-icon-btn"
-              title="Notifications"
-              aria-label="Notifications"
-            >
-              <Bell size={17} />
-            </button>
+            {/* Super Admin Notifications Bell with Pending Alerts Count & Popover */}
+            <div style={{ position: 'relative' }}>
+              <button
+                type="button"
+                className="topbar-icon-btn"
+                onClick={() => setShowNotifications((prev) => !prev)}
+                title={
+                  user?.roles?.includes('ROLE_ADMIN') && pendingAlerts.length > 0
+                    ? `${pendingAlerts.length} Pending WhatsApp Access Alert(s)`
+                    : 'Notifications'
+                }
+                aria-label="Notifications"
+                style={{ position: 'relative' }}
+              >
+                <Bell size={17} />
+                {user?.roles?.includes('ROLE_ADMIN') && pendingAlerts.length > 0 && (
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: 1,
+                      right: 1,
+                      backgroundColor: '#EF4444',
+                      color: '#FFFFFF',
+                      fontSize: 10,
+                      fontWeight: 800,
+                      borderRadius: 10,
+                      minWidth: 16,
+                      height: 16,
+                      padding: '0 4px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 0 6px rgba(239, 68, 68, 0.6)',
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    {pendingAlerts.length}
+                  </span>
+                )}
+              </button>
+
+              {/* Notifications Popover Dropdown */}
+              {showNotifications && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 12px)',
+                    right: 0,
+                    width: 360,
+                    maxWidth: '92vw',
+                    backgroundColor: 'var(--bg-surface, #FFFFFF)',
+                    borderRadius: 14,
+                    border: '1px solid var(--border-subtle, #E2E8F0)',
+                    boxShadow: '0 12px 32px rgba(0, 0, 0, 0.18)',
+                    zIndex: 9999,
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: '14px 18px',
+                      borderBottom: '1px solid var(--border-subtle, #E2E8F0)',
+                      backgroundColor: 'var(--bg-surface-subtle, #F8FAFC)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Bell size={16} color="#D97706" />
+                      <strong style={{ fontSize: 13, color: 'var(--text-primary, #0F172A)' }}>
+                        Access Alerts & Requests
+                      </strong>
+                    </div>
+                    {user?.roles?.includes('ROLE_ADMIN') && pendingAlerts.length > 0 ? (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          backgroundColor: 'rgba(217, 119, 6, 0.12)',
+                          color: '#D97706',
+                          padding: '2px 8px',
+                          borderRadius: 12,
+                        }}
+                      >
+                        {pendingAlerts.length} Pending
+                      </span>
+                    ) : (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: 'var(--text-muted, #94A3B8)',
+                        }}
+                      >
+                        0 New
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{ maxHeight: 380, overflowY: 'auto', padding: '12px' }}>
+                    {!user?.roles?.includes('ROLE_ADMIN') || pendingAlerts.length === 0 ? (
+                      <div
+                        style={{
+                          textAlign: 'center',
+                          padding: '28px 16px',
+                          color: 'var(--text-secondary, #64748B)',
+                          fontSize: 13,
+                        }}
+                      >
+                        <Bell size={26} style={{ opacity: 0.3, margin: '0 auto 8px auto', display: 'block' }} />
+                        <span>All caught up! No pending access requests.</span>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        {pendingAlerts.map((alertItem: any) => (
+                          <div
+                            key={alertItem.id}
+                            style={{
+                              padding: '12px 14px',
+                              borderRadius: 10,
+                              backgroundColor: 'var(--bg-surface-subtle, #F8FAFC)',
+                              border: '1px solid var(--border-subtle, #E2E8F0)',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 6,
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <strong style={{ fontSize: 13, color: 'var(--text-primary, #0F172A)' }}>
+                                {alertItem.user_name}
+                              </strong>
+                              <span style={{ fontSize: 11, color: 'var(--text-muted, #94A3B8)' }}>
+                                {new Date(alertItem.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: 11, color: 'var(--text-secondary, #64748B)' }}>
+                              {alertItem.user_email}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: 12,
+                                color: 'var(--text-primary, #0F172A)',
+                                backgroundColor: 'var(--bg-surface, #FFFFFF)',
+                                padding: '8px 10px',
+                                borderRadius: 8,
+                                border: '1px solid var(--border-subtle, #E2E8F0)',
+                                marginTop: 2,
+                                lineHeight: 1.4,
+                                fontStyle: 'italic',
+                              }}
+                            >
+                              "{alertItem.message}"
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowNotifications(false);
+                                setCurrentSection('admin');
+                              }}
+                              style={{
+                                marginTop: 4,
+                                alignSelf: 'flex-start',
+                                padding: '6px 12px',
+                                borderRadius: 6,
+                                backgroundColor: '#D97706',
+                                color: '#FFFFFF',
+                                border: 'none',
+                                fontSize: 11,
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Open in Member Management →
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
             <button
               type="button"
               className="topbar-icon-btn"

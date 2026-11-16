@@ -492,55 +492,62 @@ export default function AdminManagementView() {
                       </span>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
-                      <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>
-                        Requested Groups:
-                      </span>
-                      {req.requested_groups.map((group) => (
-                        <span
-                          key={group}
-                          style={{
-                            padding: '3px 10px',
-                            borderRadius: 14,
-                            backgroundColor: 'rgba(217, 119, 6, 0.1)',
-                            border: '1px solid rgba(217, 119, 6, 0.25)',
-                            color: '#B45309',
-                            fontSize: 12,
-                            fontWeight: 600,
-                          }}
-                        >
-                          {group}
-                        </span>
-                      ))}
-                    </div>
-
-                    {req.message && (
+                    <div style={{ marginTop: 6 }}>
                       <div
                         style={{
-                          fontSize: 12,
-                          color: 'var(--text-secondary)',
-                          fontStyle: 'italic',
-                          marginTop: 6,
-                          paddingLeft: 8,
-                          borderLeft: '2px solid rgba(217, 119, 6, 0.4)',
+                          fontSize: 13,
+                          color: 'var(--text-primary)',
+                          backgroundColor: 'var(--bg-surface)',
+                          padding: '10px 14px',
+                          borderRadius: 8,
+                          border: '1px solid var(--border-subtle)',
+                          lineHeight: 1.5,
                         }}
                       >
+                        <span style={{ fontWeight: 600, color: '#D97706', marginRight: 6 }}>Request:</span>
                         "{req.message}"
                       </div>
-                    )}
+                    </div>
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    {usersList.find((u) => u.email.toLowerCase() === req.user_email.toLowerCase()) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const target = usersList.find((u) => u.email.toLowerCase() === req.user_email.toLowerCase());
+                          if (target) openGroupModal(target);
+                        }}
+                        style={{
+                          padding: '9px 16px',
+                          borderRadius: 8,
+                          backgroundColor: '#D97706',
+                          color: '#FFFFFF',
+                          border: 'none',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          boxShadow: '0 1px 4px rgba(217, 119, 6, 0.25)',
+                        }}
+                      >
+                        <Settings size={14} />
+                        <span>Assign Groups</span>
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       disabled={resolvingRequestId === req.id}
                       onClick={() => handleResolveRequest(req, 'APPROVE')}
                       style={{
-                        padding: '9px 16px',
+                        padding: '9px 14px',
                         borderRadius: 8,
-                        backgroundColor: '#D97706',
-                        color: '#FFFFFF',
-                        border: 'none',
+                        backgroundColor: 'var(--bg-surface)',
+                        color: 'var(--text-primary)',
+                        border: '1px solid var(--border-subtle)',
                         fontSize: 12,
                         fontWeight: 600,
                         cursor: resolvingRequestId === req.id ? 'not-allowed' : 'pointer',
@@ -548,11 +555,10 @@ export default function AdminManagementView() {
                         display: 'flex',
                         alignItems: 'center',
                         gap: 6,
-                        boxShadow: '0 1px 4px rgba(217, 119, 6, 0.25)',
                       }}
                     >
-                      <Check size={14} />
-                      <span>{resolvingRequestId === req.id ? 'Granting...' : 'Approve & Grant Access'}</span>
+                      <Check size={14} color="#D97706" />
+                      <span>{resolvingRequestId === req.id ? 'Resolving...' : 'Mark Approved'}</span>
                     </button>
 
                     <button

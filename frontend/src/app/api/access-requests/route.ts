@@ -120,9 +120,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (requestedGroups.length === 0) {
+    if (!message) {
       return NextResponse.json(
-        { error: 'Please select at least one WhatsApp group you require access to.' },
+        { error: 'Please enter a message stating which group or campaign access you need.' },
         { status: 400 }
       );
     }

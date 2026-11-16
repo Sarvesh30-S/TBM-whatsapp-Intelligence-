@@ -509,11 +509,12 @@ export async function createGroupAccessRequest(params: {
   userId: string;
   userEmail: string;
   userName: string;
-  requestedGroups: string[];
-  message?: string;
+  requestedGroups?: string[];
+  message: string;
 }): Promise<GroupAccessRequestRecord> {
   await ensureAccessRequestsTable();
   const p = getPool();
+  const groups = Array.isArray(params.requestedGroups) ? params.requestedGroups : [];
   const res = await p.query(
     `INSERT INTO group_access_requests (user_id, user_email, user_name, requested_groups, message, status, created_at)
      VALUES ($1, $2, $3, $4, $5, 'PENDING', NOW())
@@ -522,8 +523,8 @@ export async function createGroupAccessRequest(params: {
       params.userId,
       params.userEmail.trim().toLowerCase(),
       params.userName,
-      params.requestedGroups,
-      params.message || '',
+      groups,
+      (params.message || '').trim(),
     ]
   );
   return res.rows[0];
