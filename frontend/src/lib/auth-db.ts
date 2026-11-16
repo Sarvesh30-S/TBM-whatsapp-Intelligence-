@@ -329,6 +329,7 @@ export async function getDiscoverableGroups(): Promise<Array<{ id: string; name:
     WHERE is_group = true 
       AND COALESCE(group_name, chat_name) IS NOT NULL 
       AND COALESCE(group_name, chat_name) != ''
+      AND LOWER(COALESCE(group_name, chat_name)) NOT LIKE '%pink apple%'
     ORDER BY name ASC
   `);
 
@@ -337,4 +338,146 @@ export async function getDiscoverableGroups(): Promise<Array<{ id: string; name:
     name: r.name,
     channelNumber: r.channelNumber || undefined,
   }));
+}
+
+/**
+ * Ensures the group_access_requests table exists for tracking non-admin group access requests.
+ */
+export async function ensureAccessRequestsTable(): Promise<void> {
+  const p = getPool();
+  await p.query(`
+    CREATE TABLE IF NOT EXISTS group_access_requests (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id VARCHAR(255) NOT NULL,
+      user_email VARCHAR(255) NOT NULL,
+      user_name VARCHAR(255) NOT NULL,
+      requested_groups TEXT[] NOT NULL,
+      message TEXT,
+      status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
+      created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+      resolved_at TIMESTAMP WITH TIME ZONE,
+      resolved_by VARCHAR(255)
+    );
+    CREATE INDEX IF NOT EXISTS idx_gar_status ON group_access_requests(status);
+    CREATE INDEX IF NOT EXISTS idx_gar_user ON group_access_requests(user_id);
+    CREATE INDEX IF NOT EXISTS idx_gar_email ON group_access_requests(user_email);
+  `);
+}
+
+export interface GroupAccessRequestRecord {
+  id: string;
+  user_id: string;
+  user_email: string;
+  user_name: string;
+  requested_groups: string[];
+  message?: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  created_at: string;
+  resolved_at?: string;
+  resolved_by?: string;
+}
+
+/**
+ * Creates a new group access request alert for the Super Admin.
+ */
+export async function createGroupAccessRequest(params: {
+  userId: string;
+  userEmail: string;
+  userName: string;
+  requestedGroups: string[];
+  message?: string;
+}): Promise<GroupAccessRequestRecord> {
+  await ensureAccessRequestsTable();
+  const p = getPool();
+  const res = await p.query(
+    `INSERT INTO group_access_requests (user_id, user_email, user_name, requested_groups, message, status, created_at)
+     VALUES ($1, $2, $3, $4, $5, 'PENDING', NOW())
+     RETURNING *`,
+    [
+      params.userId,
+      params.userEmail.trim().toLowerCase(),
+      params.userName,
+      params.requestedGroups,
+      params.message || '',
+    ]
+  );
+  return res.rows[0];
+}
+
+/**
+ * Fetches group access requests. If userEmail is provided, returns that user's requests.
+ * Otherwise returns all requests (ordered by pending first).
+ */
+export async function getGroupAccessRequests(userEmail?: string): Promise<GroupAccessRequestRecord[]> {
+  await ensureAccessRequestsTable();
+  const p = getPool();
+  if (userEmail) {
+    const res = await p.query(
+      `SELECT * FROM group_access_requests 
+       WHERE LOWER(user_email) = LOWER($1) 
+       ORDER BY created_at DESC 
+       LIMIT 30`,
+      [userEmail]
+    );
+    return res.rows;
+  }
+  const res = await p.query(
+    `SELECT * FROM group_access_requests 
+     ORDER BY CASE WHEN status = 'PENDING' THEN 0 ELSE 1 END, created_at DESC 
+     LIMIT 50`
+  );
+  return res.rows;
+}
+
+/**
+ * Resolves an access request (APPROVED or REJECTED) and auto-grants permissions if APPROVED.
+ */
+export async function resolveGroupAccessRequest(params: {
+  requestId: string;
+  status: 'APPROVED' | 'REJECTED';
+  resolvedBy: string;
+  targetUserId?: string;
+  targetUserEmail?: string;
+  groups?: string[];
+}): Promise<GroupAccessRequestRecord> {
+  await ensureAccessRequestsTable();
+  await ensurePermissionsTable();
+  const p = getPool();
+  const { requestId, status, resolvedBy, targetUserId, targetUserEmail, groups } = params;
+
+  if (status === 'APPROVED' && groups && groups.length > 0) {
+    let realUserId = targetUserId;
+    if (!realUserId || realUserId.startsWith('u-session') || realUserId.startsWith('u-emp')) {
+      if (targetUserEmail) {
+        const uRes = await p.query(
+          'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+          [targetUserEmail.toLowerCase()]
+        );
+        if (uRes.rows.length > 0) {
+          realUserId = uRes.rows[0].id;
+        }
+      }
+    }
+
+    if (realUserId) {
+      for (const groupName of groups) {
+        await p.query(
+          `INSERT INTO user_group_permissions (user_id, group_identifier, group_name, can_view, can_send, assigned_by)
+           VALUES ($1, $2, $3, true, true, (SELECT id FROM users WHERE LOWER(email) = LOWER($4) LIMIT 1))
+           ON CONFLICT (user_id, group_identifier)
+           DO UPDATE SET can_view = true, can_send = true, group_name = EXCLUDED.group_name`,
+          [realUserId, groupName, groupName, resolvedBy]
+        );
+      }
+    }
+  }
+
+  const res = await p.query(
+    `UPDATE group_access_requests 
+     SET status = $1, resolved_at = NOW(), resolved_by = $2 
+     WHERE id = $3 
+     RETURNING *`,
+    [status, resolvedBy, requestId]
+  );
+  return res.rows[0];
 }

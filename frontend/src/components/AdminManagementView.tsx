@@ -15,6 +15,9 @@ import {
   Eye,
   RefreshCw,
   Sparkles,
+  Bell,
+  Clock,
+  UserCheck,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -46,10 +49,23 @@ interface DiscoverableGroup {
   channelNumber?: string;
 }
 
+interface AccessRequestRow {
+  id: string;
+  user_id: string;
+  user_email: string;
+  user_name: string;
+  requested_groups: string[];
+  message?: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  created_at: string;
+}
+
 export default function AdminManagementView() {
   const { user, token } = useAuth();
   const [usersList, setUsersList] = useState<UserRow[]>([]);
   const [availableGroups, setAvailableGroups] = useState<DiscoverableGroup[]>([]);
+  const [accessRequests, setAccessRequests] = useState<AccessRequestRow[]>([]);
+  const [resolvingRequestId, setResolvingRequestId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -69,14 +85,23 @@ export default function AdminManagementView() {
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch('/api/admin/users', { headers });
-      if (!res.ok) {
-        throw new Error(`Failed to fetch users: ${res.statusText}`);
+      const [usersRes, reqRes] = await Promise.all([
+        fetch('/api/admin/users', { headers }),
+        fetch('/api/access-requests', { headers }).catch(() => null),
+      ]);
+
+      if (!usersRes.ok) {
+        throw new Error(`Failed to fetch users: ${usersRes.statusText}`);
       }
 
-      const data = await res.json();
+      const data = await usersRes.json();
       setUsersList(data.users || []);
       setAvailableGroups(data.availableGroups || []);
+
+      if (reqRes && reqRes.ok) {
+        const reqData = await reqRes.json();
+        setAccessRequests(reqData.requests || []);
+      }
     } catch (err: any) {
       console.warn('Could not load live admin users, loading fallback:', err.message);
       setError('Could not connect to live user management API. Using cached preview view.');
@@ -84,6 +109,43 @@ export default function AdminManagementView() {
       setLoading(false);
     }
   }, [token]);
+
+  const handleResolveRequest = async (request: AccessRequestRow, action: 'APPROVE' | 'REJECT') => {
+    setResolvingRequestId(request.id);
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch('/api/access-requests', {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({
+          requestId: request.id,
+          action,
+          targetUserEmail: request.user_email,
+          targetUserId: request.user_id,
+          groups: request.requested_groups,
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to resolve access request');
+      }
+
+      setSuccessMessage(
+        action === 'APPROVE'
+          ? `Access granted! ${request.user_name} now has access to: ${request.requested_groups.join(', ')}.`
+          : `Access request for ${request.user_name} was dismissed.`
+      );
+      setTimeout(() => setSuccessMessage(null), 5000);
+      await fetchUsersAndGroups();
+    } catch (err: any) {
+      alert(err.message || 'Error resolving request');
+    } finally {
+      setResolvingRequestId(null);
+    }
+  };
 
   useEffect(() => {
     fetchUsersAndGroups();
@@ -313,9 +375,9 @@ export default function AdminManagementView() {
           style={{
             padding: '12px 16px',
             borderRadius: 8,
-            backgroundColor: 'rgba(16, 185, 129, 0.15)',
-            border: '1px solid rgba(16, 185, 129, 0.3)',
-            color: '#10B981',
+            backgroundColor: 'rgba(217, 119, 6, 0.1)',
+            border: '1px solid rgba(217, 119, 6, 0.3)',
+            color: '#B45309',
             fontSize: 13,
             marginBottom: 20,
             display: 'flex',
@@ -323,8 +385,182 @@ export default function AdminManagementView() {
             gap: 10,
           }}
         >
-          <Check size={16} />
+          <Check size={16} color="#D97706" />
           <span>{successMessage}</span>
+        </div>
+      )}
+
+      {/* Pending Group Access Requests Alert Card */}
+      {accessRequests.filter((r) => r.status === 'PENDING').length > 0 && (
+        <div
+          style={{
+            backgroundColor: 'var(--bg-surface)',
+            borderRadius: 14,
+            padding: '22px 24px',
+            border: '1px solid rgba(217, 119, 6, 0.35)',
+            boxShadow: '0 2px 10px rgba(217, 119, 6, 0.08)',
+            marginBottom: 24,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 14,
+              flexWrap: 'wrap',
+              gap: 10,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 8,
+                  backgroundColor: 'rgba(217, 119, 6, 0.12)',
+                  color: '#D97706',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Bell size={18} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                  Pending WhatsApp Group Access Requests ({accessRequests.filter((r) => r.status === 'PENDING').length})
+                </h3>
+                <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0 }}>
+                  Team members waiting for your authorization to access campaign chat intelligence
+                </p>
+              </div>
+            </div>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: '#D97706',
+                backgroundColor: 'rgba(217, 119, 6, 0.1)',
+                padding: '4px 10px',
+                borderRadius: 20,
+              }}
+            >
+              Action Required
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {accessRequests
+              .filter((r) => r.status === 'PENDING')
+              .map((req) => (
+                <div
+                  key={req.id}
+                  style={{
+                    backgroundColor: 'var(--bg-surface-subtle)',
+                    borderRadius: 10,
+                    padding: '16px',
+                    border: '1px solid var(--border-subtle)',
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 16,
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 260 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <strong style={{ fontSize: 14, color: 'var(--text-primary)' }}>{req.user_name}</strong>
+                      <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>({req.user_email})</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                        • {new Date(req.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                      <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>
+                        Requested Groups:
+                      </span>
+                      {req.requested_groups.map((group) => (
+                        <span
+                          key={group}
+                          style={{
+                            padding: '3px 10px',
+                            borderRadius: 14,
+                            backgroundColor: 'rgba(217, 119, 6, 0.1)',
+                            border: '1px solid rgba(217, 119, 6, 0.25)',
+                            color: '#B45309',
+                            fontSize: 12,
+                            fontWeight: 600,
+                          }}
+                        >
+                          {group}
+                        </span>
+                      ))}
+                    </div>
+
+                    {req.message && (
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: 'var(--text-secondary)',
+                          fontStyle: 'italic',
+                          marginTop: 6,
+                          paddingLeft: 8,
+                          borderLeft: '2px solid rgba(217, 119, 6, 0.4)',
+                        }}
+                      >
+                        "{req.message}"
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <button
+                      type="button"
+                      disabled={resolvingRequestId === req.id}
+                      onClick={() => handleResolveRequest(req, 'APPROVE')}
+                      style={{
+                        padding: '9px 16px',
+                        borderRadius: 8,
+                        backgroundColor: '#D97706',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: resolvingRequestId === req.id ? 'not-allowed' : 'pointer',
+                        opacity: resolvingRequestId === req.id ? 0.7 : 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        boxShadow: '0 1px 4px rgba(217, 119, 6, 0.25)',
+                      }}
+                    >
+                      <Check size={14} />
+                      <span>{resolvingRequestId === req.id ? 'Granting...' : 'Approve & Grant Access'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={resolvingRequestId === req.id}
+                      onClick={() => handleResolveRequest(req, 'REJECT')}
+                      style={{
+                        padding: '9px 14px',
+                        borderRadius: 8,
+                        backgroundColor: 'transparent',
+                        color: 'var(--text-secondary)',
+                        border: '1px solid var(--border-subtle)',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: resolvingRequestId === req.id ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              ))}
+          </div>
         </div>
       )}
 
