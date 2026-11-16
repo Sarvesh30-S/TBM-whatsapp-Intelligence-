@@ -441,20 +441,13 @@ function DashboardContent() {
   };
 
   const handleClearMessages = async () => {
-    if (!confirm('Are you sure you want to clear the messages store?')) return;
     try {
-      await fetch('/api/2chat/clear', {
-        method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      setAllMessages([]);
-      setConversations([]);
-      setSelectedChat(null);
       if (typeof window !== 'undefined') {
         localStorage.removeItem('cached_2chat_messages');
         localStorage.removeItem('cached_2chat_conversations');
       }
-      setStatusText('All messages cleared.');
+      setStatusText('Local cache cleared. Refreshing from database...');
+      await loadData(apiKey);
     } catch (e: any) {
       setStatusText(`Clear error: ${e.message}`);
     }
