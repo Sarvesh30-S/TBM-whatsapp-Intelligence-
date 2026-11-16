@@ -340,6 +340,27 @@ export async function updateUserGroupAssignments(params: {
   const p = getPool();
   const { targetUserId, groups, adminUserId } = params;
 
+  // Resolve targetUserId to a valid UUID from database if needed
+  let realTargetUserId = targetUserId;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(realTargetUserId)) {
+    const uRes = await p.query(
+      `SELECT id FROM users WHERE LOWER(email) = LOWER($1) OR id::text = $1 LIMIT 1`,
+      [realTargetUserId]
+    );
+    if (uRes.rows.length > 0) {
+      realTargetUserId = uRes.rows[0].id;
+    }
+  }
+
+  // Ensure adminUserId is a valid UUID or set to null so foreign key never fails
+  let validAdminUuid: string | null = null;
+  if (adminUserId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(adminUserId)) {
+    const adminCheck = await p.query(`SELECT id FROM users WHERE id = $1 LIMIT 1`, [adminUserId]);
+    if (adminCheck.rows.length > 0) {
+      validAdminUuid = adminUserId;
+    }
+  }
+
   await p.query('BEGIN');
   try {
     for (const g of groups) {
@@ -358,7 +379,7 @@ export async function updateUserGroupAssignments(params: {
                OR LOWER(TRIM(group_identifier)) = LOWER(TRIM($3))
                OR LOWER(TRIM(group_name)) = LOWER(TRIM($3))
              )`,
-          [targetUserId, gName, gId]
+          [realTargetUserId, gName, gId]
         );
 
         // Insert fresh canonical record with group name as both identifier and name
@@ -367,7 +388,7 @@ export async function updateUserGroupAssignments(params: {
            VALUES ($1, $2, $2, true, $3, $4)
            ON CONFLICT (user_id, group_identifier)
            DO UPDATE SET can_view = true, can_send = EXCLUDED.can_send, group_name = EXCLUDED.group_name`,
-          [targetUserId, gName, g.canSend, adminUserId || null]
+          [realTargetUserId, gName, g.canSend, validAdminUuid]
         );
       } else {
         // UNASSIGN: Purge ALL matching permission records for this group name and identifier!
@@ -380,7 +401,7 @@ export async function updateUserGroupAssignments(params: {
                OR LOWER(TRIM(group_identifier)) = LOWER(TRIM($3))
                OR LOWER(TRIM(group_name)) = LOWER(TRIM($3))
              )`,
-          [targetUserId, gName, gId]
+          [realTargetUserId, gName, gId]
         );
       }
     }
