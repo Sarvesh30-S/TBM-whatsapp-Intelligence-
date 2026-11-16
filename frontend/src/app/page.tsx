@@ -95,7 +95,7 @@ function deduplicateConversationsList(conversations: TwoChatConversation[]): Two
 
 function DashboardContent() {
   const { user, token, canAccessSection, isAuthenticated, isLoading } = useAuth();
-  const { theme, isDark, toggleTheme } = useTheme();
+  const { isDark, toggleTheme } = useTheme();
   const [currentSection, setCurrentSection] = useState<DashboardSection>('test-messages');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
 
