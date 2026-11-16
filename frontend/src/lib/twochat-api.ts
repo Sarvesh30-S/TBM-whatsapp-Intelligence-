@@ -63,7 +63,10 @@ export function isGenericName(name?: string | null): boolean {
   const n = name.trim().toLowerCase();
   if (GENERIC_NAMES.has(n)) return true;
   // A "name" that is only a phone number is not a real name
-  return /^[+\d\s()-]+$/.test(n);
+  if (/^[+\d\s()-]+$/.test(n)) return true;
+  // Filter out auto-generated placeholders from CRM/2Chat such as "pink apple #26", "blue lion #10"
+  if (/^[a-z]+\s+[a-z]+\s+#\d+$/i.test(n)) return true;
+  return false;
 }
 
 export function extractMessageText(raw: any): string {
@@ -279,7 +282,6 @@ export function normalizeTwoChatMessage(raw: any, ctx: NormalizeContext): TwoCha
       raw.group?.wa_group_name,
       raw.group?.name,
       raw.group_name,
-      raw.contact?.friendly_name,
     ];
     groupName = candidates.find((n) => typeof n === 'string' && !isGenericName(n)) || '';
     if (!groupName) groupName = groupJid || 'WhatsApp Group';

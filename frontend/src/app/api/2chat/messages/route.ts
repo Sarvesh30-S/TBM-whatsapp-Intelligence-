@@ -203,6 +203,8 @@ export async function GET(req: NextRequest) {
         const matched =
           (m.groupUuid ? groupByUuid.get(m.groupUuid) || groupByJid.get(m.groupUuid) : undefined) ||
           (m.remoteNumber ? groupByJid.get(m.remoteNumber) || groupByUuid.get(m.remoteNumber) : undefined) ||
+          (m.receiverNumber ? groupByJid.get(m.receiverNumber) : undefined) ||
+          (m.toNumber ? groupByJid.get(m.toNumber) : undefined) ||
           (m.groupName && !isGenericName(m.groupName) ? groupByName.get(m.groupName.toLowerCase().trim()) : undefined);
 
         if (matched?.wa_group_name) {
@@ -241,6 +243,8 @@ export async function GET(req: NextRequest) {
         matchedGroup =
           (msg.groupUuid ? groupByUuid.get(msg.groupUuid) || groupByJid.get(msg.groupUuid) : undefined) ||
           (msg.remoteNumber ? groupByJid.get(msg.remoteNumber) || groupByUuid.get(msg.remoteNumber) : undefined) ||
+          (msg.receiverNumber ? groupByJid.get(msg.receiverNumber) : undefined) ||
+          (msg.toNumber ? groupByJid.get(msg.toNumber) : undefined) ||
           (msg.groupName && !isGenericName(msg.groupName) ? groupByName.get(msg.groupName.toLowerCase().trim()) : undefined) ||
           (msg.chatName && !isGenericName(msg.chatName) ? groupByName.get(msg.chatName.toLowerCase().trim()) : undefined);
 
