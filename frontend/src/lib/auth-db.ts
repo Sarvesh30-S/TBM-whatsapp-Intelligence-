@@ -481,3 +481,13 @@ export async function resolveGroupAccessRequest(params: {
   );
   return res.rows[0];
 }
+
+/**
+ * Deletes an access request by id.
+ */
+export async function deleteGroupAccessRequest(requestId: string): Promise<boolean> {
+  await ensureAccessRequestsTable();
+  const p = getPool();
+  const res = await p.query(`DELETE FROM group_access_requests WHERE id = $1`, [requestId]);
+  return (res.rowCount ?? 0) > 0;
+}

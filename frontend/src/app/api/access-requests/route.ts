@@ -5,6 +5,7 @@ import {
   createGroupAccessRequest,
   getGroupAccessRequests,
   resolveGroupAccessRequest,
+  deleteGroupAccessRequest,
   getDiscoverableGroups,
 } from '@/lib/auth-db';
 
@@ -187,6 +188,33 @@ export async function PATCH(req: NextRequest) {
     console.error('Error in /api/access-requests PATCH:', err);
     return NextResponse.json(
       { error: err.message || 'Failed to resolve access request' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const adminUser = await getAuthenticatedUser(req);
+    if (!adminUser?.isAdmin) {
+      return NextResponse.json(
+        { error: 'Forbidden: Super Administrator privileges required.' },
+        { status: 403 }
+      );
+    }
+
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    if (!id) {
+      return NextResponse.json({ error: 'Request id is required' }, { status: 400 });
+    }
+
+    await deleteGroupAccessRequest(id);
+    return NextResponse.json({ success: true, message: 'Request deleted successfully' });
+  } catch (err: any) {
+    console.error('Error in /api/access-requests DELETE:', err);
+    return NextResponse.json(
+      { error: err.message || 'Failed to delete access request' },
       { status: 500 }
     );
   }
