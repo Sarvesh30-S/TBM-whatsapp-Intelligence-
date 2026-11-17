@@ -168,6 +168,76 @@ function DashboardContent() {
   const [pendingAlerts, setPendingAlerts] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState<boolean>(false);
 
+  // Real-Time 2Chat & WhatsApp Connection Health
+  const [connectionHealth, setConnectionHealth] = useState<{
+    isOnline: boolean;
+    twoChatConnected: boolean;
+    whatsappConnected: boolean;
+    status: string;
+    title: string;
+    sub: string;
+    tooltip: string;
+    phone?: string;
+    rawStatus?: string;
+    checkedAt?: string;
+    loading?: boolean;
+  }>({
+    isOnline: false,
+    twoChatConnected: false,
+    whatsappConnected: false,
+    status: 'checking',
+    title: 'Checking Status...',
+    sub: 'Connecting...',
+    tooltip: 'Checking WhatsApp & 2Chat connection status...',
+    loading: true,
+  });
+
+  const checkConnectionStatus = useCallback(async (forceRefresh: boolean = false) => {
+    try {
+      setConnectionHealth((prev) => ({ ...prev, loading: true }));
+      const url = `/api/2chat/status${forceRefresh ? '?refresh=true' : ''}`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setConnectionHealth({
+        isOnline: Boolean(data.isOnline),
+        twoChatConnected: Boolean(data.twoChatConnected),
+        whatsappConnected: Boolean(data.whatsappConnected),
+        status: data.status || 'unknown',
+        title: data.title || (data.isOnline ? 'Connected to WhatsApp' : 'WhatsApp Disconnected'),
+        sub: data.sub || (data.isOnline ? 'Active' : 'Offline'),
+        tooltip: data.tooltip || 'WhatsApp Connection Status',
+        phone: data.phone,
+        rawStatus: data.rawStatus,
+        checkedAt: data.checkedAt || new Date().toISOString(),
+        loading: false,
+      });
+    } catch (err: any) {
+      setConnectionHealth({
+        isOnline: false,
+        twoChatConnected: false,
+        whatsappConnected: false,
+        status: 'error',
+        title: 'Connection Check Failed',
+        sub: 'Network or API error',
+        tooltip: `Failed to check connection: ${err?.message || 'Error'}`,
+        loading: false,
+      });
+    }
+  }, []);
+
+  // Periodic Real-Time Health Check (every 25 seconds)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    checkConnectionStatus(false);
+    const interval = setInterval(() => {
+      checkConnectionStatus(false);
+    }, 25000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, checkConnectionStatus]);
+
   const fetchPendingAlerts = useCallback(async () => {
     if (!user?.roles?.includes('ROLE_ADMIN')) return;
     try {
@@ -421,6 +491,7 @@ function DashboardContent() {
       setApiErrors([err.message]);
     } finally {
       setLoading(false);
+      checkConnectionStatus(false);
     }
   };
 
@@ -589,6 +660,8 @@ function DashboardContent() {
         mobileOpen={mobileSidebarOpen}
         onToggleMobile={() => setMobileSidebarOpen(!mobileSidebarOpen)}
         channelInfo="WhatsApp Active (+91 86553 30477)"
+        connectionHealth={connectionHealth}
+        onRefreshConnection={() => checkConnectionStatus(true)}
       />
 
       {/* Main Viewport */}
@@ -617,11 +690,14 @@ function DashboardContent() {
           </div>
 
           <div className="navbar-right">
-            {/* Live Sync Glowing Status Dot (Green = Live, Red = Offline) */}
+            {/* Real-Time Live Sync Glowing Status Dot (Green = Live, Red = Offline) */}
             <div
-              className={`topbar-live-dot-container ${apiErrors.length === 0 ? 'is-live' : 'is-offline'}`}
-              title={apiErrors.length === 0 ? 'WhatsApp Sync Active' : 'WhatsApp Sync Disconnected'}
-              aria-label={apiErrors.length === 0 ? 'WhatsApp Sync Active' : 'WhatsApp Sync Disconnected'}
+              className={`topbar-live-dot-container ${connectionHealth.isOnline ? 'is-live' : 'is-offline'}`}
+              title={`${connectionHealth.tooltip} • Click to test`}
+              aria-label={connectionHealth.tooltip}
+              onClick={() => checkConnectionStatus(true)}
+              role="button"
+              tabIndex={0}
             >
               <span className="topbar-live-dot" />
             </div>

@@ -9,6 +9,8 @@ import {
   FileDown,
   Settings,
   Check,
+  AlertCircle,
+  RotateCw,
   LogOut,
   ChevronDown,
   X,
@@ -25,12 +27,28 @@ export type DashboardSection =
   | 'admin'
   | 'developer';
 
+export interface ConnectionHealth {
+  isOnline: boolean;
+  twoChatConnected: boolean;
+  whatsappConnected: boolean;
+  status: string;
+  title: string;
+  sub: string;
+  tooltip: string;
+  phone?: string;
+  rawStatus?: string;
+  checkedAt?: string;
+  loading?: boolean;
+}
+
 interface SidebarProps {
   currentSection: DashboardSection;
   onSelectSection: (section: DashboardSection) => void;
   mobileOpen: boolean;
   onToggleMobile: () => void;
   channelInfo?: string;
+  connectionHealth?: ConnectionHealth;
+  onRefreshConnection?: () => void;
 }
 
 export default function Sidebar({
@@ -38,6 +56,8 @@ export default function Sidebar({
   onSelectSection,
   mobileOpen,
   onToggleMobile,
+  connectionHealth,
+  onRefreshConnection,
 }: SidebarProps) {
   const { user, logout, canAccessSection } = useAuth();
   const { isDark } = useTheme();
@@ -191,18 +211,37 @@ export default function Sidebar({
 
         {/* Sidebar Footer with WhatsApp Status & Dynamic User Account */}
         <div className="sidebar-footer">
-          {/* Connection Pill */}
+          {/* Real-Time WhatsApp & 2Chat Connection Pill */}
           <div
-            className="whatsapp-connection-card"
-            title="Connected to WhatsApp • Last sync: 1 min ago"
+            className={`whatsapp-connection-card ${
+              connectionHealth?.loading
+                ? 'is-checking'
+                : connectionHealth?.isOnline === false
+                ? 'is-disconnected'
+                : 'is-connected'
+            }`}
+            title={`${connectionHealth?.tooltip || 'Checking connection status...'} • Click to recheck`}
+            onClick={() => onRefreshConnection && onRefreshConnection()}
+            role="button"
+            tabIndex={0}
           >
             <div className="connection-icon-dot">
-              <Check size={11} strokeWidth={3} />
+              {connectionHealth?.loading ? (
+                <RotateCw size={10} className="animate-spin" />
+              ) : connectionHealth?.isOnline === false ? (
+                <AlertCircle size={11} strokeWidth={2.8} />
+              ) : (
+                <Check size={11} strokeWidth={3} />
+              )}
             </div>
             {!isCollapsed && (
               <div className="connection-meta">
-                <span className="connection-title">Connected to WhatsApp</span>
-                <span className="connection-sub">Last sync: 1 min ago</span>
+                <span className="connection-title">
+                  {connectionHealth?.title || (connectionHealth?.loading ? 'Checking Status...' : 'Connected to WhatsApp')}
+                </span>
+                <span className="connection-sub">
+                  {connectionHealth?.sub || (connectionHealth?.loading ? 'Connecting...' : 'Active')}
+                </span>
               </div>
             )}
           </div>

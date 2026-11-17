@@ -388,6 +388,43 @@ body {
   background-color: #f0fdf4;
   border: 1px solid #dcfce7;
   border-radius: 8px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.whatsapp-connection-card:hover {
+  filter: brightness(0.97);
+}
+
+.whatsapp-connection-card.is-disconnected {
+  background-color: #fef2f2 !important;
+  border-color: #fecaca !important;
+}
+
+.whatsapp-connection-card.is-disconnected .connection-icon-dot {
+  background-color: #ef4444 !important;
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  animation: liveGlowRed 2.2s infinite ease-in-out;
+}
+
+.whatsapp-connection-card.is-disconnected .connection-title {
+  color: #dc2626 !important;
+}
+
+.whatsapp-connection-card.is-disconnected .connection-sub {
+  color: #b91c1c !important;
+}
+
+.whatsapp-connection-card.is-checking .connection-icon-dot {
+  background-color: #f59e0b !important;
+}
+
+.whatsapp-connection-card.is-checking .connection-title {
+  color: #d97706 !important;
+}
+
+.whatsapp-connection-card.is-checking .connection-sub {
+  color: #b45309 !important;
 }
 
 .connection-icon-dot {
@@ -400,6 +437,7 @@ body {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  transition: background-color 0.2s ease;
 }
 
 .connection-meta {
@@ -9223,6 +9261,22 @@ body {
 .dark .whatsapp-connection-card {
   background-color: #11141B !important;
   border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-theme="dark"] .whatsapp-connection-card.is-disconnected,
+.dark .whatsapp-connection-card.is-disconnected {
+  background-color: rgba(239, 68, 68, 0.12) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+[data-theme="dark"] .whatsapp-connection-card.is-disconnected .connection-title,
+.dark .whatsapp-connection-card.is-disconnected .connection-title {
+  color: #f87171 !important;
+}
+
+[data-theme="dark"] .whatsapp-connection-card.is-disconnected .connection-sub,
+.dark .whatsapp-connection-card.is-disconnected .connection-sub {
+  color: #fca5a5 !important;
 }
 
 [data-theme="dark"] .connection-title,
