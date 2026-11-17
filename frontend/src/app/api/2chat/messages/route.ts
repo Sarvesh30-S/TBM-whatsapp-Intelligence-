@@ -16,6 +16,7 @@ import {
   NormalizeContext,
 } from '@/lib/twochat-api';
 import { TwoChatChannel, TwoChatConversation, TwoChatGroup, TwoChatMessage, isHiddenPrivateGroup } from '@/lib/types';
+import { logApiCreditUsage } from '@/lib/api-usage-tracker';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,6 +64,7 @@ export async function GET(req: NextRequest) {
     // 1. Fetch channel metadata, contacts directory, and groups list from 2Chat API only if explicitly requested (sync=true)
     // Default fast path: read directly from Postgres so the dashboard loads in sub-second time without external network latency
     if (apiKey && shouldSync) {
+      logApiCreditUsage('sync_query', 2, '/sync-channels-contacts', { sync: true }).catch(() => {});
       try {
         const [channelResult, fetchedContacts] = await Promise.all([
           fetchTwoChatChannels(apiKey),

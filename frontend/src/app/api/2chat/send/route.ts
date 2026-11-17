@@ -3,6 +3,7 @@ import { sendTwoChatMessage } from '@/lib/twochat-api';
 import { addStoredMessage } from '@/lib/message-store';
 import { TwoChatMessage } from '@/lib/types';
 import { getAuthenticatedUser } from '@/lib/backend-proxy';
+import { logApiCreditUsage } from '@/lib/api-usage-tracker';
 
 export async function POST(req: NextRequest) {
   try {
@@ -90,6 +91,12 @@ export async function POST(req: NextRequest) {
       sentBy: 'agent',
       timestamp: new Date().toISOString(),
     };
+    // Log 1 outbound message API credit
+    logApiCreditUsage('message_sent', 1, '/messages/send', {
+      destination: destinationId,
+      isGroup,
+    }).catch(() => {});
+
     await addStoredMessage(sentMsg);
 
     return NextResponse.json({ success: true, data: result.data, message: sentMsg });

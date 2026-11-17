@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { addStoredMessages, loadStoredMessages } from '@/lib/message-store';
 import { TwoChatMessage } from '@/lib/types';
 import { normalizeTwoChatMessage, normalizePhone } from '@/lib/twochat-api';
+import { logApiCreditUsage } from '@/lib/api-usage-tracker';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,6 +55,10 @@ export async function POST(req: NextRequest) {
 
     if (normalizedList.length > 0) {
       await addStoredMessages(normalizedList);
+      // 1 credit consumed per received message according to 2Chat pricing
+      logApiCreditUsage('webhook_received', normalizedList.length, '/api/webhook/2chat', {
+        count: normalizedList.length,
+      }).catch(() => {});
     }
 
     return NextResponse.json({

@@ -20,6 +20,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import ApiUsageCalculator from './ApiUsageCalculator';
 
 interface GroupPermission {
   group_identifier: string;
@@ -383,6 +384,9 @@ export default function AdminManagementView() {
           <span>Refresh Member List</span>
         </button>
       </div>
+
+      {/* 2Chat API Credit & System Usage Calculator */}
+      <ApiUsageCalculator token={token} />
 
       {/* Success Notification */}
       {successMessage && (
