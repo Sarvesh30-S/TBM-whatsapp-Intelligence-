@@ -21,7 +21,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(cachedStatus.data);
     }
 
-    const apiKey = (process.env.TWOCHAT_API_KEY || '').trim();
+    const queryKey = searchParams.get('apiKey');
+    const headerKey = req.headers.get('x-user-api-key');
+    const envKey = process.env.TWOCHAT_API_KEY;
+    const fallbackKey = 'UAKf2721b26-7f7b-4d74-af14-95bb9aaaa93f';
+    const apiKey = (queryKey || headerKey || envKey || fallbackKey || '').trim();
     if (!apiKey) {
       const resp = {
         isOnline: false,

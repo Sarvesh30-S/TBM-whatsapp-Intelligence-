@@ -195,7 +195,11 @@ function DashboardContent() {
   const checkConnectionStatus = useCallback(async (forceRefresh: boolean = false) => {
     try {
       setConnectionHealth((prev) => ({ ...prev, loading: true }));
-      const url = `/api/2chat/status${forceRefresh ? '?refresh=true' : ''}`;
+      const params = new URLSearchParams();
+      if (forceRefresh) params.set('refresh', 'true');
+      const savedKey = apiKey || (typeof window !== 'undefined' ? localStorage.getItem('2chat_api_key') || '' : '');
+      if (savedKey) params.set('apiKey', savedKey);
+      const url = `/api/2chat/status${params.toString() ? '?' + params.toString() : ''}`;
       const res = await fetch(url);
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
